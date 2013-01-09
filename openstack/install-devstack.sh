@@ -1,19 +1,21 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Install stable devstack and openstack with quantum and restproxy
 # Note:
 #   1. this script uses the same password for all openstack services
+#   2. this script supports a comma separated list of controllers with optional
+#      port option. e.g: "192.168.1.100,192.168.1.101:81,..."
 #
 # See usage below:
-USAGE="$0 <network-controller-for-restproxy> [[port] [<password>]]"
+USAGE="$0 <controller1>[:port][,<controller2>[:port]]* [<password>]"
 
 set -e
 
 # set parameters
-RESTPROXY_CONTROLLER=$1
-RESTPROXY_CONTROLLER_PORT=${2:-'80'}
+RESTPROXY_CONTROLLERS=$1
+RESTPROXY_DEFAULT_PORT='80'
 RESTPROXY_CONF_DIR='/etc/quantum/plugins/bigswitch'
-STACK_PASSWORD=${3:-'nova'}
+STACK_PASSWORD=${2:-'nova'}
 STACK_TOP='/opt/stack'
 DEVSTACK_REPO='http://github.com/bigswitch/devstack.git'
 DEVSTACK_BRANCH='bigswitch'
@@ -40,11 +42,23 @@ fi
 RESTPROXY_HOMEDIR=`cd ${RESTPROXY_HOMEDIR}; pwd`
 
 # Validate args
-if [ "${RESTPROXY_CONTROLLER}"x = ""x ] ; then
-    echo "ERROR: RESTPROXY_CONTROLLER not defined." 1>&2
+if [ "${RESTPROXY_CONTROLLERS}"x = ""x ] ; then
+    echo "ERROR: RESTPROXY_CONTROLLERS not defined." 1>&2
     echo "USAGE: ${USAGE}" 2>&1
     exit 2
 fi
+
+# Parse controller list
+BS_FL_CONTROLLERS_PORT=''
+for controller in `echo ${RESTPROXY_CONTROLLERS} | tr ',' ' '`
+do
+    controller_with_port=${controller}
+    if [ ${controller#*:} == ${controller} ]; then
+        controller_with_port="${controller}:${RESTPROXY_DEFAULT_PORT}"
+    fi
+    BS_FL_CONTROLLERS_PORT="${BS_FL_CONTROLLERS_PORT},${controller_with_port}"
+done
+BS_FL_CONTROLLERS_PORT=${BS_FL_CONTROLLERS_PORT:1}
 
 # install git
 sudo apt-get -y update
@@ -77,7 +91,7 @@ SCREEN_LOGDIR=$DEST/logs/screen
 SYSLOG=True
 #IP:Port for the BSN controller
 #if more than one, separate with commas
-BS_FL_CONTROLLERS_PORT=${RESTPROXY_CONTROLLER}:${RESTPROXY_CONTROLLER_PORT}
+BS_FL_CONTROLLERS_PORT=${BS_FL_CONTROLLERS_PORT}
 BS_FL_CONTROLLER_TIMEOUT=10
 EOF
 
