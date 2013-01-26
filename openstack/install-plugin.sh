@@ -37,7 +37,7 @@ NETWORK_CTRL_SSL=`echo $3 | tr A-Z a-z`
 MYSQL_USER=root
 MYSQL_PASSWORD=nova
 QUANTUM_INI_FILE=/etc/quantum/plugins.ini
-RESTPROXY_INI_FILE=/etc/quantum/plugins/restproxy/restproxy.ini
+RESTPROXY_INI_FILE=/etc/quantum/plugins/bigswitch/restproxy.ini
 
 
 # validate parameters
@@ -58,7 +58,7 @@ fi
 
 # setup quantum to use restproxy
 if [ -f "${QUANTUM_INI_FILE}" ] ; then
-    PLUGIN=quantum.plugins.restproxy.plugins.QuantumRestProxy
+    PLUGIN=quantum.plugins.bigswitch.plugin.QuantumRestProxyV2
     sudo sed -i -e "s/^\s*provider\s*=.*$/provider = $PLUGIN/g" \
         ${QUANTUM_INI_FILE}
 else
@@ -76,47 +76,42 @@ mysql_cmd() {
         mysql -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e "$1"
     fi
 }
-mysql_cmd 'DROP DATABASE IF EXISTS restproxy;'
-mysql_cmd 'CREATE DATABASE IF NOT EXISTS restproxy;'
+mysql_cmd 'DROP DATABASE IF EXISTS restproxy_quantum;'
+mysql_cmd 'CREATE DATABASE IF NOT EXISTS restproxy_quantum;'
 
 
 # setup proxy configuration
 MYSQL_AUTH="${MYSQL_USER}"
 [ "${MYSQL_PASSWORD}"x = ""x ] || MYSQL_AUTH="${MYSQL_USER}:${MYSQL_PASSWORD}"
 cat <<EOF > /tmp/restproxy.ini
-[restproxy]
+[DATABASE]
 #
-# Configure restproxy
+# For database connectivity
 #
-# The following parameters are supported:
-#   debug       :   true | false                (Default: false)
-#   use_syslog  :   true | false                (Default: false)
-#   log_file    :   <name of file>              (Default: None, use stdout)
-#   log_dir     :   <dir-name>
-#                   The plugin must have write permissions to that file/dir
-#   log_format  :   <log format>
-#   log_date_format: <log date format>
+sql_connection = mysql://${MYSQL_AUTH}@localhost/restproxy_quantum?charset=utf8
+reconnect_interval = 2
+
+[RESTPROXY]
+#
+# For restproxy, the following parameters are supported:
 #   servers     :   <host:port>[,<host:port>]*  (Error if not set)
 #   serverauth  :   <username:password>         (default: no auth)
-#   serverssl   :   true | false                (default: false)
-#   proxydb     :   <db-string> (default: mysql://root@localhost/restproxy)
-#   novadb      :   <db-string> (default: mysql://root@localhost/nova)
-#
-debug = false
-use_syslog = false
-#log_file = restproxy.log
-#log_dir = /var/log
-proxydb = mysql://${MYSQL_AUTH}@localhost/restproxy
-novadb = mysql://${MYSQL_AUTH}@localhost/nova
-
-#
-# Network controllers
-#
+#   serverssl   :   True | False                (default: False)
+#   syncdata    :   True | False                (default: False)
+#   servertimeout   :  10                       (default: 10 seconds)
+#   quantumid   :   Quantum-ID                  (change if multiple
+#                                                quantum instances
+#                                                use same controller,
+#                                                make unique per
+#                                                instance in that
+#                                                case)
 servers = ${NETWORK_CTRL_SERVERS}
 serverauth = ${NETWORK_CTRL_AUTH}
 serverssl = ${NETWORK_CTRL_SSL}
+#syncdata=True
+#servertimeout=10
+#quantumid=Quantum
 EOF
-
 sudo mkdir -p `dirname ${RESTPROXY_INI_FILE}`
 sudo cp /tmp/restproxy.ini ${RESTPROXY_INI_FILE}
 
