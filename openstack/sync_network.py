@@ -33,12 +33,12 @@ import logging
 from quantum.openstack.common import cfg
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    from quantum.plugins.restproxy.plugin import QuantumRestProxyV2
+    from quantum.plugins.bigswitch.plugin import QuantumRestProxyV2
 
 
 def get_restproxy_ini():
     """Get ini file for restproxy"""
-    return "/etc/quantum/plugins/restproxy/restproxy.ini"
+    return "/etc/quantum/plugins/bigswitch/restproxy.ini"
 
 
 def init_config():
