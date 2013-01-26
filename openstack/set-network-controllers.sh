@@ -34,7 +34,7 @@ set -e
 NETWORK_CTRL_SERVERS="$1"
 NETWORK_CTRL_AUTH="$2"
 NETWORK_CTRL_SSL=`echo $3 | tr A-Z a-z`
-RESTPROXY_INI_FILE=/etc/quantum/plugins/restproxy/restproxy.ini
+RESTPROXY_INI_FILE=/etc/quantum/plugins/bigswitch/restproxy.ini
 
 
 # validate parameters
