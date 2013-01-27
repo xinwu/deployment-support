@@ -36,11 +36,17 @@ NETWORK_CTRL_AUTH="$2"
 NETWORK_CTRL_SSL=`echo $3 | tr A-Z a-z`
 MYSQL_USER=root
 MYSQL_PASSWORD=nova
+QUANTUM_ROOT=/opt/stack/quantum
 QUANTUM_INI_FILE=/etc/quantum/quantum.conf
 RESTPROXY_INI_FILE=/etc/quantum/plugins/bigswitch/restproxy.ini
 
 # Download the restproxy plugin
-#   NOP: Already included in truck for grizzly
+PLUGIN_ROOT="/opt/stack/quantum/quantum/plugins"
+PLUGIN_CODE="https://raw.github.com/bigswitch/deployment-support/master/openstack/bigswitch-plugin-folsom.tar"
+( 
+  cd "${PLUGIN_ROOT}"
+  curl -s -X GET "${PLUGIN_CODE}" | tar xvf -
+)
 
 # validate parameters
 if [ "${NETWORK_CTRL_SERVERS}"x = ""x ] ; then

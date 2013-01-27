@@ -97,6 +97,8 @@ EOF
 
 # Done
 echo "$0 Done."
-echo "Start devstack as:"
+echo "Now install node specific code as:"
+echo "   ./install-node.sh  <comma-separated-list-of-controllers>"
+echo "Then start devstack as:"
 echo "   cd ~/${DEVSTACK_DIR}; ./stack.sh"
 echo ""
