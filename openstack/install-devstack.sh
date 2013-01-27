@@ -87,7 +87,7 @@ ADMIN_PASSWORD=${STACK_PASSWORD}
 SERVICE_PASSWORD=${STACK_PASSWORD}
 SERVICE_TOKEN=${STACK_PASSWORD}
 DEST=${STACK_TOP}
-SCREEN_LOGDIR=$DEST/logs/screen
+SCREEN_LOGDIR=$$DEST/logs/screen
 SYSLOG=True
 #IP:Port for the BSN controller
 #if more than one, separate with commas
