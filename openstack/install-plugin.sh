@@ -36,9 +36,11 @@ NETWORK_CTRL_AUTH="$2"
 NETWORK_CTRL_SSL=`echo $3 | tr A-Z a-z`
 MYSQL_USER=root
 MYSQL_PASSWORD=nova
-QUANTUM_INI_FILE=/etc/quantum/plugins.ini
+QUANTUM_INI_FILE=/etc/quantum/quantum.conf
 RESTPROXY_INI_FILE=/etc/quantum/plugins/bigswitch/restproxy.ini
 
+# Download the restproxy plugin
+#   NOP: Already included in truck for grizzly
 
 # validate parameters
 if [ "${NETWORK_CTRL_SERVERS}"x = ""x ] ; then
@@ -59,7 +61,7 @@ fi
 # setup quantum to use restproxy
 if [ -f "${QUANTUM_INI_FILE}" ] ; then
     PLUGIN=quantum.plugins.bigswitch.plugin.QuantumRestProxyV2
-    sudo sed -i -e "s/^\s*provider\s*=.*$/provider = $PLUGIN/g" \
+    sudo sed -i -e "s/^\s*core_plugin\s*=.*$/core_plugin = $PLUGIN/g" \
         ${QUANTUM_INI_FILE}
 else
     echo "ERROR: Did not find the Quantum INI file: ${QUANTUM_INI_FILE}" 1>&2
