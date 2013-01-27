@@ -69,12 +69,16 @@ fi
   done
 
   # install openvswitch
+  kernel_version=`cat /proc/version | cut -d " " -f3`
+  sudo apt-get install build-essential git libtool \
+       pkg-config autoconf debhelper libssl-dev \
+       module-assistant bridge-utils dkms python-qt4 \
+       python-twisted-conch
   sudo dpkg -i \
     openvswitch-common_1.9.90-1bsn4_amd64.deb \
     openvswitch-switch_1.9.90-1bsn4_amd64.deb \
     openvswitch-datapath-dkms_1.9.90-1bsn4_all.deb \
     openvswitch-brcompat_1.9.90-1bsn4_amd64.deb
-  kernel_version=`cat /proc/version | cut -d " " -f3`
   sudo apt-get -y install \
     linux-headers-$kernel_version bridge-utils
 )
