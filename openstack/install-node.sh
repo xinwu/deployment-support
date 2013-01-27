@@ -70,10 +70,9 @@ fi
 
   # install openvswitch
   kernel_version=`cat /proc/version | cut -d " " -f3`
-  sudo apt-get install build-essential git libtool \
-       pkg-config autoconf debhelper libssl-dev \
-       module-assistant bridge-utils dkms python-qt4 \
-       python-twisted-conch
+  sudo apt-get -fy install libtool \
+       pkg-config m4 autoconf autotools-dev \
+       module-assistant bridge-utils dkms
   sudo dpkg -i \
     openvswitch-common_1.9.90-1bsn4_amd64.deb \
     openvswitch-switch_1.9.90-1bsn4_amd64.deb \
@@ -97,7 +96,7 @@ echo "Adding Network controlers: " ${ctrls}
 sudo ovs-vsctl --no-wait set-controller ${OVS_BRIDGE} ${ctrls}
 
 # Create tunnel end-point
-if [ "${}"x != ""x ] ; then
+if [ "${TUNNEL_INTERFACE}"x != ""x ] ; then
   echo "${TUNNEL_INTERFACE}" > /etc/bsn_tunnel_interface
   ovs-vsctl add-port ovsbr0 bsn-gre -- set interface bsn-gre type=gre
 fi
