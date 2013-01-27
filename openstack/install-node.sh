@@ -83,6 +83,8 @@ fi
 )
 
 # Create local OVS bridge and configure it
+sudo /etc/init.d/openvswitch-switch stop
+sudo /etc/init.d/openvswitch-switch start
 sudo ovs-vsctl --no-wait -- --if-exists del-br ${OVS_BRIDGE}
 sudo ovs-vsctl --no-wait add-br ${OVS_BRIDGE}
 sudo ovs-vsctl --no-wait br-set-external-id ${OVS_BRIDGE} bridge-id br-int
