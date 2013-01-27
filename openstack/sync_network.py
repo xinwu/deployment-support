@@ -36,18 +36,22 @@ with warnings.catch_warnings():
     from quantum.plugins.bigswitch.plugin import QuantumRestProxyV2
 
 
-def get_restproxy_ini():
-    """Get ini file for restproxy"""
-    return "/etc/quantum/plugins/bigswitch/restproxy.ini"
+def get_config_files():
+    """Get config file for restproxy"""
+    return [
+        "/etc/quantum/quantum.conf",
+        "/etc/quantum/dhcp_agent.ini",
+        "/etc/quantum/plugins/bigswitch/restproxy.ini",
+    ]
 
 
 def init_config():
     """Initialize configuration for this script"""
     logging.basicConfig()
+    cfgfile = get_config_files()
     cfg.CONF(
-        args = [
-            "--config-file", get_restproxy_ini(),
-        ],
+        args = [j for i in zip(["--config-file"]*len(cfgfile), cfgfile)
+                  for j in i],
         project = "quantum",
     )
 
