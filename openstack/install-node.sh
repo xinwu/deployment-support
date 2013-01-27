@@ -32,6 +32,7 @@ USAGE="$0  <comma-separated-list-of-controllers>"
 set -e
 NETWORK_CONTROLERS=
 OVS_BRIDGE=br-int
+TUNNEL_INTERFACE=
 
 
 # Process args
@@ -44,13 +45,39 @@ if [ "${NETWORK_CONTROLERS}"x = ""x ] ; then
     exit 1
 fi
 
+# OVS
+(
+  # download OVS
+  mkdir ${HOME}/ovs || :
+  cd ${HOME}/ovs
+  BIGSWITCH_OVS_PATH='https://github.com/bigswitch/deployment-support/raw/master/ovs'
+  for i in \
+    openvswitch-brcompat_1.9.90-1bsn4_amd64.deb \
+    openvswitch-common_1.9.90-1bsn4_amd64.deb \
+    openvswitch-controller_1.9.90-1bsn4_amd64.deb \
+    openvswitch-datapath-dkms_1.9.90-1bsn4_all.deb \
+    openvswitch-datapath-source_1.9.90-1bsn4_all.deb \
+    openvswitch-dbg_1.9.90-1bsn4_amd64.deb \
+    openvswitch-ipsec_1.9.90-1bsn4_amd64.deb \
+    openvswitch-pki_1.9.90-1bsn4_all.deb \
+    openvswitch-switch_1.9.90-1bsn4_amd64.deb \
+    openvswitch-test_1.9.90-1bsn4_all.deb \
+    ; do
+    echo "Downloading ${BIGSWITCH_OVS_PATH}/$i ..."
+    wget "${BIGSWITCH_OVS_PATH}/$i"
+    echo "Done ${BIGSWITCH_OVS_PATH}/$i \n\n"
+  done
 
-# install openvswitch
-kernel_version=`cat /proc/version | cut -d " " -f3`
-sudo apt-get -y install \
-    openvswitch-switch openvswitch-datapath-dkms \
+  # install openvswitch
+  sudo dpkg -i \
+    openvswitch-common_1.9.90-1bsn4_amd64.deb \
+    openvswitch-switch_1.9.90-1bsn4_amd64.deb \
+    openvswitch-datapath-dkms_1.9.90-1bsn4_all.deb \
+    openvswitch-brcompat_1.9.90-1bsn4_amd64.deb
+  kernel_version=`cat /proc/version | cut -d " " -f3`
+  sudo apt-get -y install \
     linux-headers-$kernel_version bridge-utils
-
+)
 
 # Create local OVS bridge and configure it
 sudo ovs-vsctl --no-wait -- --if-exists del-br ${OVS_BRIDGE}
@@ -62,9 +89,14 @@ for ctrl in `echo ${NETWORK_CONTROLERS} | tr ',' ' '`
 do
     ctrls="${ctrls} tcp:${ctrl}:6633"
 done
-echo "Adding Network conttrollers: " ${ctrls}
+echo "Adding Network controlers: " ${ctrls}
 sudo ovs-vsctl --no-wait set-controller ${OVS_BRIDGE} ${ctrls}
 
+# Create tunnel end-point
+if [ "${}"x != ""x ] ; then
+  echo "${TUNNEL_INTERFACE}" > /etc/bsn_tunnel_interface
+  ovs-vsctl add-port ovsbr0 bsn-gre -- set interface bsn-gre type=gre
+fi
 
 # Done
 echo "$0 Done."
