@@ -99,6 +99,8 @@ EOF
 echo "$0 Done."
 echo "Now install node specific code as:"
 echo "   ./install-node.sh  <comma-separated-list-of-controllers>"
+echo "If required enable tunneling as:"
+echo "   ./set-tunnels.sh <interface> <ip-address> <netmask>"
 echo "Then start devstack as:"
 echo "   cd ~/${DEVSTACK_DIR}; ./stack.sh"
 echo ""
