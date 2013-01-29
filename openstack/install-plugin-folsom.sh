@@ -3,6 +3,9 @@
 # This script patches the OpenStack Quantum Folsom Ubuntu packages installation
 # with the Big Switch Network's Quantum Plugin.
 # 
+# Supported Ubuntu version: 12.10
+# Big Switch Plugin: https://github.com/bigswitch/quantum/tree/folsom/master
+# 
 # @author: Sumit Naiksatam, Big Switch Networks, Inc.
 # @date: January 27 2012
 #
