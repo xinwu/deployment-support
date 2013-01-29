@@ -21,18 +21,17 @@
 
 # USAGE
 # Install OVS on nova compute nodes. Use as:
-#   ./install.node.sh <comma-separated-list-of-controllers>
+#   ./install-node.sh <comma-separated-list-of-controllers>
 #
 # e.g.
-#   ./install.node.sh 192.168.1.1,192.168.1.2
-USAGE="$0  <comma-separated-list-of-controllers>"
+#   ./install-node.sh 192.168.1.1,192.168.1.2
+USAGE="$0 <comma-separated-list-of-controllers>"
 
 
 # Globals
 set -e
 NETWORK_CONTROLERS=
 OVS_BRIDGE=br-int
-TUNNEL_INTERFACE=
 
 
 # Process args
@@ -96,12 +95,6 @@ do
 done
 echo "Adding Network controlers: " ${ctrls}
 sudo ovs-vsctl --no-wait set-controller ${OVS_BRIDGE} ${ctrls}
-
-# Create tunnel end-point
-if [ "${TUNNEL_INTERFACE}"x != ""x ] ; then
-  echo "${TUNNEL_INTERFACE}" > /etc/bsn_tunnel_interface
-  ovs-vsctl add-port ovsbr0 bsn-gre -- set interface bsn-gre type=gre
-fi
 
 # Done
 echo "$0 Done."
