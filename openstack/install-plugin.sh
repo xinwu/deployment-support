@@ -223,6 +223,7 @@ function InstallPluginOnUbuntu() {
     local quantum_conf_plugins_dir="$quantum_conf_dir/plugins"
     mkdir -p $quantum_conf_plugins_dir
     local plugin_conf_file="$quantum_conf_plugins_dir/$PLUGIN_NAME/restproxy.ini"
+    chmod +r $plugin_conf_file
     echo "Plugin conf file: $plugin_conf_file" 
     echo "To revert this patch:"
     echo "mv $quantum_conf_orig $quantum_conf;mv $QUANTUM_SERVER_CONF_FILE_orig $QUANTUM_SERVER_CONF_FILE; mv $dhcp_conf_orig $dhcp_conf"
