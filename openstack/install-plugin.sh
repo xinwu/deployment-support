@@ -7,7 +7,7 @@
 # Big Switch Plugin: https://github.com/bigswitch/quantum/tree/grizzly/master
 # 
 # @author: Sumit Naiksatam, Big Switch Networks, Inc.
-# @date: January 27 2012
+# @date: January 27 2013
 #
 # See usage below:
 USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> [<database_ip> <database_port>]"

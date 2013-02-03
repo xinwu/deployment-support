@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 #
+# Note: This script is to be run on the host on which the Meta-data
+# server runs.
 # This script configures OpenStack Meta-data server IP and port
 # 
 # Supported Ubuntu version: 12.10
 # Big Switch Plugin: https://github.com/bigswitch/quantum/tree/folsom/master
 # 
 # @author: Sumit Naiksatam, Big Switch Networks, Inc.
-# @date: January 29 2012
+# @date: January 29 2013
 #
 # See usage below:
 USAGE="$0 <management_interface, usually eth0> <metadata_server_port, usually 8775>"
