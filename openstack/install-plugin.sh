@@ -16,6 +16,8 @@ set -e
 XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
+umask 022
+
 DATABASE_USER=$1
 DATABASE_PASSWORD=$2
 RESTPROXY_CONTROLLER=$3
