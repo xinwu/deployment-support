@@ -4,9 +4,6 @@
 # server runs.
 # This script configures OpenStack Meta-data server IP and port
 # 
-# Supported Ubuntu version: 12.10
-# Big Switch Plugin: https://github.com/bigswitch/quantum/tree/folsom/master
-# 
 # @author: Sumit Naiksatam, Big Switch Networks, Inc.
 # @date: January 29 2013
 #
