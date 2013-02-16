@@ -10,10 +10,16 @@
 # See usage below:
 USAGE="$0 <management_interface, usually eth0> <metadata_server_port, usually 8775>"
 
-set -x
+set -xe
 
 MANAGEMENT_INTERFACE=$1
 METADATA_SERVER_PORT=$2
+
+# this script needs root perms; verify we have them
+if [ `id -u` != 0 ]; then
+	echo This script need root permissions -- exiting >&2
+	exit 1
+fi
 
 # Validate args
 if [ "${MANAGEMENT_INTERFACE}"x = ""x ] ; then
