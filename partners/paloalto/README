@@ -1,0 +1,45 @@
+Firewall Integration with Big Network Controller
+
+This project offers tools to integrate with Big Virtual Switch with 
+firewalls that support dynamic address objects.  The goal is to allow
+dynamic rules to be defined that apply to member of a virtual network
+segment as defined by BVS.  These rules will apply to a dynamic 
+address object whose members are filled in dynamically via
+REST APIs.
+
+This project is intended to run as a background process and 
+publish dynamic address objects with ip's for each member
+of a virtual network segment.
+
+It expects a configuration file similar to this:
+
+[FIREWALL1]
+username = admin
+password = admin
+ip-address = 192.168.13.134
+
+[DEFAULT]
+number-of-rules = 2
+bsc-ip-address = 192.168.230.100
+
+Note 1: number of rules specifies the number of objects to publish
+for each virtual network.  These take the form networknameN, where N
+is incremented for each.  For example, virtual network coke would 
+publish coke0, coke1 as objects each including all ip's in that
+network.
+
+Note 2: for each firewall, you must specify the ip and username 
+and password.  The project will generate api keys for each
+and publish all objects to each.  The section in the config 
+file is not used but each firewall must have a unique
+section name.  
+
+How to use
+
+The script can be invoked with:
+./driver.py & 
+
+It will run continuously publishing objects.  
+
+It also supports two commands "clean" and "show" that can 
+be useful for debugging.  
