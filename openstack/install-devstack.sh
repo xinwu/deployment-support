@@ -76,9 +76,12 @@ disable_service n-net
 enable_service q-svc
 enable_service q-dhcp
 enable_service quantum
+enable_service q-lbaas
 enable_service bigswitch_floodlight
-Q_PLUGIN=bigswitch_floodlight
+Q_ALLOW_OVERLAPPING_IP=False
 Q_USE_NAMESPACE=False
+Q_PLUGIN=bigswitch_floodlight
+Q_SERVICE_PLUGIN_CLASSES=quantum.plugins.bigswitch.plugin.QuantumRestProxyV2
 NOVA_USE_QUANTUM_API=v2
 SCHEDULER=nova.scheduler.simple.SimpleScheduler
 MYSQL_PASSWORD=${STACK_PASSWORD}
