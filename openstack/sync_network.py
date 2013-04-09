@@ -30,7 +30,7 @@ import warnings
 import logging
 
 
-from quantum.openstack.common import cfg
+from oslo.config import cfg
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from quantum.plugins.bigswitch.plugin import QuantumRestProxyV2
