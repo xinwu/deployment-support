@@ -95,6 +95,9 @@ do
 done
 echo "Adding Network controlers: " ${ctrls}
 sudo ovs-vsctl --no-wait set-controller ${OVS_BRIDGE} ${ctrls}
+sudo ovs-vsctl add-port ${OVS_BRIDGE} eth1
+sudo ovs-vsctl add-port ${OVS_BRIDGE} eth2
+sudo ovs-vsctl add-port ${OVS_BRIDGE} eth3
 sudo ovs-vsctl set bridge ${OVS_BRIDGE} other-config:datapath-id=0000f22fca481946
 
 # Done
