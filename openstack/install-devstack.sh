@@ -96,6 +96,7 @@ SYSLOG=True
 #if more than one, separate with commas
 BS_FL_CONTROLLERS_PORT=${BS_FL_CONTROLLERS_PORT}
 BS_FL_CONTROLLER_TIMEOUT=10
+IMAGE_URLS=http://uec-images.ubuntu.com/precise/current/precise-server-cloudimg-amd64.tar.gz,http://launchpad.net/cirros/trunk/0.3.0/+download/cirros-0.3.0-x86_64-uec.tar.gz
 EOF
 
 # Done
