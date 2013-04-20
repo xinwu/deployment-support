@@ -96,6 +96,63 @@ done
 echo "Adding Network controlers: " ${ctrls}
 sudo ovs-vsctl --no-wait set-controller ${OVS_BRIDGE} ${ctrls}
 
+# Add init scripts
+cat <<'EOF' | sudo tee /etc/init/bsn-nova.conf 1>/dev/null
+#
+# BSN script for nova functions to execute on reboot
+#
+
+start on started rc
+task
+script
+  exec 1>/tmp/bsn-nova.log 2>&1
+  echo `date` bsn-nova-init "Started ..."
+
+  i=100
+  echo `date` bsn-nova-init "Waiting for OVS to be ready ${i} ..."
+  while ! /usr/bin/ovs-vsctl show </dev/null 1>/dev/null 2>&1 ; do
+        sleep 1
+        i=$(($i - 1))
+        test $i -gt 0 || { initctl stop --no-wait; exit 1; }
+  done
+  echo `date` bsn-nova-init "Waiting for OVS to be ready ${i} ... Done"
+
+  if [ -f /etc/bsn_tunnel_mac ] ; then
+    TUN_LOOPBACK_IF=`head -1 /etc/bsn_tunnel_interface`
+    TUN_LOOPBACK_MAC=`head -1 /etc/bsn_tunnel_mac`
+    echo `date` bsn-nova-init "Setting ${TUN_LOOPBACK_IF} interface mac to ${TUN_LOOPBACK_MAC} ..."
+    /sbin/ip link set dev "${TUN_LOOPBACK_IF}" address "${TUN_LOOPBACK_MAC}" || :
+    echo `date` bsn-nova-init "Setting ${TUN_LOOPBACK_IF} interface mac to ${TUN_LOOPBACK_MAC} ... Done"
+  fi
+
+  if [ -f /etc/quantum/plugins/bigswitch/metadata_interface ] ; then
+    METADATA_IF=`head -1 /etc/quantum/plugins/bigswitch/metadata_interface`
+    METADATA_PORT=`head -1 /etc/quantum/plugins/bigswitch/metadata_port`
+    echo `date` bsn-nova-init "Setting up metadata server address/nat on ${METADATA_IF}, port ${METADATA_PORT} ..."
+    /sbin/ip addr add 169.254.169.254/32 scope link dev "${METADATA_IF}" || :
+    /sbin/iptables -t nat -A PREROUTING -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 169.254.169.254:"${METADATA_PORT}" || :
+    echo `date` bsn-nova-init "Setting up metadata server address/nat on ${METADATA_IF}, port ${METADATA_PORT} ... Done"
+  fi
+
+  if [ -f /etc/init/quantum-dhcp-agent.conf -o -f /etc/init/nova-compute.conf ] ; then
+    echo `date` bsn-nova-init "Cleaning up tuntap interfaces ..."
+    if [ -f /etc/init/quantum-dhcp-agent.conf ] ; then
+      /usr/sbin/service quantum-dhcp-agent stop || :
+    fi
+
+    /usr/bin/quantum-ovs-cleanup || :
+
+    if [ -f /etc/init/quantum-dhcp-agent.conf ] ; then
+      /usr/sbin/service quantum-dhcp-agent start || :
+    fi
+
+    echo `date` bsn-nova-init "Cleaning up tuntap interfaces ... Done"
+  fi
+
+  echo `date` bsn-nova-init "Started ... Done"
+end script
+EOF
+
 # Done
 echo "$0 Done."
 echo

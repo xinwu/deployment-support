@@ -91,6 +91,9 @@ echo tun-loopback | sudo tee /etc/bsn_tunnel_interface
 sudo ovs-vsctl add-port br-int tun-loopback -- set interface tun-loopback type=internal
 sudo ovs-vsctl add-port br-int tun-bsn -- set interface tun-bsn type=gre
 
+# save mac-address
+ifconfig -a tun-loopback | head -1 | sed 's/^.*HWaddr //' | sudo tee /etc/bsn_tunnel_mac
+
 # Done
 echo "$0 Done."
 echo
