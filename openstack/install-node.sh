@@ -139,8 +139,35 @@ script
     if [ -f /etc/init/quantum-dhcp-agent.conf ] ; then
       /usr/sbin/service quantum-dhcp-agent stop || :
     fi
+    if [ -f /etc/init/nova-compute.conf ] ; then
+      /usr/sbin/service nova-compute stop || :
+      echo "resume_guests_state_on_host_boot=true" >> /etc/nova/nova.conf
+      for qvo in `ifconfig -a | grep qvo | cut -d' ' -f1`
+      do
+        `sudo ovs-vsctl del-port br-int $qvo` || true
+      done
+      echo `date` bsn-nova-init "Cleaning up OVS ports ... Done"
+      for qvb in `ifconfig -a | grep qvb | cut -d' ' -f1`
+      do
+        `sudo ip link set $qvb down` || true
+        `sudo ip link delete $qvb` || true
+      done
+      echo `date` bsn-nova-init "Cleaning up veth interfaces ... Done"
+      for qbr in `ifconfig -a | grep qbr | cut -d' ' -f1`
+      do
+        `sudo ip link set $qbr down` || true
+        `sudo ip link delete $qbr` || true
+      done
+      echo `date` bsn-nova-init "Cleaning up bridges ... Done"
+    fi
 
     /usr/bin/quantum-ovs-cleanup || :
+
+    if [ -f /etc/init/nova-compute.conf ] ; then
+     /usr/sbin/service nova-compute start || :
+     sleep 3
+     sed -i '$d' /etc/nova/nova.conf
+    fi
 
     if [ -f /etc/init/quantum-dhcp-agent.conf ] ; then
       /usr/sbin/service quantum-dhcp-agent start || :
