@@ -51,16 +51,16 @@ fi
   cd ${HOME}/ovs
   BIGSWITCH_OVS_PATH='https://github.com/bigswitch/deployment-support/raw/master/ovs'
   for i in \
-    openvswitch-brcompat_1.9.90-1bsn7_amd64.deb \
-    openvswitch-common_1.9.90-1bsn7_amd64.deb \
-    openvswitch-controller_1.9.90-1bsn7_amd64.deb \
-    openvswitch-datapath-dkms_1.9.90-1bsn7_all.deb \
-    openvswitch-datapath-source_1.9.90-1bsn7_all.deb \
-    openvswitch-dbg_1.9.90-1bsn7_amd64.deb \
-    openvswitch-ipsec_1.9.90-1bsn7_amd64.deb \
-    openvswitch-pki_1.9.90-1bsn7_all.deb \
-    openvswitch-switch_1.9.90-1bsn7_amd64.deb \
-    openvswitch-test_1.9.90-1bsn7_all.deb \
+    openvswitch-brcompat_1.9.0-1bsn10_amd64.deb \
+    openvswitch-common_1.9.0-1bsn10_amd64.deb \
+    openvswitch-controller_1.9.0-1bsn10_amd64.deb \
+    openvswitch-datapath-dkms_1.9.0-1bsn10_all.deb \
+    openvswitch-datapath-source_1.9.0-1bsn10_all.deb \
+    openvswitch-dbg_1.9.0-1bsn10_amd64.deb \
+    openvswitch-ipsec_1.9.0-1bsn10_amd64.deb \
+    openvswitch-pki_1.9.0-1bsn10_all.deb \
+    openvswitch-switch_1.9.0-1bsn10_amd64.deb \
+    openvswitch-test_1.9.0-1bsn10_all.deb \
     ; do
     echo "Downloading ${BIGSWITCH_OVS_PATH}/$i ..."
     wget "${BIGSWITCH_OVS_PATH}/$i"
@@ -73,10 +73,10 @@ fi
        pkg-config m4 autoconf autotools-dev \
        module-assistant bridge-utils dkms
   sudo dpkg -i \
-    openvswitch-common_1.9.90-1bsn7_amd64.deb \
-    openvswitch-switch_1.9.90-1bsn7_amd64.deb \
-    openvswitch-datapath-dkms_1.9.90-1bsn7_all.deb \
-    openvswitch-brcompat_1.9.90-1bsn7_amd64.deb
+    openvswitch-common_1.9.0-1bsn10_amd64.deb \
+    openvswitch-switch_1.9.0-1bsn10_amd64.deb \
+    openvswitch-datapath-dkms_1.9.0-1bsn10_all.deb \
+    openvswitch-brcompat_1.9.0-1bsn10_amd64.deb
   sudo apt-get -y install \
     linux-headers-$kernel_version bridge-utils
 )

@@ -77,6 +77,7 @@ enable_service q-svc
 enable_service q-dhcp
 enable_service quantum
 enable_service bigswitch_floodlight
+Q_ALLOW_OVERLAPPING_IP=False
 Q_PLUGIN=bigswitch_floodlight
 Q_USE_NAMESPACE=False
 NOVA_USE_QUANTUM_API=v2
