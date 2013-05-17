@@ -81,6 +81,7 @@ Q_ALLOW_OVERLAPPING_IP=False
 Q_PLUGIN=bigswitch_floodlight
 Q_USE_NAMESPACE=False
 NOVA_USE_QUANTUM_API=v2
+NOVA_VIF_DRIVER=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
 SCHEDULER=nova.scheduler.simple.SimpleScheduler
 MYSQL_PASSWORD=${STACK_PASSWORD}
 RABBIT_PASSWORD=${STACK_PASSWORD}
