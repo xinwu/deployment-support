@@ -258,11 +258,20 @@ filelinereplace /etc/quantum/quantum.conf "allow_overlapping_ips =" "allow_overl
 filelinereplace /etc/quantum/quantum.conf "rpc_backend =" "rpc_backend = quantum.openstack.common.rpc.impl_qpid"
 filelinereplace /etc/quantum/quantum.conf "qpid_hostname =" "qpid_hostname = $NOVACONTROLLER"
 
+filelinereplace /etc/quantum/quantum.conf "auth_strategy =" "auth_strategy = keystone"
+filelinereplace /etc/quantum/quantum.conf "admin_user =" "admin_user = $QUANTUMUSER"
+filelinereplace /etc/quantum/quantum.conf "admin_password =" "admin_password = $QUANTUMPASS"
+sed -i '2i admin_tenant_name =' /etc/quantum/quantum.conf #needed in case script is run multiple times
+filelinereplace /etc/quantum/quantum.conf "admin_tenant_name =" '#'
+
+
 filelinereplace /etc/quantum/dhcp_agent.ini "use_namespaces =" "use_namespaces = False"
 
 filelinereplace /etc/nova/nova.conf "libvirt_type=" "libvirt_type=kvm"
 sed -i '2i libvirt_ovs_bridge=br-int' /etc/nova/nova.conf
+filelinereplace /etc/nova/nova.conf "libvirt_ovs_bridge=" "libvirt_ovs_bridge=br-int"
 sed -i '2i libvirt_vif_type=ethernet' /etc/nova/nova.conf
+filelinereplace /etc/nova/nova.conf "libvirt_vif_type=" "libvirt_vif_type=ethernet"
 filelinereplace /etc/nova/nova.conf "libvirt_vif_driver=" "libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver"
 filelinereplace /etc/nova/nova.conf "libvirt_use_virtio_for_bridges=" "libvirt_use_virtio_for_bridges=True"
 filelinereplace /etc/nova/nova.conf "network_api_class=" "network_api_class=nova.network.quantumv2.api.API"
