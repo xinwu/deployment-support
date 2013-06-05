@@ -11,6 +11,7 @@
 ###
 OPENSTACK_URL="http://rdo.fedorapeople.org/openstack/openstack-grizzly/rdo-release-grizzly-3.noarch.rpm"
 PACKSTACK_PKG="openstack-packstack-2013.1.1-0.5.dev538.el6.noarch"
+PACKSTACK_PKG="openstack-packstack"
 VERSION="Red Hat Enterprise Linux Server release 6.4 (Santiago)"
 BSN_KMOD=kmod-openvswitch-1.9.0-1.el6.x86_64.rpm
 BSN_OPENVSWITCH=openvswitch-1.9.0-1.x86_64.rpm
@@ -56,6 +57,7 @@ echo "./install-redhat-node.sh -c 10.192.22.134:6633 -n 10.192.3.245 -m node -a 
 }
 
 
+
 #check file exists
 
 if [ ! -e "$BSN_KMOD" ]
@@ -75,7 +77,7 @@ fi
 PACKSTACKMODE=''
 PACKSTACKANSWERS=''
 #parse arguments
-while getopts ":m:a:c:n:" opt; do
+while getopts ":m:a:c:n:r" opt; do
   case $opt in
     m)
       if [ "$OPTARG" == 'controller' ]
@@ -107,6 +109,28 @@ while getopts ":m:a:c:n:" opt; do
          echo "packstack answers file $PACKSTACKANSWERS does not exist"
          exit 1
       fi
+      ;;
+    r)
+	echo "You selected remove option which deletes any openstack databases and removes packages for a re-install."
+	read -p "Press [Enter] key to continue or ctrl+c to abort..."
+	echo "removing packages."
+	PKGES=`yum list installed | grep "@openstack-grizzly" | awk -F' ' '{ print $1 }' | tr -d '\n'`
+        if [ ! -z "$PKGES" ]
+        then
+		yum list installed | grep "@openstack-grizzly" | awk -F' ' '{ print $1 }' | xargs yum -y remove
+        fi
+        yum -y remove nagios-common python-swiftclient puppet
+	! read -d '' sqlcleanup <<"EOF"
+	DROP DATABASE IF EXISTS restproxy_quantum;
+	DROP DATABASE IF EXISTS nova;
+        DROP DATABASE IF EXISTS keystone;
+        DROP DATABASE IF EXISTS glance;
+        DROP DATABASE IF EXISTS cinder;
+        DROP DATABASE IF EXISTS swift;
+EOF
+        echo $sqlcleanup | mysql -u root
+        rm -rf ~/keystonerc_admin || :
+	rm -rf /etc/swift /var/cache/swift /etc/nagios /usr/lib64/nagios /var/spool/nagios /var/lib/puppet
       ;;
     c)
       IFS=':' read -ra arr <<< "$OPTARG"
@@ -147,6 +171,7 @@ fi
 ## first argument is file to perform operation on
 ## second argument is lines to remove using grep
 ## third argument is line to add to end of file
+## optional fourth argument to specify location to insert if no matches
 function filelinereplace {
  echo "Attempting to substitute '$3' for '$2' in '$1'"
  if [ ! -e "$1" ]
@@ -157,11 +182,16 @@ function filelinereplace {
  check=`grep "$2" "$1"  | tr -d '\n'`
  if [ -z "$check" ]
  then
-   echo "Pattern $2 is not present in $1"
-   exit 1
+
+ if [ -z "$4" ]
+   then
+     echo "Pattern $2 is not present in $1"
+     exit 1
+   else
+     sed -i "2i $2" $1
+   fi
  fi
  sed -i "s/.*$2.*/$(echo $3 | sed -e 's/\\/\\\\/g' -e 's/\//\\\//g' -e 's/&/\\\&/g')/g" "$1"
-
 
 }
 
@@ -177,7 +207,9 @@ yum install -y $PACKSTACK_PKG || yum update $PACKSTACK_PKG
 
 case $PACKSTACKMODE in
    controller)
-      packstack --allinone
+	#yum install nagios
+	#echo "" > /etc/init.d/nagios
+      packstack --allinone --nagios-install=n
    ;;
    node)
       if [ -z "$PACKSTACKANSWERS" ]
@@ -258,30 +290,28 @@ filelinereplace /etc/quantum/quantum.conf "allow_overlapping_ips =" "allow_overl
 filelinereplace /etc/quantum/quantum.conf "rpc_backend =" "rpc_backend = quantum.openstack.common.rpc.impl_qpid"
 filelinereplace /etc/quantum/quantum.conf "qpid_hostname =" "qpid_hostname = $NOVACONTROLLER"
 
+filelinereplace /etc/quantum/quantum.conf "auth_host =" "auth_host = $NOVACONTROLLER"
 filelinereplace /etc/quantum/quantum.conf "auth_strategy =" "auth_strategy = keystone"
 filelinereplace /etc/quantum/quantum.conf "admin_user =" "admin_user = $QUANTUMUSER"
 filelinereplace /etc/quantum/quantum.conf "admin_password =" "admin_password = $QUANTUMPASS"
-sed -i '2i admin_tenant_name =' /etc/quantum/quantum.conf #needed in case script is run multiple times
-filelinereplace /etc/quantum/quantum.conf "admin_tenant_name =" '#'
+filelinereplace /etc/quantum/quantum.conf "admin_tenant_name =" '#admin_tenant_name ='
 
 
 filelinereplace /etc/quantum/dhcp_agent.ini "use_namespaces =" "use_namespaces = False"
 
-filelinereplace /etc/nova/nova.conf "libvirt_type=" "libvirt_type=kvm"
-sed -i '2i libvirt_ovs_bridge=br-int' /etc/nova/nova.conf
-filelinereplace /etc/nova/nova.conf "libvirt_ovs_bridge=" "libvirt_ovs_bridge=br-int"
-sed -i '2i libvirt_vif_type=ethernet' /etc/nova/nova.conf
-filelinereplace /etc/nova/nova.conf "libvirt_vif_type=" "libvirt_vif_type=ethernet"
-filelinereplace /etc/nova/nova.conf "libvirt_vif_driver=" "libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver"
-filelinereplace /etc/nova/nova.conf "libvirt_use_virtio_for_bridges=" "libvirt_use_virtio_for_bridges=True"
-filelinereplace /etc/nova/nova.conf "network_api_class=" "network_api_class=nova.network.quantumv2.api.API"
-filelinereplace /etc/nova/nova.conf "quantum_url=" "quantum_url=http://$NOVACONTROLLER:9696"
-filelinereplace /etc/nova/nova.conf "quantum_auth_strategy=" "quantum_auth_strategy=keystone"
-filelinereplace /etc/nova/nova.conf "quantum_admin_tenant_name=" "quantum_admin_tenant_name=services"
-filelinereplace /etc/nova/nova.conf "quantum_admin_username=" "quantum_admin_username=$QUANTUMUSER"
-filelinereplace /etc/nova/nova.conf "quantum_admin_password=" "quantum_admin_password=$QUANTUMPASS"
-filelinereplace /etc/nova/nova.conf "quantum_admin_auth_url=" "quantum_admin_auth_url=http://$NOVACONTROLLER:35357/v2.0"
-filelinereplace /etc/nova/nova.conf "libvirt_vif_driver=" "libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver"
+filelinereplace /etc/nova/nova.conf "libvirt_type=" "libvirt_type=kvm" "2"
+filelinereplace /etc/nova/nova.conf "libvirt_ovs_bridge=" "libvirt_ovs_bridge=br-int" "2"
+filelinereplace /etc/nova/nova.conf "libvirt_vif_type=" "libvirt_vif_type=ethernet" "2"
+filelinereplace /etc/nova/nova.conf "libvirt_vif_driver=" "libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver" "2"
+filelinereplace /etc/nova/nova.conf "libvirt_use_virtio_for_bridges=" "libvirt_use_virtio_for_bridges=True" "2"
+filelinereplace /etc/nova/nova.conf "network_api_class=" "network_api_class=nova.network.quantumv2.api.API" "2"
+filelinereplace /etc/nova/nova.conf "quantum_url=" "quantum_url=http://$NOVACONTROLLER:9696" "2"
+filelinereplace /etc/nova/nova.conf "quantum_auth_strategy=" "quantum_auth_strategy=keystone" "2"
+filelinereplace /etc/nova/nova.conf "quantum_admin_tenant_name=" "quantum_admin_tenant_name=services" "2"
+filelinereplace /etc/nova/nova.conf "quantum_admin_username=" "quantum_admin_username=$QUANTUMUSER" "2"
+filelinereplace /etc/nova/nova.conf "quantum_admin_password=" "quantum_admin_password=$QUANTUMPASS" "2"
+filelinereplace /etc/nova/nova.conf "quantum_admin_auth_url=" "quantum_admin_auth_url=http://$NOVACONTROLLER:35357/v2.0" "2"
+filelinereplace /etc/nova/nova.conf "libvirt_vif_driver=" "libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver" "2"
 
 
 echo "Downloading quantum plugin"
@@ -316,13 +346,15 @@ echo "Starting services"
 echo "Keystone setup"
 source ~/keystonerc_admin
 export OS_AUTH_URL=$OS_AUTH_URL
-export OS_TENANT_NAME=$OS_TENANT_NAME
-export OS_PASSWORD=$OS_PASSWORD
-export OS_USERNAME=$OS_USERNAME
+#export OS_TENANT_NAME=$OS_TENANT_NAME
+#export OS_PASSWORD=$OS_PASSWORD
+#export OS_USERNAME=$OS_USERNAME
+export OS_SERVICE_TOKEN=`grep "admin_token =" /etc/keystone/keystone.conf | grep -v '#' | awk -F' = ' '{ print $2 }'`
+export OS_SERVICE_ENDPOINT=$OS_AUTH_URL
 set -vx
 keystone service-create --name quantum --type network --description 'OpenStack Networking Service'
 SERVICEID=`keystone service-list | grep "OpenStack Networking Service" | tail -n 1 | awk -F' ' '{ print $2 }'`
-keystone endpoint-create --region RegionOne --service-id $SERVICEID --publicurl 'http://$NOVACONTROLLER:9696/' --adminurl 'http://$NOVACONTROLLER:9696/' --internalurl 'http://$NOVACONTROLLER:9696/'
+keystone endpoint-create --region RegionOne --service-id $SERVICEID --publicurl "http://$NOVACONTROLLER:9696/" --adminurl "http://$NOVACONTROLLER:9696/" --internalurl "http://$NOVACONTROLLER:9696/"
 TENANTID=`keystone tenant-list | grep services | tail -n 1 | awk -F' ' '{ print $2 }'`
 USERPRESENT=`keystone user-list | grep "$QUANTUMUSER" | tr -d '\n'`
 if [ -z "$USERPRESENT" ]
@@ -332,7 +364,7 @@ fi
 keystone role-list | grep admin
 keystone user-list | grep quantumUser
 set +vx
-
+keystone user-password-update --pass "$OS_PASSWORD" $OS_USERNAME
 
 echo "opening firewall for openstack requests"
 
@@ -340,6 +372,11 @@ iptables -A INPUT -p tcp -m multiport --dports 5672 -m comment --comment "001 qp
 iptables -A INPUT -p tcp -m multiport --dports 9696 -m comment --comment "quantum incoming" -j ACCEPT
 cp /etc/sysconfig/iptables /etc/sysconfig/iptables.backup_$(date +"%F-%H:%M")
 iptables-save > /etc/sysconfig/iptables
+
+# restart services
+echo "restarting services..."
+ls /etc/init.d/openstack-* | while read N; do sudo ${N} restart ||:; done
+
 
 #Print out some instructions
 ! read -d '' instructions <<"EOF"
