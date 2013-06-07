@@ -94,6 +94,7 @@ SYSLOG=True
 #if more than one, separate with commas
 BS_FL_CONTROLLERS_PORT=${BS_FL_CONTROLLERS_PORT}
 BS_FL_CONTROLLER_TIMEOUT=10
+BS_FL_VIF_DRIVER=ivs
 NOVA_VIF_DRIVER=nova.virt.libvirt.vif.LibvirtGenericVIFDriver
 EOF
 
