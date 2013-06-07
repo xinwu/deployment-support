@@ -98,6 +98,8 @@ BS_FL_VIF_DRIVER=ivs
 NOVA_VIF_DRIVER=nova.virt.libvirt.vif.LibvirtGenericVIFDriver
 NOVA_REPO="https://github.com/bigswitch/nova.git"
 NOVA_BRANCH=grizzly/stable
+HORIZON_REPO="https://github.com/bigswitch/horizon.git"
+HORIZON_BRANCH="grizzly/router_rules"
 EOF
 
 # Done
