@@ -54,11 +54,11 @@ sudo rmmod openvswitch_mod 2>/dev/null || :
   # download ivs
   mkdir ${HOME}/ivs || :
   cd ${HOME}/ivs
-  OVSDP_PKG='http://bigtop/~rlane/ovs-debs/openvswitch-datapath-dkms_1.9.0-1bsn9_all.deb'
+  OVSDP_PKG='https://github.com/bigswitch/deployment-support/raw/grizzly/stable/ovs/openvswitch-datapath-dkms_1.9.0-1bsn12_all.deb'
   echo "Downloading ${OVSDP_PKG} ..."
   wget "${OVSDP_PKG}"
   echo "Done ${OVSDP_PKG}/$i \n\n"
-  IVS_PKG='http://bigtop/~bsn/xenon/precise-amd64/latest/ivs_0.3_amd64.deb'
+  IVS_PKG='https://github.com/bigswitch/deployment-support/raw/grizzly/stable/ivs/ivs_0.3_amd64.deb'
   echo "Downloading ${IVS_PKG} ..."
   wget "${IVS_PKG}"
   echo "Done ${IVS_PKG}/$i \n\n"
