@@ -96,6 +96,8 @@ BS_FL_CONTROLLERS_PORT=${BS_FL_CONTROLLERS_PORT}
 BS_FL_CONTROLLER_TIMEOUT=10
 BS_FL_VIF_DRIVER=ivs
 NOVA_VIF_DRIVER=nova.virt.libvirt.vif.LibvirtGenericVIFDriver
+NOVA_REPO="https://github.com/bigswitch/nova.git"
+NOVA_BRANCH=grizzly/stable
 EOF
 
 # Done
