@@ -95,6 +95,8 @@ SYSLOG=True
 #if more than one, separate with commas
 BS_FL_CONTROLLERS_PORT=${BS_FL_CONTROLLERS_PORT}
 BS_FL_CONTROLLER_TIMEOUT=10
+HORIZON_REPO="https://github.com/bigswitch/horizon.git"
+HORIZON_BRANCH="grizzly/router_rules"
 EOF
 
 # Done
