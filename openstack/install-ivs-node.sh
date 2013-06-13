@@ -65,7 +65,7 @@ sudo rmmod openvswitch_mod 2>/dev/null || :
 
   # install openvswitch datapath
   sudo apt-get -fy install dkms libnl-route-3-200
-  sudo dpkg -i openvswitch-datapath-dkms_1.9.0-1bsn9_all.deb
+  sudo dpkg -i openvswitch-datapath-dkms_1.9.0-1bsn12_all.deb
 
   # install ivs
   sudo dpkg -i ivs_0.3_amd64.deb
