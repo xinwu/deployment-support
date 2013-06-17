@@ -2,15 +2,15 @@
 #
 # This script patches the OpenStack Quantum Folsom Ubuntu packages installation
 # with the Big Switch Network's Quantum Plugin.
-# 
+#
 # Supported Ubuntu version: 12.10
 # Big Switch Plugin: https://github.com/bigswitch/quantum/tree/grizzly/stable
-# 
+#
 # @author: Sumit Naiksatam, Big Switch Networks, Inc.
 # @date: January 27 2013
 #
 # See usage below:
-USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> [<database_ip> <database_port>]"
+USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> <interface-type> [<database_ip> <database_port>]"
 
 set -e
 XTRACE=$(set +o | grep xtrace)
@@ -21,17 +21,20 @@ umask 022
 DATABASE_USER=$1
 DATABASE_PASSWORD=$2
 RESTPROXY_CONTROLLER=$3
+VIF_TYPE=$4
 TEMP_DIR='/tmp/bsn'
 Q_DB_NAME='quantum'
 PLUGIN_URL='https://github.com/bigswitch/quantum/archive/grizzly/stable.tar.gz'
 PLUGIN_TAR='bsn.tar.gz'
+NOVA_REPO_BASE='https://raw.github.com/bigswitch/nova/kbenton/ivssupport_grizzly/'
+HORIZON_REPO_BASE='https://raw.github.com/bigswitch/horizon/grizzly/router_rules/'
 TEMP_PLUGIN_PATH='/quantum-grizzly-stable/quantum/plugins/bigswitch'
 TEMP_PLUGIN_CONF_PATH='/quantum-grizzly-stable/etc/quantum/plugins/bigswitch'
 Q_PLUGIN_CLASS="quantum.plugins.bigswitch.plugin.QuantumRestProxyV2"
 QUANTUM_CONF_FILENAME="quantum.conf"
 DHCP_AGENT_CONF_FILENAME="dhcp_agent.ini"
-DATABASE_HOST=${4:-'127.0.0.1'}
-DATABASE_PORT=${5:-'3306'}
+DATABASE_HOST=${5:-'127.0.0.1'}
+DATABASE_PORT=${6:-'3306'}
 PLUGIN_NAME="bigswitch"
 Q_LOCK_PATH='/run/lock/quantum'
 
@@ -188,6 +191,15 @@ function InstallPluginOnUbuntu() {
     then
         die "Error: Package quantum-server is installed but could not find /etc/default/quantum-server"
     fi
+    if [ "$VIF_TYPE" = "ovs" ]; then
+        DHCP_INTERFACE_DRIVER="quantum.agent.linux.interface.OVSInterfaceDriver"
+        BSN_VIF_TYPE="ovs"
+    elif [ "$VIF_TYPE" = "ivs" ]; then
+        DHCP_INTERFACE_DRIVER="quantum.agent.linux.interface.IVSInterfaceDriver"
+        BSN_VIF_TYPE="ivs"
+    else
+        die "Unrecognized virtual interface type '$VIF_TYPE'. Available opions are 'ovs' and 'ivs'"
+    fi
     local image_url=$1
     local token=$2
     local DOWNLOAD_DIR="$TEMP_DIR"
@@ -227,9 +239,21 @@ function InstallPluginOnUbuntu() {
     local quantum_conf_bigswitch_plugins_dir="$quantum_conf_plugins_dir/$PLUGIN_NAME"
     mkdir -p $quantum_conf_bigswitch_plugins_dir
     local plugin_conf_file="$quantum_conf_bigswitch_plugins_dir/restproxy.ini"
-    echo "Plugin conf file: $plugin_conf_file" 
+
+    echo "Patching quantum files for IVS support"
+    local basequantum_install_path=`python -c "import quantum; print quantum.__path__[0]"`
+    local QUANTUM_FILES_TO_PATCH=('agent/linux/interface.py' 'extensions/portbindings.py' 'plugins/bigswitch/plugin.py')
+    local undocommand=''
+    for to_patch in "${QUANTUM_FILES_TO_PATCH[@]}"
+    do
+        undocommand="$undocommand mv '$basequantum_install_path/$to_patch.orig' '$basequantum_install_path/$to_patch';"
+        echo "mv '$basequantum_install_path/$to_patch' '$basequantum_install_path/$to_patch.orig'"
+        echo "cp_it '$DOWNLOAD_DIR/quantum/$to_patch' '$basequantum_install_path/$to_patch'"
+    done
+
+    echo "Plugin conf file: $plugin_conf_file"
     echo "To revert this patch:"
-    echo "mv $quantum_conf_orig $quantum_conf;mv $QUANTUM_SERVER_CONF_FILE_orig $QUANTUM_SERVER_CONF_FILE; mv $dhcp_conf_orig $dhcp_conf"
+    echo "mv $quantum_conf_orig $quantum_conf;mv $QUANTUM_SERVER_CONF_FILE_orig $QUANTUM_SERVER_CONF_FILE; mv $dhcp_conf_orig $dhcp_conf; $undocommand"
 
     cp_it $DOWNLOAD_DIR$TEMP_PLUGIN_CONF_PATH $quantum_conf_plugins_dir
 
@@ -238,11 +262,61 @@ function InstallPluginOnUbuntu() {
     iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
     iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
+    iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
+    iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
     sed -ie "s|^QUANTUM_PLUGIN_CONFIG=.*|QUANTUM_PLUGIN_CONFIG=\"$plugin_conf_file\"|" $QUANTUM_SERVER_CONF_FILE
     rm -rf $DOWNLOAD_DIR
 }
 
+function InstallNovaIVSSupportOnUbuntu() {
+    local NOVA_FILES_TO_PATCH=( 'network/linux_net.py' 'network/model.py' 'virt/libvirt/vif.py' )
+    local nova_install_path=`python -c "import nova; print nova.__path__[0]"`
+    local undocommand=''
+    for to_patch in "${NOVA_FILES_TO_PATCH[@]}"
+    do
+        undocommand="$undocommand mv '$nova_install_path/$to_patch.orig' '$nova_install_path/$to_patch';"
+        mv "$nova_install_path/$to_patch" "$nova_install_path/$to_patch.orig"
+        wget --quiet "$NOVA_REPO_BASE/nova/$to_patch" -O "$nova_install_path/$to_patch"
+    done
+    echo "To undo the nova patch, run the following:"
+    echo $undocommand
+}
+
+function InstallHorizonRouterRuleSupportOnUbuntu() {
+    local HORIZON_FILES_TO_PATCH=('openstack_dashboard/api/quantum.py'
+                                  'openstack_dashboard/dashboards/admin/routers/routerrules/__init__.py'
+                                  'openstack_dashboard/dashboards/admin/routers/routerrules/tables.py'
+                                  'openstack_dashboard/dashboards/admin/routers/templates/routers/detail.html'
+                                  'openstack_dashboard/dashboards/admin/routers/views.py'
+                                  'openstack_dashboard/dashboards/project/routers/routerrules/__init__.py'
+                                  'openstack_dashboard/dashboards/project/routers/routerrules/forms.py'
+                                  'openstack_dashboard/dashboards/project/routers/routerrules/tables.py'
+                                  'openstack_dashboard/dashboards/project/routers/routerrules/urls.py'
+                                  'openstack_dashboard/dashboards/project/routers/routerrules/views.py'
+                                  'openstack_dashboard/dashboards/project/routers/templates/routers/detail.html'
+                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/_create.html'
+                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/create.html'
+                                  'openstack_dashboard/dashboards/project/routers/urls.py'
+                                  'openstack_dashboard/dashboards/project/routers/views.py')
+    local horizon_install_path=`dpkg -L openstack-dashboard | grep "openstack_dashboard/dashboards/project/__init__.py" | xargs dirname | awk -F'openstack_dashboard/dashboards/' '{ print $1 }'`
+    if [ ! -d "$horizon_install_path/openstack_dashboard" ]; then
+        echo "Could not locate Horizon files to patch"
+        return
+    fi
+    mkdir "$horizon_install_path/openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/" ||:
+    mkdir "$horizon_install_path/openstack_dashboard/dashboards/project/routers/routerrules/" ||:
+    mkdir "$horizon_install_path/openstack_dashboard/dashboards/admin/routers/routerrules/" ||:
+    local undocommand=''
+    for to_patch in "${HORIZON_FILES_TO_PATCH[@]}"
+    do
+        undocommand="$undocommand mv '$horizon_install_path/$to_patch.orig' '$horizon_install_path/$to_patch';"
+        mv "$horizon_install_path/$to_patch" "$horizon_install_path/$to_patch.orig" ||:
+        wget --quiet "$HORIZON_REPO_BASE/$to_patch" -O "$horizon_install_path/$to_patch"
+    done
+    echo "To undo the horizon patch, run the following:"
+    echo $undocommand
+}
 
 # Prints "message" and exits
 # die "message"
@@ -300,14 +374,31 @@ if [ "${RESTPROXY_CONTROLLER}"x = ""x ] ; then
     echo "USAGE: ${USAGE}" 2>&1
     exit 2
 fi
+if [ "${VIF_TYPE}"x = ""x ] ; then
+    echo "ERROR: interface type not defined. Specify 'ovs' or 'ivs'." 1>&2
+    echo "USAGE: ${USAGE}" 2>&1
+    exit 2
+fi
 
+if is_package_installed quantum-server; then
+    is_package_installed quantum-server || die "Error: Package quantum-server is not installed."
+    is_package_installed python-quantum || die "Error: Package python-quantum is not installed."
+    is_package_installed quantum-dhcp-agent || die "Error: Package quantum-dhcp-agent is not installed."
 
-is_package_installed quantum-server || die "Error: Package quantum-server is not installed."
-is_package_installed python-quantum || die "Error: Package python-quantum is not installed."
-is_package_installed quantum-dhcp-agent || die "Error: Package quantum-dhcp-agent is not installed."
+    #recreate_database_mysql $Q_DB_NAME utf8
+    InstallPluginOnUbuntu
+    echo "Done. Please restart Quantum server to continue."
+fi
 
-#recreate_database_mysql $Q_DB_NAME utf8
+if is_package_installed nova-compute; then
 
+    InstallNovaIVSSupportOnUbuntu
+    echo "Done. Please restart nova-compute to continue."
+fi
 
-InstallPluginOnUbuntu
-echo "Done. Please restart Quantum server to continue."
+if is_package_installed openstack-dashboard; then
+    InstallHorizonRouterRuleSupportOnUbuntu
+    echo "Done. Restart apache2 to apply the horizon changes"
+fi
+
+echo "Done patching services"
