@@ -298,7 +298,8 @@ function InstallHorizonRouterRuleSupportOnUbuntu() {
                                   'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/_create.html'
                                   'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/create.html'
                                   'openstack_dashboard/dashboards/project/routers/urls.py'
-                                  'openstack_dashboard/dashboards/project/routers/views.py')
+                                  'openstack_dashboard/dashboards/project/routers/views.py'
+                                  'openstack_dashboard/dashboards/project/instances/tables.py')
     local horizon_install_path=`dpkg -L openstack-dashboard | grep "openstack_dashboard/dashboards/project/__init__.py" | xargs dirname | awk -F'openstack_dashboard/dashboards/' '{ print $1 }'`
     if [ ! -d "$horizon_install_path/openstack_dashboard" ]; then
         echo "Could not locate Horizon files to patch"
@@ -388,17 +389,23 @@ if is_package_installed quantum-server; then
     #recreate_database_mysql $Q_DB_NAME utf8
     InstallPluginOnUbuntu
     echo "Done. Please restart Quantum server to continue."
+else
+    echo "quantum-server not found. Skipping Quantum patch"
 fi
 
 if is_package_installed nova-compute; then
 
     InstallNovaIVSSupportOnUbuntu
     echo "Done. Please restart nova-compute to continue."
+else
+    echo "nova-compute not found. Skipping Nova patch"
 fi
 
 if is_package_installed openstack-dashboard; then
     InstallHorizonRouterRuleSupportOnUbuntu
     echo "Done. Restart apache2 to apply the horizon changes"
+else
+    echo "openstack-dashboard not found. Skipping Horizon patch"
 fi
 
 echo "Done patching services"
