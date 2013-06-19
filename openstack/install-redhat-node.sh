@@ -388,7 +388,7 @@ ls /etc/init.d/openstack-* | while read N; do sudo ${N} restart ||:; done
 
 
 Add physical interfaces to the bridge with the following example command:
-ovs-vsctl add-port br-int eth1;  ifconﬁg eth1 0.0.0.0 up
+ovs-vsctl add-port br-int eth1;  ifconfig eth1 0.0.0.0 up
 
 Assign an IP address to the tunnel adapter with the following example command:
 ifconfig tun-loopback 10.192.1.10/24
