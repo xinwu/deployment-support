@@ -260,6 +260,7 @@ set +vx
 
 ## Create OVS bridge with tunnel
 echo "Adding tunnel to OVS bridge"
+ovs-vsctl del-br br-int ||:
 ovs-vsctl add-br br-int
 echo tun-loopback > /etc/bsn_tunnel_interface
 ovs-vsctl add-port br-int tun-bsn -- set interface tun-bsn type=gre
