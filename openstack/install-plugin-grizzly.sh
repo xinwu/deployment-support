@@ -247,8 +247,8 @@ function InstallPluginOnUbuntu() {
     for to_patch in "${QUANTUM_FILES_TO_PATCH[@]}"
     do
         undocommand="$undocommand mv '$basequantum_install_path/$to_patch.orig' '$basequantum_install_path/$to_patch';"
-        echo "mv '$basequantum_install_path/$to_patch' '$basequantum_install_path/$to_patch.orig'"
-        echo "cp_it '$DOWNLOAD_DIR/quantum/$to_patch' '$basequantum_install_path/$to_patch'"
+        mv "$basequantum_install_path/$to_patch" "$basequantum_install_path/$to_patch.orig"
+        cp_it "$DOWNLOAD_DIR/quantum/$to_patch" "$basequantum_install_path/$to_patch"
     done
 
     echo "Plugin conf file: $plugin_conf_file"
@@ -311,8 +311,10 @@ function InstallHorizonRouterRuleSupportOnUbuntu() {
     local undocommand=''
     for to_patch in "${HORIZON_FILES_TO_PATCH[@]}"
     do
-        undocommand="$undocommand mv '$horizon_install_path/$to_patch.orig' '$horizon_install_path/$to_patch';"
-        mv "$horizon_install_path/$to_patch" "$horizon_install_path/$to_patch.orig" ||:
+        if [ -f "$horizon_install_path/$to_patch" ]; then
+            undocommand="$undocommand mv '$horizon_install_path/$to_patch.orig' '$horizon_install_path/$to_patch';"
+            mv "$horizon_install_path/$to_patch" "$horizon_install_path/$to_patch.orig" ||:
+        fi
         wget --quiet "$HORIZON_REPO_BASE/$to_patch" -O "$horizon_install_path/$to_patch"
     done
     echo "To undo the horizon patch, run the following:"
