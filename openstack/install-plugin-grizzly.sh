@@ -10,7 +10,7 @@
 # @date: January 27 2013
 #
 # See usage below:
-USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> <interface-type> [<database_ip> <database_port>]"
+USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> <interface-type ('ovs' or 'ivs')> [<database_ip> <database_port>]"
 
 set -e
 XTRACE=$(set +o | grep xtrace)
