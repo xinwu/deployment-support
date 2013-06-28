@@ -248,7 +248,7 @@ function InstallPluginOnUbuntu() {
     do
         undocommand="$undocommand mv '$basequantum_install_path/$to_patch.orig' '$basequantum_install_path/$to_patch';"
         mv "$basequantum_install_path/$to_patch" "$basequantum_install_path/$to_patch.orig"
-        cp_it "$DOWNLOAD_DIR/quantum/$to_patch" "$basequantum_install_path/$to_patch"
+        cp_it "$DOWNLOAD_DIR/quantum-grizzly-stable/quantum/$to_patch" "$basequantum_install_path/$to_patch"
     done
 
     echo "Plugin conf file: $plugin_conf_file"
