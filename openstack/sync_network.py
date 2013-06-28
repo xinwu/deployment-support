@@ -28,6 +28,7 @@
 import sys
 import warnings
 import logging
+import getopt
 
 from oslo.config import cfg
 
@@ -56,25 +57,41 @@ def init_config():
     )
 
 
-def send_all_data():
+def send_all_data(timeout):
     """Send all data to the configured network controller
        retunrs: None on success, else the reason for error (string)
     """
     try:
-        rproxy = QuantumRestProxyV2()
+        rproxy = QuantumRestProxyV2(server_timeout=timeout)
         print "INFO: Using servers: ", cfg.CONF.RESTPROXY.servers
         rproxy._send_all_data()
     except Exception as e:
         return e.message
     return None
 
-
-if __name__ == "__main__":
+def main(argv):
     init_config()
-    ret = send_all_data()
+    timeout = None
+    try:
+        opts, args = getopt.getopt(argv,"ht:",["timeout="])
+    except getopt.GetoptError:
+        print 'sync_network.py -t <timeout>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print 'sync_network.py -t <timeout>'
+            sys.exit()
+        elif opt in ("-t", "--timeout"):
+            timeout = int(arg)
+
+    ret = send_all_data(timeout)
     if ret is not None:
         print "ERROR: In sending data to network controller"
         print "       " + str(ret)
         sys.exit(1)
     print "INFO: Sync Done. All data (re)sent to the network controller"
     sys.exit(0)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
