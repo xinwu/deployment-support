@@ -28,8 +28,8 @@ PLUGIN_URL='https://github.com/bigswitch/quantum/archive/grizzly/stable.tar.gz'
 PLUGIN_TAR='bsn.tar.gz'
 NOVA_REPO_BASE='https://raw.github.com/bigswitch/nova/kbenton/ivssupport_grizzly/'
 HORIZON_REPO_BASE='https://raw.github.com/bigswitch/horizon/grizzly/router_rules/'
-TEMP_PLUGIN_PATH='/quantum-grizzly-stable/quantum/plugins/bigswitch'
-TEMP_PLUGIN_CONF_PATH='/quantum-grizzly-stable/etc/quantum/plugins/bigswitch'
+TEMP_PLUGIN_PATH='/neutron-grizzly-stable/quantum/plugins/bigswitch'
+TEMP_PLUGIN_CONF_PATH='/neutron-grizzly-stable/etc/quantum/plugins/bigswitch'
 Q_PLUGIN_CLASS="quantum.plugins.bigswitch.plugin.QuantumRestProxyV2"
 QUANTUM_CONF_FILENAME="quantum.conf"
 DHCP_AGENT_CONF_FILENAME="dhcp_agent.ini"
@@ -248,7 +248,7 @@ function InstallPluginOnUbuntu() {
     do
         undocommand="$undocommand mv '$basequantum_install_path/$to_patch.orig' '$basequantum_install_path/$to_patch';"
         mv "$basequantum_install_path/$to_patch" "$basequantum_install_path/$to_patch.orig"
-        cp_it "$DOWNLOAD_DIR/quantum-grizzly-stable/quantum/$to_patch" "$basequantum_install_path/$to_patch"
+        cp_it "$DOWNLOAD_DIR/neutron-grizzly-stable/quantum/$to_patch" "$basequantum_install_path/$to_patch"
     done
 
     echo "Plugin conf file: $plugin_conf_file"
