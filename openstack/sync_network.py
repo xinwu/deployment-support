@@ -20,7 +20,7 @@
 #
 
 # USAGE:
-# Set up quantum configuration for network controller. Use as:
+# Set up neutron configuration for network controller. Use as:
 #   ./sync_network.py
 #
 
@@ -30,18 +30,18 @@ import warnings
 import logging
 
 
-from quantum.openstack.common import cfg
+from neutron.openstack.common import cfg
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    from quantum.plugins.bigswitch.plugin import QuantumRestProxyV2
+    from neutron.plugins.bigswitch.plugin import NeutronRestProxyV2
 
 
 def get_config_files():
     """Get config file for restproxy"""
     return [
-        "/etc/quantum/quantum.conf",
-        "/etc/quantum/dhcp_agent.ini",
-        "/etc/quantum/plugins/bigswitch/restproxy.ini",
+        "/etc/neutron/neutron.conf",
+        "/etc/neutron/dhcp_agent.ini",
+        "/etc/neutron/plugins/bigswitch/restproxy.ini",
     ]
 
 
@@ -52,7 +52,7 @@ def init_config():
     cfg.CONF(
         args = [j for i in zip(["--config-file"]*len(cfgfile), cfgfile)
                   for j in i],
-        project = "quantum",
+        project = "neutron",
     )
 
 
@@ -61,7 +61,7 @@ def send_all_data():
        retunrs: None on success, else the reason for error (string)
     """
     try:
-        rproxy = QuantumRestProxyV2()
+        rproxy = NeutronRestProxyV2()
         print "INFO: Using servers: ", cfg.CONF.RESTPROXY.servers
         rproxy._send_all_data()
     except Exception as e:

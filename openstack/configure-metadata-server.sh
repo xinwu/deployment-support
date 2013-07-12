@@ -37,7 +37,7 @@ ip addr add 169.254.169.254/32 scope link dev $MANAGEMENT_INTERFACE
 iptables -t nat -A PREROUTING -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 169.254.169.254:$METADATA_SERVER_PORT
  
 echo "Saving attributes to use on reboot"
-echo "$MANAGEMENT_INTERFACE" > /etc/quantum/plugins/bigswitch/metadata_interface
-echo "$METADATA_SERVER_PORT" > /etc/quantum/plugins/bigswitch/metadata_port
+echo "$MANAGEMENT_INTERFACE" > /etc/neutron/plugins/bigswitch/metadata_interface
+echo "$METADATA_SERVER_PORT" > /etc/neutron/plugins/bigswitch/metadata_port
 
 echo "Done."

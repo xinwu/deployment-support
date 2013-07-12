@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Note: This script is to be run on each OpenStack Compute Node,
-# and the Quantum Server node. It cleans up the following:
+# and the Neutron Server node. It cleans up the following:
 # qvb* - vnet devices corresponding to the VIF
 # qbr* - Linux Bridge created for each VIF
 # qvo* - Internal Port on OVS

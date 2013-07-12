@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Install stable devstack and openstack with quantum and restproxy
+# Install stable devstack and openstack with neutron and restproxy
 # Note:
 #   1. this script uses the same password for all openstack services
 #   2. this script supports a comma separated list of controllers with optional
@@ -14,7 +14,7 @@ set -e
 # set parameters
 RESTPROXY_CONTROLLERS=$1
 RESTPROXY_DEFAULT_PORT='80'
-RESTPROXY_CONF_DIR='/etc/quantum/plugins/bigswitch'
+RESTPROXY_CONF_DIR='/etc/neutron/plugins/bigswitch'
 STACK_PASSWORD=${2:-'nova'}
 STACK_TOP='/opt/stack'
 DEVSTACK_REPO='http://github.com/bigswitch/devstack.git'
@@ -75,12 +75,12 @@ cat >localrc <<EOF
 disable_service n-net
 enable_service q-svc
 enable_service q-dhcp
-enable_service quantum
+enable_service neutron
 enable_service bigswitch_floodlight
 Q_ALLOW_OVERLAPPING_IP=False
 Q_PLUGIN=bigswitch_floodlight
 Q_USE_NAMESPACE=False
-NOVA_USE_QUANTUM_API=v2
+NOVA_USE_NEUTRON_API=v2
 SCHEDULER=nova.scheduler.simple.SimpleScheduler
 MYSQL_PASSWORD=${STACK_PASSWORD}
 RABBIT_PASSWORD=${STACK_PASSWORD}

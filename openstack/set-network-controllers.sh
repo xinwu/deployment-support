@@ -20,7 +20,7 @@
 #
 
 # USAGE:
-# Set up quantum configuration for network controller. Use as:
+# Set up neutron configuration for network controller. Use as:
 #   set-network-controllers.sh <network-ctrls> [<auth-params> [<use-ssl>]]
 #
 # e.g.:
@@ -34,7 +34,7 @@ set -e
 NETWORK_CTRL_SERVERS="$1"
 NETWORK_CTRL_AUTH="$2"
 NETWORK_CTRL_SSL=`echo $3 | tr A-Z a-z`
-RESTPROXY_INI_FILE=/etc/quantum/plugins/bigswitch/restproxy.ini
+RESTPROXY_INI_FILE=/etc/neutron/plugins/bigswitch/restproxy.ini
 
 
 # validate parameters

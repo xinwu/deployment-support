@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# This script patches the OpenStack Quantum Folsom Ubuntu packages installation
-# with the Big Switch Network's Quantum Plugin.
+# This script patches the OpenStack Neutron Folsom Ubuntu packages installation
+# with the Big Switch Network's Neutron Plugin.
 # 
 # Supported Ubuntu version: 12.10
-# Big Switch Plugin: https://github.com/bigswitch/quantum/tree/grizzly/master
+# Big Switch Plugin: https://github.com/bigswitch/neutron/tree/grizzly/master
 # 
 # @author: Sumit Naiksatam, Big Switch Networks, Inc.
 # @date: January 27 2013
@@ -22,18 +22,18 @@ DATABASE_USER=$1
 DATABASE_PASSWORD=$2
 RESTPROXY_CONTROLLER=$3
 TEMP_DIR='/tmp/bsn'
-Q_DB_NAME='quantum'
-PLUGIN_URL='https://github.com/bigswitch/quantum/archive/grizzly/master.tar.gz'
+Q_DB_NAME='neutron'
+PLUGIN_URL='https://github.com/bigswitch/neutron/archive/grizzly/master.tar.gz'
 PLUGIN_TAR='bsn.tar.gz'
-TEMP_PLUGIN_PATH='/quantum-grizzly-master/quantum/plugins/bigswitch'
-TEMP_PLUGIN_CONF_PATH='/quantum-grizzly-master/etc/quantum/plugins/bigswitch'
-Q_PLUGIN_CLASS="quantum.plugins.bigswitch.plugin.QuantumRestProxyV2"
-QUANTUM_CONF_FILENAME="quantum.conf"
+TEMP_PLUGIN_PATH='/neutron-grizzly-master/neutron/plugins/bigswitch'
+TEMP_PLUGIN_CONF_PATH='/neutron-grizzly-master/etc/neutron/plugins/bigswitch'
+Q_PLUGIN_CLASS="neutron.plugins.bigswitch.plugin.NeutronRestProxyV2"
+NEUTRON_CONF_FILENAME="neutron.conf"
 DHCP_AGENT_CONF_FILENAME="dhcp_agent.ini"
 DATABASE_HOST=${4:-'127.0.0.1'}
 DATABASE_PORT=${5:-'3306'}
 PLUGIN_NAME="bigswitch"
-Q_LOCK_PATH='/run/lock/quantum'
+Q_LOCK_PATH='/run/lock/neutron'
 
 # Gracefully cp only if source file/dir exists
 # cp_it source destination
@@ -81,7 +81,7 @@ GetOSVersion() {
         os_UPDATE=""
         if [[ "Debian,Ubuntu" =~ $os_VENDOR ]]; then
             os_PACKAGE="deb"
-            QUANTUM_SERVER_CONF_FILE="/etc/default/quantum-server"
+            NEUTRON_SERVER_CONF_FILE="/etc/default/neutron-server"
         else
             os_PACKAGE="rpm"
         fi
@@ -184,9 +184,9 @@ function is_package_installed() {
 
 
 function InstallPluginOnUbuntu() {
-    if [ ! -f $QUANTUM_SERVER_CONF_FILE ];
+    if [ ! -f $NEUTRON_SERVER_CONF_FILE ];
     then
-        die "Error: Package quantum-server is installed but could not find /etc/default/quantum-server"
+        die "Error: Package neutron-server is installed but could not find /etc/default/neutron-server"
     fi
     local image_url=$1
     local token=$2
@@ -201,45 +201,45 @@ function InstallPluginOnUbuntu() {
         exit
     fi
     tar -zxf $DOWNLOAD_FILE -C "$DOWNLOAD_DIR"
-    local plugin_install_path=`python -c "import quantum.plugins; print quantum.plugins.__path__[0]"`
+    local plugin_install_path=`python -c "import neutron.plugins; print neutron.plugins.__path__[0]"`
     echo "Installing plugin in: $plugin_install_path/$PLUGIN_NAME"
     cp_it $DOWNLOAD_DIR$TEMP_PLUGIN_PATH $plugin_install_path
-    local quantum_conf=`dpkg -L quantum-common | grep "$QUANTUM_CONF_FILENAME"`
-    local quantum_conf_dir=`dirname $quantum_conf`
-    local quantum_conf_orig="$quantum_conf.orig"
-    local dhcp_conf=`dpkg -L quantum-dhcp-agent | grep "$DHCP_AGENT_CONF_FILENAME"`
+    local neutron_conf=`dpkg -L neutron-common | grep "$NEUTRON_CONF_FILENAME"`
+    local neutron_conf_dir=`dirname $neutron_conf`
+    local neutron_conf_orig="$neutron_conf.orig"
+    local dhcp_conf=`dpkg -L neutron-dhcp-agent | grep "$DHCP_AGENT_CONF_FILENAME"`
     local dhcp_conf_dir=`dirname $dhcp_conf`
     local dhcp_conf_orig="$dhcp_conf.orig"
-    local QUANTUM_SERVER_CONF_FILE_orig="$QUANTUM_SERVER_CONF_FILE.orig"
-    if [ ! -f $quantum_conf_orig ];
+    local NEUTRON_SERVER_CONF_FILE_orig="$NEUTRON_SERVER_CONF_FILE.orig"
+    if [ ! -f $neutron_conf_orig ];
     then
-       cp $quantum_conf $quantum_conf_orig
+       cp $neutron_conf $neutron_conf_orig
     fi
     if [ ! -f $dhcp_conf_orig ];
     then
        cp $dhcp_conf $dhcp_conf_orig
     fi
-    if [ ! -f $QUANTUM_SERVER_CONF_FILE_orig ];
+    if [ ! -f $NEUTRON_SERVER_CONF_FILE_orig ];
     then
-       cp $QUANTUM_SERVER_CONF_FILE $QUANTUM_SERVER_CONF_FILE_orig
+       cp $NEUTRON_SERVER_CONF_FILE $NEUTRON_SERVER_CONF_FILE_orig
     fi
-    local quantum_conf_plugins_dir="$quantum_conf_dir/plugins"
-    local quantum_conf_bigswitch_plugins_dir="$quantum_conf_plugins_dir/$PLUGIN_NAME"
-    mkdir -p $quantum_conf_bigswitch_plugins_dir
-    local plugin_conf_file="$quantum_conf_bigswitch_plugins_dir/restproxy.ini"
+    local neutron_conf_plugins_dir="$neutron_conf_dir/plugins"
+    local neutron_conf_bigswitch_plugins_dir="$neutron_conf_plugins_dir/$PLUGIN_NAME"
+    mkdir -p $neutron_conf_bigswitch_plugins_dir
+    local plugin_conf_file="$neutron_conf_bigswitch_plugins_dir/restproxy.ini"
     echo "Plugin conf file: $plugin_conf_file" 
     echo "To revert this patch:"
-    echo "mv $quantum_conf_orig $quantum_conf;mv $QUANTUM_SERVER_CONF_FILE_orig $QUANTUM_SERVER_CONF_FILE; mv $dhcp_conf_orig $dhcp_conf"
+    echo "mv $neutron_conf_orig $neutron_conf;mv $NEUTRON_SERVER_CONF_FILE_orig $NEUTRON_SERVER_CONF_FILE; mv $dhcp_conf_orig $dhcp_conf"
 
-    cp_it $DOWNLOAD_DIR$TEMP_PLUGIN_CONF_PATH $quantum_conf_plugins_dir
+    cp_it $DOWNLOAD_DIR$TEMP_PLUGIN_CONF_PATH $neutron_conf_plugins_dir
 
-    iniset $quantum_conf DEFAULT core_plugin $Q_PLUGIN_CLASS
-    iniset $quantum_conf DEFAULT allow_overlapping_ips False
-    iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
+    iniset $neutron_conf DEFAULT core_plugin $Q_PLUGIN_CLASS
+    iniset $neutron_conf DEFAULT allow_overlapping_ips False
+    iniset $neutron_conf DEFAULT lock_path $Q_LOCK_PATH
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
     iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
     iniset $dhcp_conf DEFAULT use_namespaces False
-    sed -ie "s|^QUANTUM_PLUGIN_CONFIG=.*|QUANTUM_PLUGIN_CONFIG=\"$plugin_conf_file\"|" $QUANTUM_SERVER_CONF_FILE
+    sed -ie "s|^NEUTRON_PLUGIN_CONFIG=.*|NEUTRON_PLUGIN_CONFIG=\"$plugin_conf_file\"|" $NEUTRON_SERVER_CONF_FILE
     rm -rf $DOWNLOAD_DIR
 }
 
@@ -263,7 +263,7 @@ function recreate_database_mysql {
 }
 
 
-echo "Patching Quantum installation with Big Switch plugin..."
+echo "Patching Neutron installation with Big Switch plugin..."
 # Determine what system we are running on.  This provides ``os_VENDOR``,
 # ``os_RELEASE``, ``os_UPDATE``, ``os_PACKAGE``, ``os_CODENAME``
 # and ``DISTRO``
@@ -302,12 +302,12 @@ if [ "${RESTPROXY_CONTROLLER}"x = ""x ] ; then
 fi
 
 
-is_package_installed quantum-server || die "Error: Package quantum-server is not installed."
-is_package_installed python-quantum || die "Error: Package python-quantum is not installed."
-is_package_installed quantum-dhcp-agent || die "Error: Package quantum-dhcp-agent is not installed."
+is_package_installed neutron-server || die "Error: Package neutron-server is not installed."
+is_package_installed python-neutron || die "Error: Package python-neutron is not installed."
+is_package_installed neutron-dhcp-agent || die "Error: Package neutron-dhcp-agent is not installed."
 
 #recreate_database_mysql $Q_DB_NAME utf8
 
 
 InstallPluginOnUbuntu
-echo "Done. Please restart Quantum server to continue."
+echo "Done. Please restart Neutron server to continue."
