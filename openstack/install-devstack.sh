@@ -18,7 +18,7 @@ RESTPROXY_CONF_DIR='/etc/neutron/plugins/bigswitch'
 STACK_PASSWORD=${2:-'nova'}
 STACK_TOP='/opt/stack'
 DEVSTACK_REPO='http://github.com/bigswitch/devstack.git'
-DEVSTACK_BRANCH='bigswitch'
+DEVSTACK_BRANCH='master'
 DEVSTACK_DIR='devstack'
 
 #
