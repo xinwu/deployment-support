@@ -317,12 +317,12 @@ filelinereplace /etc/nova/nova.conf "libvirt_vif_driver=" "libvirt_vif_driver=no
 
 echo "Downloading quantum plugin"
 rm stable.zip || :
-rm -rf quantum-grizzly-stable || :
-wget "https://github.com/bigswitch/quantum/archive/grizzly/stable.zip" -O stable.zip
+rm -rf neutron-grizzly-stable || :
+wget "https://github.com/bigswitch/neutron/archive/grizzly/stable.zip" -O stable.zip
 unzip stable.zip
-cp -r quantum-grizzly-stable/quantum/plugins/bigswitch /usr/lib/python2.6/site-packages/quantum/plugins/ || :
+cp -r neutron-grizzly-stable/quantum/plugins/bigswitch /usr/lib/python2.6/site-packages/quantum/plugins/ || :
 mkdir /etc/quantum/plugins/bigswitch || :
-cp quantum-grizzly-stable/etc/quantum/plugins/bigswitch/restproxy.ini /etc/quantum/plugins/bigswitch/ || :
+cp neutron-grizzly-stable/etc/quantum/plugins/bigswitch/restproxy.ini /etc/quantum/plugins/bigswitch/ || :
 
 echo "Setting up plugin"
 filelinereplace /etc/quantum/plugins/bigswitch/restproxy.ini "sql_connection =" "sql_connection = mysql://$QUANTUMUSER:$QUANTUMPASS@$NOVACONTROLLER:3306/restproxy_quantum"
