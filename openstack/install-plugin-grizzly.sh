@@ -311,7 +311,7 @@ function InstallHorizonRouterRuleSupportOnUbuntu() {
         return
     fi
     mkdir "$horizon_install_path/openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/" ||:
-    mkdir "$horizon_install_path/openstack_dashboard/dashboards/project/routers/extensions/routerrules/" ||:
+    mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/project/routers/extensions/routerrules/" ||:
     mkdir "$horizon_install_path/openstack_dashboard/dashboards/admin/routers/routerrules/" ||:
     local undocommand=''
     for to_patch in "${HORIZON_FILES_TO_PATCH[@]}"
