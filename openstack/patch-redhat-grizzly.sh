@@ -8,7 +8,7 @@
 # @date: July 20, 2013
 #
 # See usage below:
-USAGE="$0 <database-admin-user> <database-admin-password> <comma-separated-list-of-conotroller:port> [<database_ip> <database_port>]"
+USAGE="$0 <comma-separated-list-of-conotroller:port> <database-admin-user> [<database-admin-password> <database_ip> <database_port>]"
 
 set -e
 XTRACE=$(set +o | grep xtrace)
@@ -16,11 +16,11 @@ set +o xtrace
 
 umask 022
 
-DATABASE_USER=$1
-DATABASE_PASSWORD=$2
-RESTPROXY_CONTROLLER=$3
+RESTPROXY_CONTROLLER=$1
+DATABASE_USER=$2
+DATABASE_PASSWORD=$3
 TEMP_DIR='/tmp/bsn'
-Q_DB_NAME='quantum'
+Q_DB_NAME='restproxy_quantum'
 PLUGIN_URL='https://github.com/bigswitch/neutron/archive/grizzly/stable.tar.gz'
 PLUGIN_TAR='bsn.tar.gz'
 HORIZON_URL='https://github.com/bigswitch/horizon/archive/grizzly/router_rules.tar.gz'
@@ -79,8 +79,8 @@ $option = $value
 }
 
 function SetupDB() {
-    mysql -u$DATABASE_USER -p$DATABASE_PASSWORD --host=$DATABASE_HOST --port=$DATABASE_PORT -e "CREATE DATABASE IF NOT EXISTS restproxy_quantum;" 
-    mysql -u$DATABASE_USER -p$DATABASE_PASSWORD --host=$DATABASE_HOST --port=$DATABASE_PORT -e "GRANT ALL ON restproxy_quantum.* TO '$DB_PLUGIN_USER'@'%' IDENTIFIED BY '$DB_PLUGIN_PASS';" restproxy_quantum
+    mysql -u$DATABASE_USER $DB_PASS_PARAMS --host=$DATABASE_HOST --port=$DATABASE_PORT -e "CREATE DATABASE IF NOT EXISTS $Q_DB_NAME;" 
+    mysql -u$DATABASE_USER $DB_PASS_PARAMS --host=$DATABASE_HOST --port=$DATABASE_PORT -e "GRANT ALL ON $Q_DB_NAME.* TO '$DB_PLUGIN_USER'@'%' IDENTIFIED BY '$DB_PLUGIN_PASS';" $Q_DB_NAME
 }
 
 function PatchQuantum() {
@@ -224,9 +224,9 @@ if [ "${DATABASE_USER}"x = ""x ] ; then
     exit 2
 fi
 if [ "${DATABASE_PASSWORD}"x = ""x ] ; then
-    echo "ERROR: DATABASE_PASSWORD not defined." 1>&2
-    echo "USAGE: ${USAGE}" 2>&1
-    exit 2
+    DB_PASS_PARAMS=""
+else
+    DB_PASS_PARAMS="-p$DATABASE_PASSWORD"
 fi
 if [ "${RESTPROXY_CONTROLLER}"x = ""x ] ; then
     echo "ERROR: RESTPROXY_CONTROLLER not defined." 1>&2
