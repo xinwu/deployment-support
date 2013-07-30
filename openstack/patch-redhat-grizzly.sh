@@ -78,7 +78,6 @@ $option = $value
 
 
 function PatchQuantum() {
-    set -x
     DHCP_INTERFACE_DRIVER="quantum.agent.linux.interface.OVSInterfaceDriver"
     BSN_VIF_TYPE="ovs"
 
@@ -231,4 +230,6 @@ fi
 
 InstallBigHorizon
 PatchQuantum
-echo "Done patching services"
+echo "Done patching services. Restarting services..."
+/etc/init.d/quantum-server restart
+/etc/init.d/httpd restart
