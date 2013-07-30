@@ -8,7 +8,7 @@
 # @date: July 20, 2013
 #
 # See usage below:
-USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> [<database_ip> <database_port>]"
+USAGE="$0 <database-admin-user> <database-admin-password> <comma-separated-list-of-conotroller:port> [<database_ip> <database_port>]"
 
 set -e
 XTRACE=$(set +o | grep xtrace)
@@ -33,6 +33,8 @@ DATABASE_HOST=${4:-'127.0.0.1'}
 DATABASE_PORT=${5:-'3306'}
 PLUGIN_NAME="bigswitch"
 Q_LOCK_PATH='/run/lock/quantum'
+DB_PLUGIN_USER=quantumUser
+DB_PLUGIN_PASS="$RANDOM$RANDOM"
 
 # Gracefully cp only if source file/dir exists
 # cp_it source destination
@@ -76,6 +78,10 @@ $option = $value
     fi
 }
 
+function SetupDB() {
+    mysql -u$DATABASE_USER -p$DATABASE_PASSWORD --host=$DATABASE_HOST --port=$DATABASE_PORT -e "CREATE DATABASE IF NOT EXISTS restproxy_quantum;" 
+    mysql -u$DATABASE_USER -p$DATABASE_PASSWORD --host=$DATABASE_HOST --port=$DATABASE_PORT -e "GRANT ALL ON restproxy_quantum.* TO '$DB_PLUGIN_USER'@'%' IDENTIFIED BY '$DB_PLUGIN_PASS';" restproxy_quantum
+}
 
 function PatchQuantum() {
     DHCP_INTERFACE_DRIVER="quantum.agent.linux.interface.OVSInterfaceDriver"
@@ -117,7 +123,7 @@ function PatchQuantum() {
     iniset $quantum_conf DEFAULT allow_overlapping_ips False
     iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
-    iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
+    iniset $plugin_conf_file DATABASE sql_connection "mysql://$DB_PLUGIN_USER:$DB_PLUGIN_PASS@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
     iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
