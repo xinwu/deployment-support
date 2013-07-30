@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+#
+# This script patches a RedHat openstack grizzly install with BigSwitch changes
+#
+# Big Switch Plugin: https://github.com/bigswitch/neutron/tree/grizzly/stable
+#
+# @author: Kevin Benton, Big Switch Networks, Inc.
+# @date: July 20, 2013
+#
+# See usage below:
+USAGE="$0 <database-user> <database-password> <comma-separated-list-of-conotroller:port> [<database_ip> <database_port>]"
+
+set -e
+XTRACE=$(set +o | grep xtrace)
+set +o xtrace
+
+umask 022
+
+DATABASE_USER=$1
+DATABASE_PASSWORD=$2
+RESTPROXY_CONTROLLER=$3
+TEMP_DIR='/tmp/bsn'
+Q_DB_NAME='quantum'
+PLUGIN_URL='https://github.com/bigswitch/neutron/archive/grizzly/stable.tar.gz'
+PLUGIN_TAR='bsn.tar.gz'
+HORIZON_URL='https://github.com/bigswitch/horizon/archive/grizzly/router_rules.tar.gz'
+TEMP_PLUGIN_PATH='/neutron-grizzly-stable/quantum/plugins/bigswitch'
+TEMP_PLUGIN_CONF_PATH='/neutron-grizzly-stable/etc/quantum/plugins/bigswitch'
+Q_PLUGIN_CLASS="quantum.plugins.bigswitch.plugin.QuantumRestProxyV2"
+QUANTUM_CONF_FILENAME="quantum.conf"
+DHCP_AGENT_CONF_FILENAME="dhcp_agent.ini"
+DATABASE_HOST=${4:-'127.0.0.1'}
+DATABASE_PORT=${5:-'3306'}
+PLUGIN_NAME="bigswitch"
+Q_LOCK_PATH='/run/lock/quantum'
+
+# Gracefully cp only if source file/dir exists
+# cp_it source destination
+function cp_it {
+    if [ -e $1 ] || [ -d $1 ]; then
+        cp -pRL $1 $2
+    fi
+}
+
+# Get an option from an INI file
+# iniget config-file section option
+function iniget() {
+    local file=$1
+    local section=$2
+    local option=$3
+    local line
+    line=$(sed -ne "/^\[$section\]/,/^\[.*\]/ { /^$option[ \t]*=/ p; }" $file)
+    echo ${line#*=}
+}
+
+
+# Set an option in an INI file
+# iniset config-file section option value
+function iniset() {
+    local file=$1
+    local section=$2
+    local option=$3
+    local value=$4
+    if ! grep -q "^\[$section\]" $file; then
+        # Add section at the end
+        echo -e "\n[$section]" >>$file
+    fi
+    if [[ -z "$(iniget $file $section $option)" ]]; then
+        # Add it
+        sed -i -e "/^\[$section\]/ a\\
+$option = $value
+" $file
+    else
+        # Replace it
+        sed -i -e "/^\[$section\]/,/^\[.*\]/ s|^\($option[ \t]*=[ \t]*\).*$|\1$value|" $file
+    fi
+}
+
+
+function PatchQuantum() {
+    set -x
+    DHCP_INTERFACE_DRIVER="quantum.agent.linux.interface.OVSInterfaceDriver"
+    BSN_VIF_TYPE="ovs"
+
+    local DOWNLOAD_DIR="$TEMP_DIR"
+    local DOWNLOAD_FILE="$DOWNLOAD_DIR/$PLUGIN_TAR"
+
+    # Create a directory for the downloaded plugin tar
+    mkdir -p $DOWNLOAD_DIR
+    echo "Downloading BigSwitch quantum files"
+    wget -c $PLUGIN_URL -O $DOWNLOAD_FILE
+    if [[ $? -ne 0 ]]; then
+        echo "Not found: $DOWNLOAD_DIR"
+        exit
+    fi
+    tar -zxf $DOWNLOAD_FILE -C "$DOWNLOAD_DIR"
+
+
+    local quantum_conf=`rpm -ql openstack-quantum | grep "$QUANTUM_CONF_FILENAME"`
+    local quantum_conf_dir=`dirname $quantum_conf`
+    local quantum_conf_orig="$quantum_conf.orig"
+    local dhcp_conf=`rpm -ql openstack-quantum | grep "$DHCP_AGENT_CONF_FILENAME"`
+    local dhcp_conf_dir=`dirname $dhcp_conf`
+    local dhcp_conf_orig="$dhcp_conf.orig"
+    if [ ! -f $quantum_conf_orig ];
+    then
+       cp $quantum_conf $quantum_conf_orig
+    fi
+    if [ ! -f $dhcp_conf_orig ];
+    then
+       cp $dhcp_conf $dhcp_conf_orig
+    fi
+    local quantum_conf_plugins_dir="$quantum_conf_dir/plugins"
+    local quantum_conf_bigswitch_plugins_dir="$quantum_conf_plugins_dir/$PLUGIN_NAME"
+    mkdir -p $quantum_conf_bigswitch_plugins_dir
+    local plugin_conf_file="$quantum_conf_bigswitch_plugins_dir/restproxy.ini"
+    iniset $quantum_conf DEFAULT core_plugin $Q_PLUGIN_CLASS
+    iniset $quantum_conf DEFAULT allow_overlapping_ips False
+    iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
+    iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
+    iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
+    iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
+    iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
+    iniset $dhcp_conf DEFAULT use_namespaces False
+
+    echo "Patching quantum files"
+    local basequantum_install_path=`python -c "import quantum; print quantum.__path__[0]"`
+    cp -R "$DOWNLOAD_DIR/neutron-grizzly-stable/quantum/plugins/bigswitch" "$basequantum_install_path/plugins/"
+    local QUANTUM_FILES_TO_PATCH=('agent/linux/interface.py' 'extensions/portbindings.py')
+    local undocommand=''
+
+    for to_patch in "${QUANTUM_FILES_TO_PATCH[@]}"
+    do
+        undocommand="$undocommand mv '$basequantum_install_path/$to_patch.orig' '$basequantum_install_path/$to_patch';"
+        echo "Patching: $basequantum_install_path/$to_patch <- $DOWNLOAD_DIR/neutron-grizzly-stable/quantum/$to_patch"
+        mv "$basequantum_install_path/$to_patch" "$basequantum_install_path/$to_patch.orig"
+        cp_it "$DOWNLOAD_DIR/neutron-grizzly-stable/quantum/$to_patch" "$basequantum_install_path/$to_patch"
+    done
+
+    echo "To revert this patch:"
+    echo "mv $quantum_conf_orig $quantum_conf; mv $dhcp_conf_orig $dhcp_conf; $undocommand"
+    rm -rf $DOWNLOAD_DIR
+}
+
+
+function InstallBigHorizon() {
+    local DOWNLOAD_DIR="$TEMP_DIR"
+    local DOWNLOAD_FILE="$DOWNLOAD_DIR/$PLUGIN_TAR"
+
+    local SETTINGS_PATH=`rpm -ql openstack-dashboard | grep local_settings.py`
+    if [ -z "$SETTINGS_PATH" ]
+    then
+       echo "Horizon is not installed on this server. Skipping Horizon patch"
+       return
+    fi
+
+
+    # Create a directory for the downloaded plugin tar
+    mkdir -p $DOWNLOAD_DIR
+
+    echo "Downloading BigSwitch Horizon files"
+    wget -c $HORIZON_URL -O $DOWNLOAD_FILE
+    if [[ $? -ne 0 ]]; then
+        echo "Not found: $DOWNLOAD_DIR"
+        exit
+    fi
+    tar -zxf $DOWNLOAD_FILE -C "$DOWNLOAD_DIR"
+    mkdir -p /usr/lib/bigswitch/static
+    cp -R $DOWNLOAD_DIR/horizon-grizzly-router_rules/* /usr/lib/bigswitch
+    cp "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/"
+    ln -s /usr/share/openstack-dashboard/static /usr/lib/bigswitch/static ||:
+    sed -i "s/LOGIN_URL='\/dashboard\/auth\/login\/'/LOGIN_URL='\/bigdashboard\/auth\/login\/'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
+    sed -i "s/LOGIN_REDIRECT_URL='\/dashboard'/LOGIN_REDIRECT_URL='\/bigdashboard'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
+
+    APACHECONF=$(cat <<EOF
+	WSGIDaemonProcess bigdashboard
+	WSGIProcessGroup bigdashboard
+	WSGISocketPrefix run/wsgi
+
+	WSGIScriptAlias /bigdashboard /usr/lib/bigswitch/openstack_dashboard/wsgi/django.wsgi
+
+	<Directory /usr/lib/bigswitch/openstack_dashboard/wsgi>
+	  <IfModule mod_deflate.c>
+	    SetOutputFilter DEFLATE
+	    <IfModule mod_headers.c>
+	      # Make sure proxies don’t deliver the wrong content
+	      Header append Vary User-Agent env=!dont-vary
+	    </IfModule>
+	  </IfModule>
+
+	  Order allow,deny
+	  Allow from all
+	</Directory>
+
+	<Location /bigdashboard/i18n>
+	  <IfModule mod_expires.c>
+	    ExpiresActive On
+	    ExpiresDefault "access 6 month"
+	  </IfModule>
+	</Location>
+EOF
+)
+    echo "$APACHECONF" > /etc/httpd/conf.d/bigswitch-dashboard.conf
+    rm -rf $DOWNLOAD_DIR
+}
+
+# Prints "message" and exits
+# die "message"
+function die() {
+    local exitcode=$?
+    set +o xtrace
+    echo $@
+    exit $exitcode
+}
+# Validate args
+if [ "${DATABASE_USER}"x = ""x ] ; then
+    echo "ERROR: DATABASE_USER not defined." 1>&2
+    echo "USAGE: ${USAGE}" 2>&1
+    exit 2
+fi
+if [ "${DATABASE_PASSWORD}"x = ""x ] ; then
+    echo "ERROR: DATABASE_PASSWORD not defined." 1>&2
+    echo "USAGE: ${USAGE}" 2>&1
+    exit 2
+fi
+if [ "${RESTPROXY_CONTROLLER}"x = ""x ] ; then
+    echo "ERROR: RESTPROXY_CONTROLLER not defined." 1>&2
+    echo "USAGE: ${USAGE}" 2>&1
+    exit 2
+fi
+
+InstallBigHorizon
+PatchQuantum
+echo "Done patching services"
