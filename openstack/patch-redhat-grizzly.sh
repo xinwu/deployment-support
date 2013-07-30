@@ -233,7 +233,7 @@ if [ "${RESTPROXY_CONTROLLER}"x = ""x ] ; then
     echo "USAGE: ${USAGE}" 2>&1
     exit 2
 fi
-
+SetupDB
 InstallBigHorizon
 PatchQuantum
 echo "Done patching services. Restarting services..."
