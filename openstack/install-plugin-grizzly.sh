@@ -310,9 +310,9 @@ function InstallHorizonRouterRuleSupportOnUbuntu() {
         echo "Could not locate Horizon files to patch"
         return
     fi
-    mkdir "$horizon_install_path/openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/" ||:
+    mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/" ||:
     mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/project/routers/extensions/routerrules/" ||:
-    mkdir "$horizon_install_path/openstack_dashboard/dashboards/admin/routers/routerrules/" ||:
+    mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/admin/routers/routerrules/" ||:
     local undocommand=''
     for to_patch in "${HORIZON_FILES_TO_PATCH[@]}"
     do
