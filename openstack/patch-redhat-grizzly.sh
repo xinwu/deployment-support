@@ -102,6 +102,7 @@ function PatchQuantum() {
 
 
     local quantum_conf=`rpm -ql openstack-quantum | grep "$QUANTUM_CONF_FILENAME"`
+    local nova_conf=`rpm -ql openstack-nova-common | grep "/nova.conf"`
     local quantum_conf_dir=`dirname $quantum_conf`
     local quantum_conf_orig="$quantum_conf.orig"
     local dhcp_conf=`rpm -ql openstack-quantum | grep "$DHCP_AGENT_CONF_FILENAME"`
@@ -126,7 +127,8 @@ function PatchQuantum() {
     iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
-
+    iniset $nova_conf DEFAULT security_group_api nova
+    
     echo "Patching quantum files"
     local basequantum_install_path=`python -c "import quantum; print quantum.__path__[0]"`
     cp -R "$DOWNLOAD_DIR/neutron-grizzly-stable/quantum/plugins/bigswitch" "$basequantum_install_path/plugins/"
@@ -144,6 +146,9 @@ function PatchQuantum() {
     echo "To revert this patch:"
     echo "mv $quantum_conf_orig $quantum_conf; mv $dhcp_conf_orig $dhcp_conf; $undocommand"
     rm -rf $DOWNLOAD_DIR
+    /etc/init.d/quantum-openvswitch-agent stop ||:
+    chkconfig quantum-openvswitch-agent off
+    /etc/init.d/openstack-nova-api restart ||:
 }
 
 
