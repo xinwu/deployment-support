@@ -209,6 +209,14 @@ EOF
     rm -rf $DOWNLOAD_DIR
 }
 
+function SetOVSController() {
+    OVSCONTROLLERSTRING=""
+    splitstring=`echo $RESTPROXY_CONTROLLER | sed -n 1'p' | tr ',' '\n'`
+    for word in $splitstring; do
+        OVSCONTROLLERSTRING="$OVSCONTROLLERSTRING tcp:$word"
+    done
+    ovs-vsctl set-controller br-int $OVSCONTROLLERSTRING
+}
 # Prints "message" and exits
 # die "message"
 function die() {
@@ -236,6 +244,7 @@ fi
 SetupDB
 InstallBigHorizon
 PatchQuantum
+SetOVSController
 echo "Done patching services. Restarting services..."
 /etc/init.d/quantum-server restart
 /etc/init.d/httpd restart
