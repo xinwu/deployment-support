@@ -121,7 +121,6 @@ function PatchQuantum() {
     local plugin_conf_file="$quantum_conf_bigswitch_plugins_dir/restproxy.ini"
     iniset $quantum_conf DEFAULT core_plugin $Q_PLUGIN_CLASS
     iniset $quantum_conf DEFAULT allow_overlapping_ips False
-    iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
     iniset $plugin_conf_file DATABASE sql_connection "mysql://$DB_PLUGIN_USER:$DB_PLUGIN_PASS@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
     iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
