@@ -173,7 +173,8 @@ function InstallBigHorizon() {
     mkdir -p /usr/lib/bigswitch/static
     cp -R $DOWNLOAD_DIR/horizon-grizzly-router_rules/* /usr/lib/bigswitch
     cp "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/"
-    ln -s /usr/share/openstack-dashboard/static /usr/lib/bigswitch/static ||:
+    rm -rf /usr/lib/bigswitch/static ||:
+    ln -s `rpm -ql openstack-dashboard | grep local_settings.py | xargs dirname`/../../static /usr/lib/bigswitch/static ||:
     sed -i "s/LOGIN_URL='\/dashboard\/auth\/login\/'/LOGIN_URL='\/bigdashboard\/auth\/login\/'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
     sed -i "s/LOGIN_REDIRECT_URL='\/dashboard'/LOGIN_REDIRECT_URL='\/bigdashboard'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
 
