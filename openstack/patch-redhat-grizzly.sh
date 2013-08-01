@@ -116,10 +116,15 @@ function PatchQuantum() {
     then
        cp $dhcp_conf $dhcp_conf_orig
     fi
+    if [ ! -f "$quantum_conf_dir/plugin.ini.orig" ];
+    then
+       cp "$quantum_conf_dir/plugin.ini" "$quantum_conf_dir/plugin.ini.orig"
+    fi
     local quantum_conf_plugins_dir="$quantum_conf_dir/plugins"
     local quantum_conf_bigswitch_plugins_dir="$quantum_conf_plugins_dir/$PLUGIN_NAME"
     mkdir -p $quantum_conf_bigswitch_plugins_dir
-    local plugin_conf_file="$quantum_conf_bigswitch_plugins_dir/restproxy.ini"
+    #local plugin_conf_file="$quantum_conf_bigswitch_plugins_dir/restproxy.ini"
+    local plugin_conf_file="$quantum_conf_dir/plugin.ini"
     iniset $quantum_conf DEFAULT core_plugin $Q_PLUGIN_CLASS
     iniset $quantum_conf DEFAULT allow_overlapping_ips False
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
