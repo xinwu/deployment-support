@@ -153,7 +153,6 @@ function PatchQuantum() {
     rm -rf $DOWNLOAD_DIR
     /etc/init.d/quantum-openvswitch-agent stop ||:
     chkconfig quantum-openvswitch-agent off
-    /etc/init.d/openstack-nova-api restart ||:
 }
 
 
@@ -257,5 +256,7 @@ InstallBigHorizon
 PatchQuantum
 SetOVSController
 echo "Done patching services. Restarting services..."
-/etc/init.d/quantum-server restart
-/etc/init.d/httpd restart
+/etc/init.d/quantum-server restart ||:
+/etc/init.d/httpd restart ||:
+/etc/init.d/openstack-nova-api restart ||:
+/etc/init.d/openstack-nova-compute restart ||:
