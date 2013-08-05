@@ -153,7 +153,13 @@ function PatchQuantum() {
     echo "mv $quantum_conf_orig $quantum_conf; mv $dhcp_conf_orig $dhcp_conf; $undocommand"
     rm -rf $DOWNLOAD_DIR
     /etc/init.d/quantum-openvswitch-agent stop ||:
+    /etc/init.d/quantum-l3-agent stop ||:
+    /etc/init.d/quantum-metadata-agent stop ||:
+    /etc/init.d/quantum-lbaas-agent stop ||:
     chkconfig quantum-openvswitch-agent off
+    chkconfig quantum-l3-agent off
+    chkconfig quantum-metadata-agent off
+    chkconfig quantum-lbaas-agent off
 }
 
 
@@ -258,6 +264,7 @@ PatchQuantum
 SetOVSController
 echo "Done patching services. Restarting services..."
 /etc/init.d/quantum-server restart ||:
+/etc/init.d/quantum-dhcp-agent restart ||:
 /etc/init.d/httpd restart ||:
 /etc/init.d/openstack-nova-api restart ||:
 /etc/init.d/openstack-nova-compute restart ||:
