@@ -134,6 +134,7 @@ function PatchQuantum() {
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
     iniset $nova_conf DEFAULT security_group_api nova
+    iniset $nova_conf DEFAULT firewall_driver nova.virt.libvirt.firewall.IptablesFirewallDriver
     
     echo "Patching quantum files"
     local basequantum_install_path=`python -c "import quantum; print quantum.__path__[0]"`
