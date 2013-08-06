@@ -161,6 +161,8 @@ function PatchQuantum() {
     chkconfig quantum-l3-agent off
     chkconfig quantum-metadata-agent off
     chkconfig quantum-lbaas-agent off
+    iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited
+    sed -i 's/-A FORWARD -j REJECT --reject-with icmp-host-prohibited/# Commented out by BigSwitch script\n#-A FORWARD -j REJECT --reject-with icmp-host-prohibited/g' /etc/sysconfig/iptables
 }
 
 
