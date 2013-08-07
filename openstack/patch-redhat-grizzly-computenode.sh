@@ -68,6 +68,8 @@ function PatchNova() {
     
     iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited ||:
     sed -i 's/-A FORWARD -j REJECT --reject-with icmp-host-prohibited/# Commented out by BigSwitch script\n#-A FORWARD -j REJECT --reject-with icmp-host-prohibited/g' /etc/sysconfig/iptables
+    chkconfig quantum-openvswitch-agent off
+    /etc/init.d/quantum-openvswitch-agent stop ||:
 }
 
 
