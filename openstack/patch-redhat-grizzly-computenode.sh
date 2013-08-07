@@ -65,7 +65,8 @@ function PatchNova() {
     local nova_conf=`rpm -ql openstack-nova-common | grep "/nova.conf"`
     iniset $nova_conf DEFAULT security_group_api nova
     iniset $nova_conf DEFAULT firewall_driver nova.virt.libvirt.firewall.IptablesFirewallDriver
-    
+    iniset $nova_conf DEFAULT service_quantum_metadata_proxy False
+ 
     iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited ||:
     sed -i 's/-A FORWARD -j REJECT --reject-with icmp-host-prohibited/# Commented out by BigSwitch script\n#-A FORWARD -j REJECT --reject-with icmp-host-prohibited/g' /etc/sysconfig/iptables
     chkconfig quantum-openvswitch-agent off
