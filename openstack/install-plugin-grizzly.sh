@@ -301,9 +301,9 @@ function InstallHorizonRouterRuleSupportOnUbuntu() {
                                   'openstack_dashboard/dashboards/project/routers/extensions/routerrules/tabs.py'
                                   'openstack_dashboard/dashboards/project/routers/extensions/routerrules/views.py'
                                   'openstack_dashboard/dashboards/project/routers/templates/routers/detail.html'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/_create.html'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/create.html'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/grid.html'
+                                  'openstack_dashboard/dashboards/project/routers/templates/routers/extensions/routerrules/_create.html'
+                                  'openstack_dashboard/dashboards/project/routers/templates/routers/extensions/routerrules/create.html'
+                                  'openstack_dashboard/dashboards/project/routers/templates/routers/extensions/routerrules/grid.html'
                                   'openstack_dashboard/dashboards/project/instances/tables.py')
     local horizon_install_path=`dpkg -L openstack-dashboard | grep "openstack_dashboard/dashboards/project/__init__.py" | xargs dirname | awk -F'openstack_dashboard/dashboards/' '{ print $1 }'`
     if [ ! -d "$horizon_install_path/openstack_dashboard" ]; then
