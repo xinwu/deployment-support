@@ -10,7 +10,7 @@
 # @date: January 27 2013
 #
 # See usage below:
-USAGE="$0 db_user db_password bsn-conotroller-ip:port[,bsn-controller-ip:port]* <interface-type ('ovs' or 'ivs')> [<db_ip> <db_port>]"
+USAGE="$0 db_user db_password bsn-conotroller-ip:port[,bsn-controller-ip:port]* [interface-type ('ovs' or 'ivs')] [<db_ip> <db_port>]"
 
 set -e
 XTRACE=$(set +o | grep xtrace)
