@@ -8,7 +8,7 @@
 # @date: July 20, 2013
 #
 # See usage below:
-USAGE="$0 <comma-separated-list-of-conotroller:port>"
+USAGE="$0 bsn-conotroller-ip:port[,bsn-controller-ip:port]*"
 
 set -e
 XTRACE=$(set +o | grep xtrace)
