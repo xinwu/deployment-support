@@ -165,6 +165,23 @@ function PatchQuantum() {
     chkconfig quantum-lbaas-agent off
     iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited ||:
     sed -i 's/-A FORWARD -j REJECT --reject-with icmp-host-prohibited/# Commented out by BigSwitch script\n#-A FORWARD -j REJECT --reject-with icmp-host-prohibited/g' /etc/sysconfig/iptables
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+    sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/g' /etc/sysctl.conf
+    ip addr add 169.254.169.254/32 scope link dev lo ||:
+    INTCONF=$(cat <<EOF
+      ISALIAS=yes
+      DEVICE=lo:0
+      ONBOOT=yes
+      BOOTPROTO=none
+      IPADDR=169.254.169.254
+      NETMASK=255.255.255.255
+EOF
+)
+    echo "$INTCONF" > /etc/sysconfig/network-scripts/ifcfg-lo:0
+    ln /etc/sysconfig/network-scripts/ifcfg-lo:0 /etc/sysconfig/networking/devices/ifcfg-lo:0 ||:
+    ln /etc/sysconfig/network-scripts/ifcfg-lo:0 /etc/sysconfig/networking/profiles/default/ifcfg-lo:0 ||:
+    iptables -t nat -A PREROUTING -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 169.254.169.254:8775
+    sed -i 's/-A PREROUTING -j nova-api-PREROUTING/-A PREROUTING -j nova-api-PREROUTING\n-A PREROUTING -d 169.254.169.254\/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 169.254.169.254:8775/g' /etc/sysconfig/iptables
 }
 
 
