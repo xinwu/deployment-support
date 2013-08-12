@@ -234,7 +234,7 @@ function SetOVSController() {
     OVSCONTROLLERSTRING=""
     splitstring=`echo $RESTPROXY_CONTROLLER | sed -n 1'p' | tr ',' '\n'`
     for word in $splitstring; do
-        CONTROLLERIP=`echo "$RESTPROXY_CONTROLLER" | awk -F':' '{ print $1 }'`
+        CONTROLLERIP=`echo "$word" | awk -F':' '{ print $1 }'`
         OVSCONTROLLERSTRING="$OVSCONTROLLERSTRING tcp:$CONTROLLERIP:6633"
     done
     ovs-vsctl set-controller br-int $OVSCONTROLLERSTRING
