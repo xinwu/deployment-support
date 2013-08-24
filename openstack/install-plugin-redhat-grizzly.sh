@@ -165,6 +165,8 @@ function PatchQuantum() {
     chkconfig quantum-lbaas-agent off
     iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited ||:
     sed -i 's/-A FORWARD -j REJECT --reject-with icmp-host-prohibited/# Commented out by BigSwitch script\n#-A FORWARD -j REJECT --reject-with icmp-host-prohibited/g' /etc/sysconfig/iptables
+    iptables -D INPUT -j REJECT --reject-with icmp-host-prohibited ||:
+    sed -i 's/-A INPUT -j REJECT --reject-with icmp-host-prohibited/# Commented out by BigSwitch script\n#-A INPUT -j REJECT --reject-with icmp-host-prohibited/g' /etc/sysconfig/iptables
     echo 1 > /proc/sys/net/ipv4/ip_forward
     sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/g' /etc/sysctl.conf
     ip addr add 169.254.169.254/32 scope link dev lo ||:
