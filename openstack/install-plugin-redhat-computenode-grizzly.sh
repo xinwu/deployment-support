@@ -10,9 +10,12 @@
 # See usage below:
 USAGE="$0 bsn-conotroller-ip:port[,bsn-controller-ip:port]*"
 
+DATE=$(date +"%Y%m%d%H%M")
+exec >  >(tee -a patchlog-$DATE.log | grep -v '^+')
+exec 2> >(tee -a patchlog-$DATE.log | grep -v '^+' >&2)
+trap "sleep 1" exit
+set -x
 set -e
-XTRACE=$(set +o | grep xtrace)
-set +o xtrace
 
 umask 022
 
@@ -88,7 +91,6 @@ function SetOVSController() {
 # die "message"
 function die() {
     local exitcode=$?
-    set +o xtrace
     echo $@
     exit $exitcode
 }
