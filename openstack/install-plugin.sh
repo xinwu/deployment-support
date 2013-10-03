@@ -264,6 +264,7 @@ function InstallPluginOnUbuntu() {
     iniset $quantum_conf DEFAULT core_plugin $Q_PLUGIN_CLASS
     iniset $quantum_conf DEFAULT allow_overlapping_ips False
     iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
+    iniset $quantum_conf DEFAULT force_gateway_on_subnet True
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
     iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
     iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
