@@ -38,6 +38,7 @@ PLUGIN_NAME="bigswitch"
 Q_LOCK_PATH='/run/lock/quantum'
 DB_PLUGIN_USER=quantumUser
 DB_PLUGIN_PASS="$RANDOM$RANDOM"
+DHCP_LEASE_TIME=43200
 
 # Gracefully cp only if source file/dir exists
 # cp_it source destination
@@ -132,12 +133,14 @@ function PatchQuantum() {
     iniset $quantum_conf DEFAULT allow_overlapping_ips False
     iniset $quantum_conf DEFAULT ovs_use_veth False
     iniset $quantum_conf DEFAULT force_gateway_on_subnet True
+    iniset $quantum_conf DEFAULT dhcp_lease_duration $DHCP_LEASE_TIME
     echo "" > $plugin_conf_file
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
     iniset $plugin_conf_file DATABASE sql_connection "mysql://$DB_PLUGIN_USER:$DB_PLUGIN_PASS@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
     iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
+    iniset $dhcp_conf DEFAULT dhcp_lease_time $DHCP_LEASE_TIME
     iniset $nova_conf DEFAULT security_group_api nova
     iniset $nova_conf DEFAULT firewall_driver nova.virt.libvirt.firewall.IptablesFirewallDriver
     iniset $nova_conf DEFAULT service_quantum_metadata_proxy False
