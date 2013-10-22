@@ -49,7 +49,7 @@ fi
   # download OVS
   mkdir ${HOME}/ovs || :
   cd ${HOME}/ovs
-  BIGSWITCH_OVS_PATH='https://github.com/bigswitch/deployment-support/raw/master/ovs'
+  BIGSWITCH_OVS_PATH='https://github.com/bigswitch/deployment-support/raw/fat-tire-plus/ovs'
   for i in \
     openvswitch-brcompat_1.9.0-1bsn10_amd64.deb \
     openvswitch-common_1.9.0-1bsn10_amd64.deb \
