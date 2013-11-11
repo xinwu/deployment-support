@@ -31,7 +31,7 @@ TEMP_DIR='/tmp/bsn'
 Q_DB_NAME='neutron'
 PLUGIN_URL='https://github.com/bigswitch/quantum/archive/havana/stable.tar.gz'
 PLUGIN_TAR='bsn.tar.gz'
-HORIZON_REPO_BASE='https://raw.github.com/bigswitch/horizon/grizzly/router_rules/'
+HORIZON_REPO_BASE='https://raw.github.com/bigswitch/horizon/stable/havana_routerrules/'
 TEMP_PLUGIN_PATH='/neutron-master/neutron/plugins/bigswitch'
 TEMP_PLUGIN_CONF_PATH='/neutron-master/etc/neutron/plugins/bigswitch'
 Q_PLUGIN_CLASS="neutron.plugins.bigswitch.plugin.NeutronRestProxyV2"
@@ -253,7 +253,7 @@ function InstallPluginOnUbuntu() {
     do
         undocommand="$undocommand mv '$basequantum_install_path/$to_patch.orig' '$basequantum_install_path/$to_patch';"
         mv "$basequantum_install_path/$to_patch" "$basequantum_install_path/$to_patch.orig"
-        cp_it "$DOWNLOAD_DIR/neutron-grizzly-stable/neutron/$to_patch" "$basequantum_install_path/$to_patch"
+        cp_it "$DOWNLOAD_DIR/neutron-havana-stable/neutron/$to_patch" "$basequantum_install_path/$to_patch"
     done
 
     echo "Plugin conf file: $plugin_conf_file"
