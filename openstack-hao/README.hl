@@ -1,0 +1,5 @@
+This directory contains the OpenStack deployment scripts written by Hao Li.
+Eventually they should all be moved into "openstack" directory, when the
+scripts have been completed and tested.
+
+- Hao
