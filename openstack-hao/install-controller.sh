@@ -230,7 +230,8 @@ verify_glance() {
 install_nova() {
     apt-get -y install nova-novncproxy novnc nova-api \
         nova-ajax-console-proxy nova-cert nova-conductor \
-        nova-consoleauth nova-doc nova-scheduler
+        nova-consoleauth nova-doc nova-scheduler \
+        python-novaclient
 
     if ! egrep -qs '^\[database\]' /etc/nova/nova.conf; then
         cat >> /etc/nova/nova.conf <<EOF
