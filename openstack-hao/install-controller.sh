@@ -16,6 +16,13 @@ if [ $(id -u) != 0 ]; then
    exit 1
 fi
 
+if [ -z "$HOME" ]; then
+    # We must be running in upstart which doesn't have a user's environment.
+    # Manually set HOME which is needed by mysql.
+    export HOME=/root
+fi
+
+
 # Definitions that can be customized per installation
 
 # This hostname should resolve to the IP of the interface on management
