@@ -304,6 +304,11 @@ install_horizon() {
     # Horizon to use role "_member_" instead of "Member".
     sed -i 's/Member/_member_/' /etc/openstack-dashboard/local_settings.py
 
+    # FIXME: Automatic redirect http://host/ to http://host/horizon/
+    # cat > /var/www/index.html <<EOF
+    # <html><head><meta http-equiv="refresh" content="0; URL=http://$HOSTNAME_CONTROLLER/horizon/"></head></html>
+    # EOF
+
     service apache2 restart
 }
 
