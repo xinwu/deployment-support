@@ -299,6 +299,11 @@ install_horizon() {
     apt-get -y remove --purge openstack-dashboard-ubuntu-theme
     a2enmod wsgi
     a2enconf openstack-dashboard
+
+    # Fix bug https://bugzilla.redhat.com/show_bug.cgi?id=888516 by telling
+    # Horizon to use role "_member_" instead of "Member".
+    sed -i 's/Member/_member_/' /etc/openstack-dashboard/local_settings.py
+
     service apache2 restart
 }
 
