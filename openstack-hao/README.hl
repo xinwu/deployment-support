@@ -2,4 +2,103 @@ This directory contains the OpenStack deployment scripts written by Hao Li.
 Eventually they should all be moved into "openstack" directory, when the
 scripts have been completed and tested.
 
-- Hao
+How to use these scripts to automatically deploy OpenStack:
+
+1. Topology
+
+Assuming Dell server for router.
+
+Assuming Dell servers for compute node. Why this matters: iDRAC, IPMI, 
+onboard network interface is named em1, em2 by Ubuntu 13.10.
+
+OpenStack management using D-Link 1Gi L2 switch.
+OpenStack data using LB9 for ToR (leaf), LY2 for aggregation (spine).
+
+2. Preparation
+
+2.1. Wire the servers and switches following topology above.
+
+Router (a Dell server): 4 interfaces.
+- iDRAC goes to PROD.
+- PROD side network goes to PROD. Ask Hao to assign a subnet and set up a static route for this testbed.
+- OpenStack management goes to D-Link.
+- OpenStack data goes to LB9.
+
+OpenStack controller (a Dell server): 3 interfaces.
+- iDRAC goes to D-Link.
+- OpenStack management goes to D-Link.
+- OpenStack data goes to LB9.
+
+OpenStack compute node (Dell servers): 3 interfaces.
+- iDRAC goes to D-Link.
+- OpenStack management goes to D-Link.
+- OpenStack data goes to LB9.
+
+- LB9 uplinks to LY2.
+- LB9 and LY2 management interface go to D-Link.
+
+
+2.2. Router setup:
+
+- Get a static IP for the router iDRAC interface on PROD from Hao. Setup iDRAC.
+
+- Install Ubuntu 13.10 using PXE from the PROD network.  Manually change the
+PROD interface to use static IP. Manually add two more interfaces with static
+IP. They are the gateways for the OpenStack management network and OpenStack
+data network.
+
+- Enable IP forwarding. No NAT or any firewall rules.
+
+- Install dnsmasq. Configure it.
+  - DHCP running on the two OpenStack interfaces ONLY.
+  - Assign fixed IP based on MAC for every interface on management network.
+  - Provide hostname <-> IP resolution. Forward to 10.192.3.1 for any non-testbed name or address.
+  - Point PXE bootfile to neutron.bigswitch.com.
+
+- I can automate this step as well, if necessary.
+
+2.3. OpenStack controller and compute node preparation:
+
+- Hook up keyboard and monitor.
+- Boot up machine. Ctrl-E enter iDRAC Configuration Utility.
+  - IPMI Over LAN: On
+  - LAN Parameters:
+    - Take down MAC Address (take a photo with your phone)
+    - IPv4 Address Source: DHCP
+    - DNS Servers from DHCP: On
+- F11 enter System Configuration. 
+  - Set first boot device to netboot.
+  - Take down MAC address of onboard NIC cards.
+
+- Update dnsmasq config on router.
+- Rest iDRAC and make sure their IPs can be pingged.
+
+
+3. Installation.
+
+3.1. Install OpenStack controller.
+
+- Reset the OpenStack controller. At PXE boot menu, choose saucy-controller.
+Wait for ~15 minutes and everything should be installed.
+
+- While waiting, you can do following to make sure everything goes as expected:
+  - Watch the console to make sure there is no surprise.
+  - From the router, ping the iDRAC IP for the OpenStack controller. 
+    If no response, check and router dnsmasq configuration, cabling, /var/log/syslog, etc.
+  - From the router, ping the management interface IP for the OpenStack controller.
+  - After the OpenStack controller reboots, ssh into it (or login from console) using bsn/bsn
+    and do "sudo tail -f /root/install-openstack.log" to monitor the OpenStack package
+    installtion progress.
+
+- Verify that http://<controller_ip>/horizon/ is up running.  Don't proceed further until
+you get this done.
+
+3.2. Install OpenStack compute node.
+
+- Reset the OpenStack compute node. At PXE boot menu, choose saucy-compute.
+Rest is same as the process for OpenStack controller install.
+
+- Verify http://<controller_ip>/horizon/. Make sure "Hypervisors" show the node added.
+
+3.3. Networking.
+
