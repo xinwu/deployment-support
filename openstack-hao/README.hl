@@ -54,6 +54,9 @@ data network.
   - Assign fixed IP based on MAC for every interface on management network.
   - Provide hostname <-> IP resolution. Forward to 10.192.3.1 for any non-testbed name or address.
   - Point PXE bootfile to neutron.bigswitch.com.
+  - Sample files are under dnsmasq directory. "ps -ef|fgrep dnsmasq" should
+    show something like this:
+    /usr/sbin/dnsmasq -x /var/run/dnsmasq/dnsmasq.pid -u dnsmasq -r /var/run/dnsmasq/resolv.conf -7 /etc/dnsmasq.d,.dpkg-dist,.dpkg-old,.dpkg-new
 
 - I can automate this step as well, if necessary.
 

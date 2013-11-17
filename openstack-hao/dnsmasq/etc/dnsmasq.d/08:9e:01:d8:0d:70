@@ -1,0 +1,2 @@
+dhcp-host=08:9e:01:d8:0d:70,set:hos-spine 
+dhcp-boot=tag:hos-spine,SWI=http://10.203.0.1/pandora/hos-spine-swiimg

@@ -1,0 +1,2 @@
+dhcp-host=08:9e:01:ce:c5:0b,set:hos-leaf-1 
+dhcp-boot=tag:hos-leaf-1,SWI=http://10.203.0.1/pandora/hos-leaf-1-swiimg
