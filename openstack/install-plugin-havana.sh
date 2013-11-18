@@ -361,7 +361,7 @@ GetDistro
 
 
 # Error out if not on an explicitly supported distro,
-if [[ ! ${DISTRO} =~ (oneiric|precise|quantal|raring|f16|f17) ]]; then
+if [[ ! ${DISTRO} =~ (saucy|oneiric|precise|quantal|raring|f16|f17) ]]; then
     echo "ERROR: $DISTRO distrubution is not supported"
     exit 1
 else
