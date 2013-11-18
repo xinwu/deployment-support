@@ -267,9 +267,9 @@ function InstallPluginOnUbuntu() {
     iniset $quantum_conf DEFAULT lock_path $Q_LOCK_PATH
     iniset $quantum_conf DEFAULT force_gateway_on_subnet True
     iniset $quantum_conf DEFAULT dhcp_lease_duration $DHCP_LEASE_TIME
-    iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
-    iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
-    iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
+    iniset $plugin_conf_file restproxy servers $RESTPROXY_CONTROLLER
+    iniset $plugin_conf_file database sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
+    iniset $plugin_conf_file nova vif_type $BSN_VIF_TYPE
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
     iniset $dhcp_conf DEFAULT dhcp_lease_time $DHCP_LEASE_TIME
