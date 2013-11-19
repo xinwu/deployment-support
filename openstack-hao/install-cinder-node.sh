@@ -34,14 +34,25 @@ install_extra_packages() {
 }
 
 prep_lvm() {
-    pvcreate -f /dev/sdb
     if ! vgdisplay cinder-volumes; then
+        pvcreate -ff /dev/sdb
         vgcreate cinder-volumes /dev/sdb
     fi
 }
 
 install_cinder_node() {
     cat > /etc/cinder/cinder.conf <<EOF
+[DEFAULT]
+rootwrap_config = /etc/cinder/rootwrap.conf
+api_paste_confg = /etc/cinder/api-paste.ini
+iscsi_helper = tgtadm
+volume_name_template = volume-%s
+volume_group = cinder-volumes
+verbose = True
+auth_strategy = keystone
+state_path = /var/lib/cinder
+lock_path = /var/lock/cinder
+volumes_dir = /var/lib/cinder/volumes
 rpc_backend = cinder.openstack.common.rpc.impl_kombu
 rabbit_host = $HOSTNAME_CONTROLLER
 rabbit_port = 5672
@@ -56,8 +67,8 @@ EOF
 [filter:authtoken]
 paste.filter_factory=keystoneclient.middleware.auth_token:filter_factory
 auth_host=$HOSTNAME_CONTROLLER
-auth_port = 35357
-auth_protocol = http
+auth_port=35357
+auth_protocol=http
 admin_tenant_name=service
 admin_user=cinder
 admin_password=$CINDER_ADMIN_PASSWORD
