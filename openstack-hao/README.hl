@@ -45,9 +45,15 @@ OpenStack compute node (Dell servers): 3 interfaces.
 - Install Ubuntu 13.10 using PXE from the PROD network.  Manually change the
 PROD interface to use static IP. Manually add two more interfaces with static
 IP. They are the gateways for the OpenStack management network and OpenStack
-data network.
+data network. Files that need to be changed are:
 
-- Enable IP forwarding. No NAT or any firewall rules.
+    /etc/hostname
+    /etc/hosts
+    /etc/network/interfaces
+
+Restart networking after change.
+
+- Enable IP forwarding in /etc/sysctl.conf. Restart procps after change.
 
 - Install dnsmasq. Configure it.
   - DHCP running on the two OpenStack interfaces ONLY.
@@ -55,8 +61,10 @@ data network.
   - Provide hostname <-> IP resolution. Forward to 10.192.3.1 for any non-testbed name or address.
   - Point PXE bootfile to neutron.bigswitch.com.
   - Sample files are under dnsmasq directory. "ps -ef|fgrep dnsmasq" should
-    show something like this:
-    /usr/sbin/dnsmasq -x /var/run/dnsmasq/dnsmasq.pid -u dnsmasq -r /var/run/dnsmasq/resolv.conf -7 /etc/dnsmasq.d,.dpkg-dist,.dpkg-old,.dpkg-new
+  - Files to be modified are:
+        /etc/dnsmasq.conf
+        /etc/dnsmasq_hosts
+  - Restart dnsmasq after change.
 
 - I can automate this step as well, if necessary.
 
@@ -104,4 +112,29 @@ Rest is same as the process for OpenStack controller install.
 - Verify http://<controller_ip>/horizon/. Make sure "Hypervisors" show the node added.
 
 3.3. Networking.
+
+
+
+
+
+
+
+===========================================================================
+
+Common problems and solutions:
+
+1. Ubuntu 13.10 preseed file assumes /dev/sda as the first hard drive which
+the OS will be installed on.
+
+For Dell machines, if iDRAC floppy/cdrom is in "Attach" state they are going
+to take over /dev/sda and /dev/sdb, causing the installation to fail.
+
+Solution is to log into Dell iDRAC from a browser, click "System" on left,
+then "Console/Media" on top, then "Configuration" under "Console/Media".
+Under "Virtual Media", change the Value of Status to "Detach" and click
+"Apply".
+
+2. Auto-selection of network interface to preseed from is done with a kernel
+option to the cobbler profile. Don't bother setting the value in the seed file
+itself as that's completely ignored whatever you set it to.
 
