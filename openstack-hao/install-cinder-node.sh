@@ -29,6 +29,10 @@ CINDER_ADMIN_PASSWORD=CINDER_PASS
 
 # http://docs.openstack.org/havana/install-guide/install/apt/content/cinder-node.html
 
+install_extra_packages() {
+    apt-get -y install cinder-volume lvm2
+}
+
 prep_lvm() {
     pvcreate -f /dev/sdb
     if ! vgdisplay cinder-volumes; then
@@ -37,8 +41,6 @@ prep_lvm() {
 }
 
 install_cinder_node() {
-    apt-get -y install cinder-volume lvm2
-
     cat > /etc/cinder/cinder.conf <<EOF
 rpc_backend = cinder.openstack.common.rpc.impl_kombu
 rabbit_host = $HOSTNAME_CONTROLLER
@@ -67,5 +69,6 @@ EOF
 
 # Execution starts here
 
+install_extra_packages
 prep_lvm
 install_cinder_node
