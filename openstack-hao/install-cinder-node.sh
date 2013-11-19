@@ -29,7 +29,7 @@ CINDER_ADMIN_PASSWORD=CINDER_PASS
 
 # http://docs.openstack.org/havana/install-guide/install/apt/content/cinder-node.html
 install_cinder_node() {
-    apt-get -y install cinder-api cinder-scheduler
+    apt-get -y install cinder-volume lvm2
     if ! egrep -qs '^\[database\]' /etc/cinder/cinder.conf; then
         cat >> /etc/cinder/cinder.conf <<EOF
 rpc_backend = cinder.openstack.common.rpc.impl_kombu
