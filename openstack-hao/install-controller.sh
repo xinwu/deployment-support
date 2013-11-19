@@ -46,6 +46,9 @@ GLANCE_ADMIN_EMAIL=hao.li@bigswitch.com
 NOVA_DB_PASSWORD=NOVA_DBPASS
 NOVA_ADMIN_PASSWORD=NOVA_PASS
 NOVA_ADMIN_EMAIL=hao.li@bigswitch.com
+CINDER_DB_PASSWORD=CINDER_DBPASS
+CINDER_ADMIN_PASSWORD=CINDER_PASS
+CINDER_ADMIN_EMAIL=hao.li@bigswitch.com
 
 
 configure_network() {
@@ -312,6 +315,63 @@ install_horizon() {
     service apache2 restart
 }
 
+install_cinder() {
+    apt-get -y install cinder-api cinder-scheduler
+    if ! egrep -qs '^\[database\]' /etc/cinder/cinder.conf; then
+        cat >> /etc/cinder/cinder.conf <<EOF
+rpc_backend = cinder.openstack.common.rpc.impl_kombu
+rabbit_host = $HOSTNAME_CONTROLLER
+rabbit_port = 5672
+rabbit_userid = guest
+rabbit_password = guest
+
+[database]
+connection = mysql://cinder:$CINDER_DB_PASSWORD@$HOSTNAME_CONTROLLER/cinder
+EOF
+    fi
+    rm -f /var/lib/cinder/cinder.sqlite
+    echo "
+CREATE DATABASE IF NOT EXISTS cinder;
+GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'localhost' IDENTIFIED BY '$CINDER_DB_PASSWORD';
+GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'%' IDENTIFIED BY '$CINDER_DB_PASSWORD';
+" | mysql -u root
+    cinder-manage db sync
+
+    if ! keystone user-get cinder; then
+        keystone user-create --name=cinder --pass=$CINDER_ADMIN_PASSWORD --email=$CINDER_ADMIN_EMAIL
+        keystone user-role-add --user=cinder --tenant=service --role=admin
+    fi
+
+    sed -i \
+        -e "s|^auth_host = .*$|auth_host = $HOSTNAME_CONTROLLER|" \
+        -e "s|%SERVICE_TENANT_NAME%|service|" \
+        -e "s|%SERVICE_USER%|cinder|" \
+        -e "s|%SERVICE_PASSWORD%|$CINDER_ADMIN_PASSWORD|" \
+        /etc/cinder/api-paste.ini
+
+    if ! keystone service-get cinder; then
+        keystone service-create --name=cinder --type=volume --description="Cinder Volume Service"
+        id=$(keystone service-get cinder | sed -n 's/^| *id *| \([0-9a-f]\+\) |$/\1/p')
+        keystone endpoint-create \
+            --service-id=$id \
+            --publicurl=http://$HOSTNAME_CONTROLLER:8776/v1/%\(tenant_id\)s \
+            --internalurl=http://$HOSTNAME_CONTROLLER:8776/v1/%\(tenant_id\)s \
+            --adminurl=http://$HOSTNAME_CONTROLLER:8776/v1/%\(tenant_id\)s
+    fi
+
+    if ! keystone service-get cinderv2; then
+        keystone service-create --name=cinderv2 --type=volumev2 --description="Cinder Volume Service V2"
+        id=$(keystone service-get cinderv2 | sed -n 's/^| *id *| \([0-9a-f]\+\) |$/\1/p')
+        keystone endpoint-create \
+            --service-id=$id \
+            --publicurl=http://$HOSTNAME_CONTROLLER:8776/v2/%\(tenant_id\)s \
+            --internalurl=http://$HOSTNAME_CONTROLLER:8776/v2/%\(tenant_id\)s \
+            --adminurl=http://$HOSTNAME_CONTROLLER:8776/v2/%\(tenant_id\)s
+    fi
+
+    service cinder-scheduler restart; sleep 1
+    service cinder-api restart; sleep 1
+}
 
 # Execution starts here
 
@@ -331,3 +391,4 @@ install_glance
 verify_glance
 install_nova
 install_horizon
+install_cinder
