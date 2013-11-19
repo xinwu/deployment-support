@@ -28,6 +28,14 @@ CINDER_DB_PASSWORD=CINDER_DBPASS
 CINDER_ADMIN_PASSWORD=CINDER_PASS
 
 # http://docs.openstack.org/havana/install-guide/install/apt/content/cinder-node.html
+
+prep_lvm() {
+    pvcreate -f /dev/sdb
+    if ! vgdisplay cinder-volumes; then
+        vgcreate cinder-volumes /dev/sdb
+    fi
+}
+
 install_cinder_node() {
     apt-get -y install cinder-volume lvm2
 
@@ -59,4 +67,5 @@ EOF
 
 # Execution starts here
 
+prep_lvm
 install_cinder_node
