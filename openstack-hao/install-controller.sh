@@ -30,9 +30,12 @@ fi
 HOSTNAME_CONTROLLER=controller
 
 # The interface on openstack "internal" network.
-INTERNAL_IF=em2
-INTERNAL_IP=10.203.1.13
-INTERNAL_NETMASK=255.255.255.0
+DATA_IF=em2
+DATA_IP=10.203.1.13
+DATA_NETMASK=255.255.255.0
+
+MGMT_IF=em1
+EXT_IF=p1p1
 
 # Do NOT use any non-alphanumerical characters that require quoting in
 # passwords below. They would break this script.
@@ -49,20 +52,29 @@ NOVA_ADMIN_EMAIL=hao.li@bigswitch.com
 CINDER_DB_PASSWORD=CINDER_DBPASS
 CINDER_ADMIN_PASSWORD=CINDER_PASS
 CINDER_ADMIN_EMAIL=hao.li@bigswitch.com
+NEUTRON_DB_PASSWORD=NEUTRON_DBPASS
+NEUTRON_ADMIN_PASSWORD=NEUTRON_PASS
+NEUTRON_ADMIN_EMAIL=hao.li@bigswitch.com
 
+keep_stock_conf() {
+    CONF=$1
+    if [ ! -f $CONF.stock ]; then
+        mv $CONF $CONF.stock
+    fi
+}
 
 configure_network() {
     # FIXME: Test that $HOSTNAME_CONTROLLER is this host.
 
-    if ! ifconfig -s | egrep -qs "^$INTERNAL_IF\b"; then
+    if ! ifconfig -s | egrep -qs "^$DATA_IF\b"; then
         cat >> /etc/network/interfaces <<EOF
 # The OpenStack internal interface
-auto $INTERNAL_IF
-iface $INTERNAL_IF inet static
-address $INTERNAL_IP
-netmask $INTERNAL_NETMASK
+auto $DATA_IF
+iface $DATA_IF inet static
+address $DATA_IP
+netmask $DATA_NETMASK
 EOF
-        /sbin/ifup $INTERNAL_IF
+        /sbin/ifup $DATA_IF
     fi
 }
 
@@ -245,9 +257,9 @@ install_nova() {
 
     if ! egrep -qs '^\[database\]' /etc/nova/nova.conf; then
         cat >> /etc/nova/nova.conf <<EOF
-my_ip=$INTERNAL_IP
-vncserver_listen=$INTERNAL_IP
-vncserver_proxyclient_address=$INTERNAL_IP
+my_ip=$DATA_IP
+vncserver_listen=$DATA_IP
+vncserver_proxyclient_address=$DATA_IP
 auth_strategy=keystone
 rpc_backend=nova.rpc.impl_kombu
 rabbit_host=$HOSTNAME_CONTROLLER
@@ -293,7 +305,7 @@ GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%' IDENTIFIED BY '$NOVA_DB_PASSWORD';
     service nova-conductor restart; sleep 1
     service nova-novncproxy restart; sleep 1
 
-    # Command below will fail if $INTERNAL_IP is not up.
+    # Command below will fail if $DATA_IP is not up.
     nova image-list
 }
 
@@ -373,6 +385,111 @@ GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'%' IDENTIFIED BY '$CINDER_DB_PASSW
     service cinder-api restart; sleep 1
 }
 
+install_neutron() {
+    # FIXME: Verify that the controller host has at least 3 network interfaces:
+    # $MGMT_IF, $DATA_IF and $EXTERNAL_IF.
+
+    cat > /etc/sysctl.conf <<EOF
+net.ipv4.ip_forward=1
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+EOF
+    service procps restart; sleep 1
+
+    apt-get -y install neutron-server neutron-dhcp-agent neutron-plugin-openvswitch-agent neutron-l3-agent openvswitch-switch openvswitch-datapath-dkms
+
+    keep_stock_conf /etc/neutron/neutron.conf
+    cat > /etc/neutron/neutron.conf <<EOF
+[DEFAULT]
+state_path = /var/lib/neutron
+lock_path = $state_path/lock
+core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
+allow_overlapping_ips = False
+rabbit_host = $HOSTNAME_CONTROLLER
+rabbit_password = guest
+rabbit_userid = guest
+notification_driver = neutron.openstack.common.notifier.rpc_notifier
+[quotas]
+[agent]
+root_helper = sudo /usr/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
+[keystone_authtoken]
+auth_host = $HOSTNAME_CONTROLLER
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = neutron
+admin_password = $NEUTRON_ADMIN_PASSWORD
+signing_dir = $state_path/keystone-signing
+[database]
+connection = mysql://neutron:$NEUTRON_DB_PASSWORD@$HOSTNAME_CONTROLLER/neutron
+[service_providers]
+service_provider=LOADBALANCER:Haproxy:neutron.services.loadbalancer.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
+EOF
+
+    if ! egrep -qs "^auth_host=" /etc/neutron/api-paste.ini; then
+        sed -i "/keystoneclient\.middleware\.auth_token:filter_factory/a auth_host=$HOSTNAME_CONTROLLER\nauth_uri=http://$HOSTNAME_CONTROLLER:5000\nadmin_user=neutron\nadmin_tenant_name=service\nadmin_password=$NEUTRON_ADMIN_PASSWORD" /etc/neutron/api-paste.ini
+    fi
+
+    keep_stock_conf /etc/neutron/dhcp_agent.ini
+    cat > /etc/neutron/dhcp_agent.ini <<EOF
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+use_namespaces = False
+EOF
+
+    keep_stock_conf /etc/neutron/l3_agent.ini
+    cat > /etc/neutron/l3_agent.ini <<EOF
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+use_namespaces = False
+router_id = 0
+EOF
+
+    keep_stock_conf /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+    cat > /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini <<EOF
+[ovs]
+tenant_network_type = gre
+tunnel_id_ranges = 1:1000
+enable_tunneling = True
+[agent]
+[securitygroup]
+firewall_driver = neutron.agent.firewall.NoopFirewallDriver
+EOF
+
+    rm -f /var/lib/neutron/neutron.sqlite
+    echo "
+CREATE DATABASE IF NOT EXISTS neutron;
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'localhost' IDENTIFIED BY '$NEUTRON_DB_PASSWORD';
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY '$NEUTRON_DB_PASSWORD';
+" | mysql -u root
+
+    if ! keystone user-get neutron; then
+        keystone user-create --name=neutron --pass=$NEUTRON_ADMIN_PASSWORD --email=$NEUTRON_ADMIN_EMAIL
+        keystone user-role-add --user=neutron --tenant=service --role=admin
+    fi
+
+
+    if ! keystone service-get neutron; then
+        keystone service-create --name=neutron --type=network --description="OpenStack Networking Service"
+        id=$(keystone service-get neutron | sed -n 's/^| *id *| \([0-9a-f]\+\) |$/\1/p')
+        keystone endpoint-create \
+            --service-id=$id \
+            --publicurl=http://$HOSTNAME_CONTROLLER:9696 \
+            --internalurl=http://$HOSTNAME_CONTROLLER:9696 \
+            --adminurl=http://$HOSTNAME_CONTROLLER:9696
+    fi
+
+    ovs-vsctl add-br br-int
+    ovs-vsctl add-br br-ex
+    ovs-vsctl add-port br-ex $EXT_IF
+    # FIXME: set the newly created br-ex interface to have the IP address that formerly belonged to EXT_IF
+
+    service neutron-plugin-openvswitch-agent restart; sleep 1
+    service neutron-dhcp-agent restart; sleep 1
+    service neutron-l3-agent restart; sleep 1
+}
+
 # Execution starts here
 
 configure_network
@@ -392,3 +509,4 @@ verify_glance
 install_nova
 install_horizon
 install_cinder
+install_neutron
