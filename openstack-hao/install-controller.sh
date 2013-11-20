@@ -493,6 +493,7 @@ GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY '$NEUTRON_DB_PA
         ifconfig br-ex $EXT_IP netmask $EXT_MASK
     fi
 
+    service neutron-server restart; sleep 1
     service neutron-plugin-openvswitch-agent restart; sleep 1
     service neutron-dhcp-agent restart; sleep 1
     service neutron-l3-agent restart; sleep 1
