@@ -29,13 +29,16 @@ fi
 # network, often em1.
 HOSTNAME_CONTROLLER=controller
 
-# The interface on openstack "internal" network.
-DATA_IF=em2
-DATA_IP=10.203.1.13
-DATA_NETMASK=255.255.255.0
 
 MGMT_IF=em1
+
+DATA_IF=em2
+DATA_IP=10.203.1.13
+DATA_MASK=255.255.255.0
+
 EXT_IF=p1p1
+EXT_IP=10.192.64.35
+EXT_MASK=255.255.192.0
 
 # Do NOT use any non-alphanumerical characters that require quoting in
 # passwords below. They would break this script.
@@ -72,7 +75,7 @@ configure_network() {
 auto $DATA_IF
 iface $DATA_IF inet static
 address $DATA_IP
-netmask $DATA_NETMASK
+netmask $DATA_MASK
 EOF
         /sbin/ifup $DATA_IF
     fi
@@ -480,10 +483,15 @@ GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY '$NEUTRON_DB_PA
             --adminurl=http://$HOSTNAME_CONTROLLER:9696
     fi
 
-    ovs-vsctl add-br br-int
-    ovs-vsctl add-br br-ex
-    ovs-vsctl add-port br-ex $EXT_IF
-    # FIXME: set the newly created br-ex interface to have the IP address that formerly belonged to EXT_IF
+    if ! ovs-vsctl br-exists br-int; then
+        ovs-vsctl add-br br-int
+    fi
+    if ! ovs-vsctl br-exists br-ex; then
+        ovs-vsctl add-br br-ex
+        ovs-vsctl add-port br-ex $EXT_IF
+        # FIXME: remove IP on EXT_IF
+        ifconfig br-ex $EXT_IP netmask $EXT_MASK
+    fi
 
     service neutron-plugin-openvswitch-agent restart; sleep 1
     service neutron-dhcp-agent restart; sleep 1
