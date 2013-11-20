@@ -542,4 +542,5 @@ verify_glance
 install_nova
 install_horizon
 install_cinder
+install_cinder_node
 install_neutron
