@@ -1,0 +1,6 @@
+dhcp-host=08:9e:01:b3:0c:2a,set:hos-leaf-2 
+dhcp-boot=tag:hos-leaf-2,SWI=http://10.203.0.1/pandora/hos-leaf-2-swiimg
+dhcp-host=08:9e:01:ce:c5:0b,set:hos-leaf-1 
+dhcp-boot=tag:hos-leaf-1,SWI=http://10.203.0.1/pandora/hos-leaf-1-swiimg
+dhcp-host=08:9e:01:d8:0d:70,set:hos-spine 
+dhcp-boot=tag:hos-spine,SWI=http://10.203.0.1/pandora/hos-spine-swiimg
