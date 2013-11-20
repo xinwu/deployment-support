@@ -41,7 +41,7 @@ prep_lvm() {
 	LOOPDEV=/dev/loop2
 	FILE=/data/cinder-volumes
 
-	dd if=/dev/zero of=$FILE bs=1 count=0 seek=2G
+	dd if=/dev/zero of=$FILE bs=1 count=0 seek=100G
 	dd if=/dev/zero of=$FILE bs=512 count=1 conv=notrunc
 	losetup $LOOPDEV $FILE
 	# fdisk returns 1 even when done
