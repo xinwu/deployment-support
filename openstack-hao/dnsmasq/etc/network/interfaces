@@ -1,0 +1,27 @@
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# PROD
+auto eth0
+iface eth0 inet static
+address 10.192.64.34
+netmask 255.255.192.0
+gateway 10.192.64.1
+dns-nameservers 10.192.3.1
+dns-search bigswitch.com
+
+# 10.203 management
+auto eth1
+iface eth1 inet static
+address 10.203.0.1
+netmask 255.255.255.0
+
+# 10.203 data
+auto eth3
+iface eth3 inet static
+address 10.203.1.1
+netmask 255.255.255.0

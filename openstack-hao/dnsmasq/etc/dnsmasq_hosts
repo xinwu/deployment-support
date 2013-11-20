@@ -1,0 +1,17 @@
+10.203.0.1	hos-gw-0.bigswitch.com		hos-gw-0
+10.203.0.2	hos-spine.bigswitch.com		hos-spine
+10.203.0.3	hos-leaf-1.bigswitch.com	hos-leaf-1
+10.203.0.4	hos-leaf-2.bigswitch.com	hos-leaf-2
+10.203.0.12	nova-controller.bigswitch.com	nova-controller
+10.203.0.13	controller.bigswitch.com	controller
+10.203.0.14	compute-1.bigswitch.com		compute-1
+10.203.0.15	compute-2.bigswitch.com		compute-2
+10.203.0.16	compute-3.bigswitch.com		compute-3
+10.203.0.17	compute-4.bigswitch.com		compute-4
+
+10.203.0.112	nova-controller-idrac.bigswitch.com nova-controller-idrac
+10.203.0.113	bnc-host-idrac.bigswitch.com	bnc-host-idrac
+10.203.0.114	compute-1-idrac.bigswitch.com	compute-1-idrac
+10.203.0.115	compute-2-idrac.bigswitch.com	compute-2-idrac
+10.203.0.116	compute-3-idrac.bigswitch.com	compute-3-idrac
+10.203.0.117	compute-4-idrac.bigswitch.com	compute-4-idrac
