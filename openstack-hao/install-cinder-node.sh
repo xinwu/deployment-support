@@ -35,8 +35,19 @@ install_extra_packages() {
 
 prep_lvm() {
     if ! vgdisplay cinder-volumes; then
-        pvcreate -ff /dev/sdb
-        vgcreate cinder-volumes /dev/sdb
+        #pvcreate -ff /dev/sdb
+        #vgcreate cinder-volumes /dev/sdb
+
+	LOOPDEV=/dev/loop2
+	FILE=/data/cinder-volumes
+
+	dd if=/dev/zero of=$FILE bs=1 count=0 seek=2G
+	dd if=/dev/zero of=$FILE bs=512 count=1 conv=notrunc
+	losetup $LOOPDEV $FILE
+	# fdisk returns 1 even when done
+	printf "n\np\n1\n\n\nt\n8e\nw\n" | fdisk $LOOPDEV || :
+	pvcreate $LOOPDEV
+	vgcreate cinder-volumes $LOOPDEV
     fi
 }
 
