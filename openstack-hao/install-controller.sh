@@ -388,6 +388,30 @@ GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'%' IDENTIFIED BY '$CINDER_DB_PASSW
     service cinder-api restart; sleep 1
 }
 
+# The function below installs cinder volume on controller, which is convenient
+# but not best practice. Best pratice is to install cinder volume on dedicated
+# hardware. That's done with install_cinder_node.sh.
+install_cinder_node() {
+    apt-get -y install cinder-volume lvm2
+
+    # Prep LVM
+    LOOPDEV=/dev/loop2
+    FILE=/data/cinder-volumes
+
+    if ! vgdisplay cinder-volumes; then
+        dd if=/dev/zero of=$FILE bs=1 count=0 seek=100G
+        dd if=/dev/zero of=$FILE bs=512 count=1 conv=notrunc
+        losetup $LOOPDEV $FILE
+        # fdisk returns 1 even when done
+        printf "n\np\n1\n\n\nt\n8e\nw\n" | fdisk $LOOPDEV || :
+        pvcreate $LOOPDEV
+        vgcreate cinder-volumes $LOOPDEV
+    fi
+
+    service cinder-volume restart; sleep 1
+    service tgt restart; sleep 1
+}
+
 install_neutron() {
     # FIXME: Verify that the controller host has at least 3 network interfaces:
     # $MGMT_IF, $DATA_IF and $EXTERNAL_IF.
