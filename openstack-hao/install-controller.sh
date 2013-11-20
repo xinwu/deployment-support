@@ -405,7 +405,7 @@ EOF
     cat > /etc/neutron/neutron.conf <<EOF
 [DEFAULT]
 state_path = /var/lib/neutron
-lock_path = $state_path/lock
+lock_path = \$state_path/lock
 core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
 allow_overlapping_ips = False
 rabbit_host = $HOSTNAME_CONTROLLER
@@ -422,7 +422,7 @@ auth_protocol = http
 admin_tenant_name = service
 admin_user = neutron
 admin_password = $NEUTRON_ADMIN_PASSWORD
-signing_dir = $state_path/keystone-signing
+signing_dir = \$state_path/keystone-signing
 [database]
 connection = mysql://neutron:$NEUTRON_DB_PASSWORD@$HOSTNAME_CONTROLLER/neutron
 [service_providers]
