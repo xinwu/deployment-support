@@ -412,10 +412,64 @@ install_cinder_node() {
     service tgt restart; sleep 1
 }
 
-install_neutron() {
-    # FIXME: Verify that the controller host has at least 3 network interfaces:
-    # $MGMT_IF, $DATA_IF and $EXTERNAL_IF.
+# There are 5 parts of neutron setup, based on
+# http://docs.openstack.org/havana/install-guide/install/apt/content/neutron-install-network-node.html
+#
+# 1. MySQL and keystone setup. Done on controller.
+# 2. Install neutron and OVS plugin on dedicated network node (which does L3 routing).
+# 3. Install neutron and OVS plugin on controller (which only needs L2 config)
+# 4. Install neutron and OVS plugin on compute node (which only needs L2 config)
+# 5. Create base Neutron networks
+#
+# Steps 2, 3 and 4 are almost identical with subtle differences. It is better illustrated
+# in this table:
+#
+# ----------------------------------------------------------------------------
+# Where           neutron-server L3           L2 agents
+# ----------------------------------------------------------------------------
+# network node    -              Y            Y
+# controller      Y              -            -
+# compute node    -              -            Y
+# ----------------------------------------------------------------------------
 
+# http://docs.openstack.org/havana/install-guide/install/apt/content/neutron-install-network-node.html
+prep_neutron() {
+    rm -f /var/lib/neutron/neutron.sqlite
+    echo "
+CREATE DATABASE IF NOT EXISTS neutron;
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'localhost' IDENTIFIED BY '$NEUTRON_DB_PASSWORD';
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY '$NEUTRON_DB_PASSWORD';
+" | mysql -u root
+
+    if ! keystone user-get neutron; then
+        keystone user-create --name=neutron --pass=$NEUTRON_ADMIN_PASSWORD --email=$NEUTRON_ADMIN_EMAIL
+        keystone user-role-add --user=neutron --tenant=service --role=admin
+    fi
+
+
+    if ! keystone service-get neutron; then
+        keystone service-create --name=neutron --type=network --description="OpenStack Networking Service"
+        id=$(keystone service-get neutron | sed -n 's/^| *id *| \([0-9a-f]\+\) |$/\1/p')
+        keystone endpoint-create \
+            --service-id=$id \
+            --publicurl=http://$HOSTNAME_CONTROLLER:9696 \
+            --internalurl=http://$HOSTNAME_CONTROLLER:9696 \
+            --adminurl=http://$HOSTNAME_CONTROLLER:9696
+    fi
+}
+
+# http://docs.openstack.org/havana/install-guide/install/apt/content/neutron-install.dedicated-network-node.html
+# Ideally this should be done on a separate box, but we decide to put it on controller box.
+install_neutron_on_network_node() {
+    # FIXME: Verify that the host has at least 3 network interfaces:
+    # $MGMT_IF, $DATA_IF and $EXTERNAL_IF.
+    # That's required only on the "dedicated network node" which does L3 routing
+    # between the OpenStack DATA network and EXTERNAL network
+
+    apt-get -y install neutron-server neutron-dhcp-agent neutron-plugin-openvswitch-agent neutron-l3-agent openvswitch-switch openvswitch-datapath-dkms
+
+    # Enable packet forwarding which is required for L3 routing.
+    # Disable packet destination filtering which is required for network node and compute node.
     cat > /etc/sysctl.conf <<EOF
 net.ipv4.ip_forward=1
 net.ipv4.conf.all.rp_filter=0
@@ -423,7 +477,97 @@ net.ipv4.conf.default.rp_filter=0
 EOF
     service procps restart; sleep 1
 
-    apt-get -y install neutron-server neutron-dhcp-agent neutron-plugin-openvswitch-agent neutron-l3-agent openvswitch-switch openvswitch-datapath-dkms
+    # neutron.conf and api-paste.ini config which is common to all neutron installations
+    keep_stock_conf /etc/neutron/neutron.conf
+    cat > /etc/neutron/neutron.conf <<EOF
+[DEFAULT]
+state_path = /var/lib/neutron
+lock_path = \$state_path/lock
+core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
+allow_overlapping_ips = False
+rabbit_host = $HOSTNAME_CONTROLLER
+rabbit_password = guest
+rabbit_userid = guest
+notification_driver = neutron.openstack.common.notifier.rpc_notifier
+[quotas]
+[agent]
+root_helper = sudo /usr/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
+[keystone_authtoken]
+auth_host = $HOSTNAME_CONTROLLER
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = neutron
+admin_password = $NEUTRON_ADMIN_PASSWORD
+signing_dir = \$state_path/keystone-signing
+[database]
+connection = mysql://neutron:$NEUTRON_DB_PASSWORD@$HOSTNAME_CONTROLLER/neutron
+[service_providers]
+service_provider=LOADBALANCER:Haproxy:neutron.services.loadbalancer.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
+EOF
+
+    if ! egrep -qs "^auth_host=" /etc/neutron/api-paste.ini; then
+        sed -i "/keystoneclient\.middleware\.auth_token:filter_factory/a auth_host=$HOSTNAME_CONTROLLER\nauth_uri=http://$HOSTNAME_CONTROLLER:5000\nadmin_user=neutron\nadmin_tenant_name=service\nadmin_password=$NEUTRON_ADMIN_PASSWORD" /etc/neutron/api-paste.ini
+    fi
+
+    # OVS agent on "dedicated network node" and "compute node"
+    if ! ovs-vsctl br-exists br-int; then
+        ovs-vsctl add-br br-int
+    fi
+
+
+    # L3 routing only on "dedicated network node".
+    if ! ovs-vsctl br-exists br-ex; then
+        ovs-vsctl add-br br-ex
+        ovs-vsctl add-port br-ex $EXT_IF
+        # FIXME: remove IP on EXT_IF
+        ifconfig br-ex $EXT_IP netmask $EXT_MASK
+    fi
+
+
+    # OVS agent on "dedicated network node" and "compute node"
+
+    keep_stock_conf /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+    cat > /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini <<EOF
+[ovs]
+tenant_network_type = gre
+tunnel_id_ranges = 1:1000
+enable_tunneling = True
+integration_bridge = br-int
+tunnel_bridge = br-tun
+local_ip = $DATA_IP
+[agent]
+[securitygroup]
+firewall_driver = neutron.agent.firewall.NoopFirewallDriver
+EOF
+
+    service neutron-plugin-openvswitch-agent restart; sleep 1
+
+
+    # DHCP agent and L3 agent should only run on "dedicated network node"
+
+    keep_stock_conf /etc/neutron/dhcp_agent.ini
+    cat > /etc/neutron/dhcp_agent.ini <<EOF
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+use_namespaces = False
+EOF
+
+    keep_stock_conf /etc/neutron/l3_agent.ini
+    cat > /etc/neutron/l3_agent.ini <<EOF
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+use_namespaces = False
+router_id = 0
+EOF
+
+    service neutron-dhcp-agent restart; sleep 1
+    service neutron-l3-agent restart; sleep 1
+}
+
+install_neutron_on_controller() {
+    apt-get -y install neutron-server neutron-plugin-openvswitch-agent
 
     keep_stock_conf /etc/neutron/neutron.conf
     cat > /etc/neutron/neutron.conf <<EOF
@@ -457,70 +601,29 @@ EOF
         sed -i "/keystoneclient\.middleware\.auth_token:filter_factory/a auth_host=$HOSTNAME_CONTROLLER\nauth_uri=http://$HOSTNAME_CONTROLLER:5000\nadmin_user=neutron\nadmin_tenant_name=service\nadmin_password=$NEUTRON_ADMIN_PASSWORD" /etc/neutron/api-paste.ini
     fi
 
-    keep_stock_conf /etc/neutron/dhcp_agent.ini
-    cat > /etc/neutron/dhcp_agent.ini <<EOF
-[DEFAULT]
-interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
-use_namespaces = False
-EOF
-
-    keep_stock_conf /etc/neutron/l3_agent.ini
-    cat > /etc/neutron/l3_agent.ini <<EOF
-[DEFAULT]
-interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-use_namespaces = False
-router_id = 0
-EOF
-
+    # OVS agent
     keep_stock_conf /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
     cat > /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini <<EOF
 [ovs]
 tenant_network_type = gre
 tunnel_id_ranges = 1:1000
 enable_tunneling = True
+integration_bridge = br-int
+tunnel_bridge = br-tun
+local_ip = $DATA_IP
 [agent]
 [securitygroup]
 firewall_driver = neutron.agent.firewall.NoopFirewallDriver
 EOF
 
-    rm -f /var/lib/neutron/neutron.sqlite
-    echo "
-CREATE DATABASE IF NOT EXISTS neutron;
-GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'localhost' IDENTIFIED BY '$NEUTRON_DB_PASSWORD';
-GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY '$NEUTRON_DB_PASSWORD';
-" | mysql -u root
+    service neutron-plugin-openvswitch-agent restart; sleep 1
 
-    if ! keystone user-get neutron; then
-        keystone user-create --name=neutron --pass=$NEUTRON_ADMIN_PASSWORD --email=$NEUTRON_ADMIN_EMAIL
-        keystone user-role-add --user=neutron --tenant=service --role=admin
-    fi
-
-
-    if ! keystone service-get neutron; then
-        keystone service-create --name=neutron --type=network --description="OpenStack Networking Service"
-        id=$(keystone service-get neutron | sed -n 's/^| *id *| \([0-9a-f]\+\) |$/\1/p')
-        keystone endpoint-create \
-            --service-id=$id \
-            --publicurl=http://$HOSTNAME_CONTROLLER:9696 \
-            --internalurl=http://$HOSTNAME_CONTROLLER:9696 \
-            --adminurl=http://$HOSTNAME_CONTROLLER:9696
-    fi
-
-    if ! ovs-vsctl br-exists br-int; then
-        ovs-vsctl add-br br-int
-    fi
-    if ! ovs-vsctl br-exists br-ex; then
-        ovs-vsctl add-br br-ex
-        ovs-vsctl add-port br-ex $EXT_IF
-        # FIXME: remove IP on EXT_IF
-        ifconfig br-ex $EXT_IP netmask $EXT_MASK
+    # Tell Nova about Neutron
+    if ! egrep -qs "^firewall_driver=" /etc/nova/nova.conf; then
+        sed -i "/\[DEFAULT\]/a network_api_class=nova.network.neutronv2.api.API\nneutron_url=http://$HOSTNAME_CONTROLLER:9696\nneutron_auth_strategy=keystone\nneutron_admin_tenant_name=service\nneutron_admin_username=neutron\nneutron_admin_password=$NEUTRON_ADMIN_PASSWORD\nneutron_admin_auth_url=http://$HOSTNAME_CONTROLLER:35357/v2.0\nfirewall_driver=nova.virt.firewall.NoopFirewallDriver\nsecurity_group_api=neutron" /etc/nova/nova.conf
     fi
 
     service neutron-server restart; sleep 1
-    service neutron-plugin-openvswitch-agent restart; sleep 1
-    service neutron-dhcp-agent restart; sleep 1
-    service neutron-l3-agent restart; sleep 1
 }
 
 # Execution starts here
@@ -543,4 +646,7 @@ install_nova
 install_horizon
 install_cinder
 install_cinder_node
-install_neutron
+prep_neutron
+install_neutron_on_controller
+install_neutron_on_network_node
+install_neutron_on_compute_node
