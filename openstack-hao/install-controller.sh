@@ -184,10 +184,18 @@ configure_auth() {
         --os-tenant-name=admin \
         --os-auth-url=http://$HOSTNAME_CONTROLLER:35357/v2.0 token-get
 
-    export OS_USERNAME=admin
-    export OS_PASSWORD=$KEYSTONE_ADMIN_PASSWORD
-    export OS_TENANT_NAME=admin
-    export OS_AUTH_URL=http://$HOSTNAME_CONTROLLER:35357/v2.0
+    if [ ! -f $HOME/.openstackrc ]; then
+        cat > $HOME/.openstackrc <<EOF
+export OS_USERNAME=admin
+export OS_PASSWORD=$KEYSTONE_ADMIN_PASSWORD
+export OS_TENANT_NAME=admin
+export OS_AUTH_URL=http://$HOSTNAME_CONTROLLER:35357/v2.0
+EOF
+        cat >> $HOME/.bashrc <<EOF
+. ~/.openstackrc
+EOF
+
+    . $HOME/.openstackrc
     keystone token-get
     keystone user-list
 }
@@ -634,11 +642,7 @@ install_mysql
 install_rabbitmq
 install_keystone
 configure_auth
-
-export OS_USERNAME=admin
-export OS_PASSWORD=$KEYSTONE_ADMIN_PASSWORD
-export OS_TENANT_NAME=admin
-export OS_AUTH_URL=http://$HOSTNAME_CONTROLLER:35357/v2.0
+. $HOME/.openstackrc
 
 install_glance
 verify_glance
