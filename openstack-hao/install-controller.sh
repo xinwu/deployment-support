@@ -30,12 +30,16 @@ fi
 HOSTNAME_CONTROLLER=controller
 
 
+# FIXME: this needs to be auto-generated
 MGMT_IF=em1
+MGMT_IP=10.203.0.13
 
+# FIXME: this needs to be defined elsewhere
 DATA_IF=em2
 DATA_IP=10.203.1.13
 DATA_MASK=255.255.255.0
 
+# FIXME: this needs to be defined elsewhere
 EXT_IF=p1p1
 EXT_IP=10.192.64.35
 EXT_MASK=255.255.192.0
@@ -268,9 +272,9 @@ install_nova() {
 
     if ! egrep -qs '^\[database\]' /etc/nova/nova.conf; then
         cat >> /etc/nova/nova.conf <<EOF
-my_ip=$DATA_IP
-vncserver_listen=$DATA_IP
-vncserver_proxyclient_address=$DATA_IP
+my_ip=$MGMT_IP
+vncserver_listen=$MGMT_IP
+vncserver_proxyclient_address=$MGMT_IP
 auth_strategy=keystone
 rpc_backend=nova.rpc.impl_kombu
 rabbit_host=$HOSTNAME_CONTROLLER
@@ -316,7 +320,6 @@ GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%' IDENTIFIED BY '$NOVA_DB_PASSWORD';
     service nova-conductor restart; sleep 1
     service nova-novncproxy restart; sleep 1
 
-    # Command below will fail if $DATA_IP is not up.
     nova image-list
 }
 

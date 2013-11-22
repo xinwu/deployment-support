@@ -27,7 +27,8 @@ MGMT_IF=em1
 MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
 
 DATA_IF=em2
-# FIXME
+# FIXME: This needs to be defined in a table, and we need to bring this
+# interface up.
 DATA_IP=$(echo $MGMT_IP | sed 's/10\.203\.0\./10.203.1./')
 
 # Do NOT use any non-alphanumerical characters that require quoting in
