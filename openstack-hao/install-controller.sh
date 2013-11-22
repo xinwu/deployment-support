@@ -495,7 +495,7 @@ EOF
 state_path = /var/lib/neutron
 lock_path = \$state_path/lock
 core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
-allow_overlapping_ips = False
+allow_overlapping_ips = True
 rabbit_host = $HOSTNAME_CONTROLLER
 rabbit_password = guest
 rabbit_userid = guest
@@ -562,15 +562,16 @@ EOF
 [DEFAULT]
 interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
 dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
-use_namespaces = False
+use_namespaces = True
 EOF
 
     keep_stock_conf /etc/neutron/l3_agent.ini
     cat > /etc/neutron/l3_agent.ini <<EOF
 [DEFAULT]
 interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-use_namespaces = False
-router_id = 0
+use_namespaces = True
+gateway_external_network_id = ext-net
+router_id = ext-to-int
 EOF
 
     service neutron-dhcp-agent restart; sleep 1
@@ -586,7 +587,7 @@ install_neutron_on_controller() {
 state_path = /var/lib/neutron
 lock_path = \$state_path/lock
 core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
-allow_overlapping_ips = False
+allow_overlapping_ips = True
 rabbit_host = $HOSTNAME_CONTROLLER
 rabbit_password = guest
 rabbit_userid = guest

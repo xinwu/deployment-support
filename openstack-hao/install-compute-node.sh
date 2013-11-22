@@ -62,6 +62,7 @@ install_nova_compute() {
     chmod 0644 /boot/vmlinuz*
 
     if ! egrep -qs '^\[database\]' /etc/nova/nova.conf; then
+        sed -i "/^\[DEFAULT\]/i [database]\nconnection = mysql://nova:$NOVA_DB_PASSWORD@$HOSTNAME_CONTROLLER/nova" /etc/nova/nova.conf
         cat >> /etc/nova/nova.conf <<EOF
 my_ip=$MGMT_IP
 vncserver_listen=0.0.0.0
@@ -69,9 +70,6 @@ vncserver_proxyclient_address=$MGMT_IP
 rpc_backend=nova.rpc.impl_kombu
 rabbit_host=$HOSTNAME_CONTROLLER
 glance_host=$HOSTNAME_CONTROLLER
-
-[database]
-connection = mysql://nova:$NOVA_DB_PASSWORD@$HOSTNAME_CONTROLLER/nova
 EOF
     fi
     rm -f /var/lib/nova/nova.sqlite
@@ -109,7 +107,7 @@ EOF
 state_path = /var/lib/neutron
 lock_path = \$state_path/lock
 core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
-allow_overlapping_ips = False
+allow_overlapping_ips = True
 rabbit_host = $HOSTNAME_CONTROLLER
 rabbit_password = guest
 rabbit_userid = guest
@@ -160,6 +158,18 @@ firewall_driver = neutron.agent.firewall.NoopFirewallDriver
 EOF
 
     service neutron-plugin-openvswitch-agent restart; sleep 1
+
+    if ! egrep -qs '^network_api_class=' /etc/nova/nova.conf; then
+        cat >> /etc/nova/nova.conf <<EOF
+network_api_class=nova.network.neutronv2.api.API
+neutron_admin_username=neutron
+neutron_admin_password=$NEUTRON_ADMIN_PASSWORD
+neutron_admin_auth_url=http://$HOSTNAME_CONTROLLER:35357/v2.0/
+neutron_auth_strategy=keystone
+neutron_admin_tenant_name=service
+neutron_url=http://$HOSTNAME_CONTROLLER:9696/
+libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
+EOF
 
 }
 
