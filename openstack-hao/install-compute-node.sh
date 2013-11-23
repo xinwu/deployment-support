@@ -27,9 +27,9 @@ MGMT_IF=em1
 MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
 
 DATA_IF=em2
-# FIXME: This needs to be defined in a table, and we need to bring this
-# interface up.
+# FIXME: Don't hard code 10.203 here.
 DATA_IP=$(echo $MGMT_IP | sed 's/10\.203\.0\./10.203.1./')
+DATA_MASK=255.255.255.0
 
 # Do NOT use any non-alphanumerical characters that require quoting in
 # passwords below. They would break this script.
@@ -47,9 +47,19 @@ keep_stock_conf() {
 }
 
 configure_network() {
+    cat >> /etc/network/interfaces <<EOF
+
+# The OpenStack data interface
+auto em2
+iface em2 inet static
+address $DATA_IP
+netmask $DATA_MASK
+EOF
+
+    ifup em2
+
     # FIXME: Test that $HOSTNAME_CONTROLLER is reachable.
-    # FIXME: Make sure MGMT_IP is valid.
-    echo
+    # FIXME: Make sure $MGMT_IP and $DATA_IP are up.
 }
 
 install_extra_packages() {
