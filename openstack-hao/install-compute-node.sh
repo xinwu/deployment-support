@@ -180,6 +180,7 @@ neutron_admin_tenant_name=service
 neutron_url=http://$HOSTNAME_CONTROLLER:9696/
 libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
 EOF
+    fi
 
 }
 
