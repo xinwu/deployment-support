@@ -198,6 +198,7 @@ EOF
         cat >> $HOME/.bashrc <<EOF
 . ~/.openstackrc
 EOF
+    fi
 
     . $HOME/.openstackrc
     keystone token-get
