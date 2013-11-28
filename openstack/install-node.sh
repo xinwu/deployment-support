@@ -124,20 +124,25 @@ script
     /sbin/ip link set dev "${TUN_LOOPBACK_IF}" address "${TUN_LOOPBACK_MAC}" || :
     echo `date` bsn-nova-init "Setting ${TUN_LOOPBACK_IF} interface mac to ${TUN_LOOPBACK_MAC} ... Done"
   fi
-
-  if [ -f /etc/quantum/plugins/bigswitch/metadata_interface ] ; then
-    METADATA_IF=`head -1 /etc/quantum/plugins/bigswitch/metadata_interface`
-    METADATA_PORT=`head -1 /etc/quantum/plugins/bigswitch/metadata_port`
+  #determine if quantum or neutron
+  if [ -d "/etc/quantum" ]; then
+    QUANT_OR_NEUTRON=quantum
+  else
+    QUANT_OR_NEUTRON=neutron
+  fi
+  if [ -f /etc/$QUANT_OR_NEUTRON/plugins/bigswitch/metadata_interface ] ; then
+    METADATA_IF=`head -1 /etc/$QUANT_OR_NEUTRON/plugins/bigswitch/metadata_interface`
+    METADATA_PORT=`head -1 /etc/$QUANT_OR_NEUTRON/plugins/bigswitch/metadata_port`
     echo `date` bsn-nova-init "Setting up metadata server address/nat on ${METADATA_IF}, port ${METADATA_PORT} ..."
     /sbin/ip addr add 169.254.169.254/32 scope link dev "${METADATA_IF}" || :
     /sbin/iptables -t nat -A PREROUTING -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 169.254.169.254:"${METADATA_PORT}" || :
     echo `date` bsn-nova-init "Setting up metadata server address/nat on ${METADATA_IF}, port ${METADATA_PORT} ... Done"
   fi
 
-  if [ -f /etc/init/quantum-dhcp-agent.conf -o -f /etc/init/nova-compute.conf ] ; then
+  if [ -f /etc/init/$QUANT_OR_NEUTRON-dhcp-agent.conf -o -f /etc/init/nova-compute.conf ] ; then
     echo `date` bsn-nova-init "Cleaning up tuntap interfaces ..."
-    if [ -f /etc/init/quantum-dhcp-agent.conf ] ; then
-      /usr/sbin/service quantum-dhcp-agent stop || :
+    if [ -f /etc/init/$QUANT_OR_NEUTRON-dhcp-agent.conf ] ; then
+      /usr/sbin/service $QUANT_OR_NEUTRON-dhcp-agent stop || :
     fi
     if [ -f /etc/init/nova-compute.conf ] ; then
       /usr/sbin/service nova-compute stop || :
@@ -161,7 +166,7 @@ script
       echo `date` bsn-nova-init "Cleaning up bridges ... Done"
     fi
 
-    /usr/bin/quantum-ovs-cleanup || :
+    /usr/bin/$QUANT_OR_NEUTRON-ovs-cleanup || :
 
     if [ -f /etc/init/nova-compute.conf ] ; then
      /usr/sbin/service nova-compute start || :
@@ -169,8 +174,8 @@ script
      sed -i '$d' /etc/nova/nova.conf
     fi
 
-    if [ -f /etc/init/quantum-dhcp-agent.conf ] ; then
-      /usr/sbin/service quantum-dhcp-agent start || :
+    if [ -f /etc/init/$QUANT_OR_NEUTRON-dhcp-agent.conf ] ; then
+      /usr/sbin/service $QUANT_OR_NEUTRON-dhcp-agent start || :
     fi
 
     echo `date` bsn-nova-init "Cleaning up tuntap interfaces ... Done"
