@@ -31,7 +31,7 @@ TEMP_DIR='/tmp/bsn'
 Q_DB_NAME='neutron'
 PLUGIN_URL='https://github.com/bigswitch/quantum/archive/havana/stable.tar.gz'
 PLUGIN_TAR='bsn.tar.gz'
-HORIZON_REPO_BASE='https://raw.github.com/bigswitch/horizon/stable/havana_routerrules/'
+HORIZON_URL='https://github.com/bigswitch/horizon/archive/stable/havana_routerrules.tar.gz'
 TEMP_PLUGIN_PATH='/neutron-havana-stable/neutron/plugins/bigswitch'
 TEMP_PLUGIN_CONF_PATH='/neutron-havana-stable/etc/neutron/plugins/bigswitch'
 Q_PLUGIN_CLASS="neutron.plugins.bigswitch.plugin.NeutronRestProxyV2"
@@ -292,46 +292,80 @@ function InstallNovaIVSSupportOnUbuntu() {
 }
 
 function InstallHorizonRouterRuleSupportOnUbuntu() {
-    local HORIZON_FILES_TO_PATCH=('openstack_dashboard/api/neutron.py'
-                                  'openstack_dashboard/dashboards/admin/routers/routerrules/__init__.py'
-                                  'openstack_dashboard/dashboards/admin/routers/routerrules/tables.py'
-                                  'openstack_dashboard/dashboards/admin/routers/templates/routers/detail.html'
-                                  'openstack_dashboard/dashboards/admin/routers/tabs.py'
-                                  'openstack_dashboard/dashboards/admin/routers/views.py'
-                                  'openstack_dashboard/dashboards/project/routers/urls.py'
-                                  'openstack_dashboard/dashboards/project/routers/tabs.py'
-                                  'openstack_dashboard/dashboards/project/routers/views.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/__init__.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/routerrules/__init__.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/routerrules/forms.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/routerrules/rulemanager.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/routerrules/tables.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/routerrules/tabs.py'
-                                  'openstack_dashboard/dashboards/project/routers/extensions/routerrules/views.py'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/detail.html'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/_create.html'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/create.html'
-                                  'openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/grid.html'
-                                  'openstack_dashboard/dashboards/project/instances/tables.py')
-    local horizon_install_path=`dpkg -L openstack-dashboard | grep "openstack_dashboard/dashboards/project/__init__.py" | xargs dirname | awk -F'openstack_dashboard/dashboards/' '{ print $1 }'`
-    if [ ! -d "$horizon_install_path/openstack_dashboard" ]; then
-        echo "Could not locate Horizon files to patch"
-        return
+    local DOWNLOAD_DIR="$TEMP_DIR"
+    local DOWNLOAD_FILE="$DOWNLOAD_DIR/$PLUGIN_TAR"
+    local SETTINGS_PATH=`dpkg-query -L openstack-dashboard | grep local_settings.py | grep /etc/`
+
+    if [ -z "$SETTINGS_PATH" ]
+    then
+       echo "Horizon is not installed on this server. Skipping Horizon patch"
+       return
     fi
-    mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/project/routers/templates/routers/routerrules/" ||:
-    mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/project/routers/extensions/routerrules/" ||:
-    mkdir -p "$horizon_install_path/openstack_dashboard/dashboards/admin/routers/routerrules/" ||:
-    local undocommand=''
-    for to_patch in "${HORIZON_FILES_TO_PATCH[@]}"
-    do
-        if [ -f "$horizon_install_path/$to_patch" ]; then
-            undocommand="$undocommand mv '$horizon_install_path/$to_patch.orig' '$horizon_install_path/$to_patch';"
-            mv "$horizon_install_path/$to_patch" "$horizon_install_path/$to_patch.orig" ||:
-        fi
-        wget --quiet "$HORIZON_REPO_BASE/$to_patch" -O "$horizon_install_path/$to_patch"
-    done
+
+    # Create a directory for the downloaded plugin tar
+    mkdir -p $DOWNLOAD_DIR
+
+    echo "Downloading BigSwitch Horizon files"
+    wget -c $HORIZON_URL -O $DOWNLOAD_FILE
+    if [[ $? -ne 0 ]]; then
+      echo "Not found: $DOWNLOAD_DIR"
+      exit
+    fi
+
+    tar -zxf $DOWNLOAD_FILE -C "$DOWNLOAD_DIR"
+    mkdir -p /usr/lib/bigswitch/ ||:
+    cp -R $DOWNLOAD_DIR/horizon-stable-havana_routerrules/* /usr/lib/bigswitch
+    cp "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/"
+    rm -rf /usr/lib/bigswitch/static ||:
+
+    ln -s `dpkg -L openstack-dashboard | grep local_settings.py | grep -v /etc | head -n 1| xargs dirname`/../static /usr/lib/bigswitch/static ||:
+    sed -i "s/LOGIN_URL='\/horizon\/auth\/login\/'/LOGIN_URL='\/bigdashboard\/auth\/login\/'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
+    sed -i "s/LOGIN_REDIRECT_URL='\/horizon'/LOGIN_REDIRECT_URL='\/bigdashboard'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
+    APACHECONF=$(cat <<EOF
+        RedirectMatch ^/$ /bigdashboard
+        Redirect /horizon /bigdashboard
+        Redirect /dashboard /bigdashboard
+
+        WSGIDaemonProcess bigdashboard
+        WSGIProcessGroup bigdashboard
+
+        WSGIScriptAlias /bigdashboard /usr/lib/bigswitch/openstack_dashboard/wsgi/django.wsgi
+
+        <Directory /usr/lib/bigswitch/openstack_dashboard/wsgi>
+          <IfModule mod_deflate.c>
+            SetOutputFilter DEFLATE
+            <IfModule mod_headers.c>
+              # Make sure proxies don’t deliver the wrong content
+              Header append Vary User-Agent env=!dont-vary
+            </IfModule>
+          </IfModule>
+
+          Require all granted
+        </Directory>
+
+        <Location /bigdashboard/i18n>
+          <IfModule mod_expires.c>
+            ExpiresActive On
+            ExpiresDefault "access 6 month"
+          </IfModule>
+        </Location>
+EOF
+)
+    if [ -d /etc/apache2/conf.d ]
+    then
+      echo "$APACHECONF" > /etc/apache2/conf.d/bigswitch-dashboard.conf
+      MULTI=`echo "Order allow,deny\nAllow from all" | tr '\n' "\\n"`
+      sed -i "s/Require all granted/${MULTI}/g" /etc/apache2/conf.d/bigswitch-dashboard.conf
+      UNDO_HORIZON="sudo rm /etc/apache2/conf.d/bigswitch-dashboard.conf; sudo service apache2 reload"
+    else
+      echo "$APACHECONF" > /etc/apache2/conf-available/bigswitch-dashboard.conf
+      a2enconf bigswitch-dashboard
+      UNDO_HORIZON="sudo a2disconf bigswitch-dashboard; sudo service apache2 reload"
+    fi
+    rm -rf $DOWNLOAD_DIR
+    service apache2 reload ||:
     echo "To undo the horizon patch, run the following:"
-    echo $undocommand
+    echo $UNDO_HORIZON
 }
 
 # Prints "message" and exits
