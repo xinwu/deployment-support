@@ -277,20 +277,6 @@ function InstallPluginOnUbuntu() {
     rm -rf $DOWNLOAD_DIR
 }
 
-function InstallNovaIVSSupportOnUbuntu() {
-    local NOVA_FILES_TO_PATCH=( 'network/linux_net.py' 'network/model.py' 'virt/libvirt/vif.py' )
-    local nova_install_path=`python -c "import nova; print nova.__path__[0]"`
-    local undocommand=''
-    for to_patch in "${NOVA_FILES_TO_PATCH[@]}"
-    do
-        undocommand="$undocommand mv '$nova_install_path/$to_patch.orig' '$nova_install_path/$to_patch';"
-        mv "$nova_install_path/$to_patch" "$nova_install_path/$to_patch.orig"
-        wget --quiet "$NOVA_REPO_BASE/nova/$to_patch" -O "$nova_install_path/$to_patch"
-    done
-    echo "To undo the nova patch, run the following:"
-    echo $undocommand
-}
-
 function InstallHorizonRouterRuleSupportOnUbuntu() {
     local DOWNLOAD_DIR="$TEMP_DIR"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/$PLUGIN_TAR"
@@ -442,13 +428,6 @@ else
     echo "neutron-server not found. Skipping Neutron patch"
 fi
 
-if is_package_installed nova-compute; then
-
-    InstallNovaIVSSupportOnUbuntu
-    echo "Done. Please restart nova-compute to continue."
-else
-    echo "nova-compute not found. Skipping Nova patch"
-fi
 
 if is_package_installed openstack-dashboard; then
     InstallHorizonRouterRuleSupportOnUbuntu
