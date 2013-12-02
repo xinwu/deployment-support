@@ -658,3 +658,5 @@ install_cinder_node
 prep_neutron
 install_neutron_on_controller
 install_neutron_on_network_node
+
+echo "OpenStack controller node installation completed."

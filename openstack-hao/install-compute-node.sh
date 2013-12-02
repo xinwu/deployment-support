@@ -191,3 +191,5 @@ configure_network
 install_extra_packages
 install_nova_compute
 install_neutron_on_compute_node
+
+echo "OpenStack compute node installation completed."
