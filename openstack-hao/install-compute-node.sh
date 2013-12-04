@@ -100,7 +100,7 @@ install_neutron_on_compute_node() {
     # FIXME: Verify that the host has at least 2 network interfaces:
     # $MGMT_IF and $DATA_IF
 
-    apt-get -y install neutron-plugin-openvswitch-agent openvswitch-switch openvswitch-datapath-dkms
+    apt-get -y install openvswitch-switch openvswitch-datapath-dkms
     apt-get -y install bridge-utils
 
     # Enable packet forwarding which is required for L3 routing.
@@ -148,29 +148,9 @@ EOF
 
     service openvswitch-switch restart
 
-    # OVS agent on "dedicated network node" and "compute node"
     if ! ovs-vsctl br-exists br-int; then
         ovs-vsctl add-br br-int
     fi
-
-
-    # OVS agent on "dedicated network node" and "compute node"
-
-    keep_stock_conf /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
-    cat > /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini <<EOF
-[ovs]
-tenant_network_type = gre
-tunnel_id_ranges = 1:1000
-enable_tunneling = True
-integration_bridge = br-int
-tunnel_bridge = br-tun
-local_ip = $DATA_IP
-[agent]
-[securitygroup]
-firewall_driver = neutron.agent.firewall.NoopFirewallDriver
-EOF
-
-    service neutron-plugin-openvswitch-agent restart; sleep 1
 
     if ! egrep -qs '^network_api_class=' /etc/nova/nova.conf; then
         cat >> /etc/nova/nova.conf <<EOF
@@ -184,7 +164,6 @@ neutron_url=http://$HOSTNAME_CONTROLLER:9696/
 libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
 EOF
     fi
-
 }
 
 install_kvm() {
@@ -201,9 +180,6 @@ EOF
 }
 
 install_neutron_bsn_plugin() {
-    service neutron-plugin-openvswitch-agent stop
-    echo "manual" > /etc/init/neutron-plugin-openvswitch-agent.override
-
     # Page 16 of SongBeng's PDF
     virsh net-destroy default || :
     virsh net-undefine default || :
