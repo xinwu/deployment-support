@@ -645,16 +645,17 @@ EOF
 }
 
 install_neutron_bsn_plugin() {
+    # Disable L2 and L3 agents from OVS
     for i in neutron-l3-agent neutron-metadata-agent neutron-plugin-openvswitch-agent; do
         service $i stop
         echo "manual" > /etc/init/$i.override
     done
 
-    # FIXME: ./install-plugin-havana.sh neutron NEUTRON_DBPASS controller ovs 
+    ./install-plugin-havana.sh neutron $NEUTRON_DB_PASSWORD $HOSTNAME_CONTROLLER ovs
 
     sed -i 's/^NEUTRON_PLUGIN_CONFIG=.*$/NEUTRON_PLUGIN_CONFIG="/etc/neutron/plugins/bigswitch/restproxy.ini"' /etc/default/neutron-server
 
-    ovs-vsctl add-port br-int em1
+    ovs-vsctl add-port br-int $DATA_IF
     service neutron-server restart; sleep 1
 
     echo tun-loopback > /etc/bsn_tunnel_interface

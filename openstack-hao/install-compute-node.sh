@@ -227,7 +227,7 @@ EOF
     fi
     service nova-compute restart
 
-    ovs-vsctl add-port br-int em1
+    ovs-vsctl add-port br-int $DATA_IF
 }
 
 # Execution starts here
