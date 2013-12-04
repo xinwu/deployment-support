@@ -202,7 +202,7 @@ EOF
 
 install_neutron_bsn_plugin() {
     service neutron-plugin-openvswitch-agent stop
-    update-rc.d neutron-plugin-openvswitch-agent disable 2345
+    echo "manual" > /etc/init/neutron-plugin-openvswitch-agent.override
 
     # Page 16 of SongBeng's PDF
     virsh net-destroy default

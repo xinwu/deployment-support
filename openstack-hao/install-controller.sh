@@ -647,7 +647,7 @@ EOF
 install_neutron_bsn_plugin() {
     for i in neutron-l3-agent neutron-metadata-agent neutron-plugin-openvswitch-agent; do
         service $i stop
-        update-rc.d $i disable 2345
+        echo "manual" > /etc/init/$i.override
     done
 
     # FIXME: ./install-plugin-havana.sh neutron NEUTRON_DBPASS controller ovs 
