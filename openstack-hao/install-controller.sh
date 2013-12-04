@@ -22,6 +22,8 @@ if [ -z "$HOME" ]; then
     export HOME=/root
 fi
 
+# Set current working directory to where the script is located
+cd $(dirname $0)
 
 # Definitions that can be customized per installation
 
