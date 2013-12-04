@@ -205,8 +205,8 @@ install_neutron_bsn_plugin() {
     echo "manual" > /etc/init/neutron-plugin-openvswitch-agent.override
 
     # Page 16 of SongBeng's PDF
-    virsh net-destroy default
-    virsh net-undefine default
+    virsh net-destroy default || :
+    virsh net-undefine default || :
 
     sed -i -e 's/^.*listen_tls = .*$/listen_tls = 0/' \
            -e 's/^.*listen_tcp = .*$/listen_tcp = 1/' \
