@@ -217,7 +217,7 @@ install_neutron_bsn_plugin() {
     sed -i -e 's/^libvirtd_opts=.*$/libvirtd_opts="-d -l"/' /etc/default/libvirt-bin
     service libvirt-bin restart
 
-    if ! grep -qs 'libvirt_ovs_bridge=br-int'; then
+    if ! grep -qs 'libvirt_ovs_bridge=br-int' /etc/nova/nova-compute.conf; then
         cat >> /etc/nova/nova-compute.conf <<EOF
 libvirt_ovs_bridge=br-int
 libvirt_vif_type=ethernet
