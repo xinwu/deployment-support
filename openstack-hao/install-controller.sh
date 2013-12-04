@@ -257,11 +257,16 @@ GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'%' IDENTIFIED BY '$GLANCE_DB_PASSW
 # http://docs.openstack.org/havana/install-guide/install/apt/content/glance-verify.html
 verify_glance() {
     glance image-list
-    if [ -z "$(glance image-list --name='CirrOS 0.3.1' | sed '/^$/d')" ]; then
+    if [ -z "$(glance image-list --name='CirrOS-0.3.1' | sed '/^$/d')" ]; then
         curl -O http://cdn.download.cirros-cloud.net/0.3.1/cirros-0.3.1-x86_64-disk.img
-        glance image-create --name="CirrOS 0.3.1" --disk-format=qcow2 \
+        glance image-create --name="CirrOS-0.3.1" --disk-format=qcow2 \
             --container-format=bare --is-public=true < cirros-0.3.1-x86_64-disk.img
         glance image-list
+    fi
+
+    if [ -z "$(glance image-list --name='Ubuntu-12.04' | sed '/^$/d')" ]; then
+        glance image-create --name=Ubuntu-12.04 --is-public=true --container-format=bare --disk-format=qcow2 \
+            --location=http://uec-images.ubuntu.com/precise/current/precise-server-cloudimg-amd64-disk1.img
     fi
 }
 
@@ -639,6 +644,22 @@ EOF
     service neutron-server restart; sleep 1
 }
 
+install_neutron_bsn_plugin() {
+    for i in neutron-l3-agent neutron-metadata-agent neutron-plugin-openvswitch-agent; do
+        service $i stop
+        update-rc.d $i disable 2345
+    done
+
+    # FIXME: ./install-plugin-havana.sh neutron NEUTRON_DBPASS controller ovs 
+
+    sed -i 's/^NEUTRON_PLUGIN_CONFIG=.*$/NEUTRON_PLUGIN_CONFIG="/etc/neutron/plugins/bigswitch/restproxy.ini"' /etc/default/neutron-server
+
+    ovs-vsctl add-port br-int em1
+    service neutron-server restart; sleep 1
+
+    echo tun-loopback > /etc/bsn_tunnel_interface
+}
+
 # Execution starts here
 
 configure_network
@@ -658,5 +679,6 @@ install_cinder_node
 prep_neutron
 install_neutron_on_controller
 install_neutron_on_network_node
+install_neutron_bsn_plugin
 
 echo "OpenStack controller node installation completed."

@@ -101,9 +101,12 @@ install_neutron_on_compute_node() {
     # $MGMT_IF and $DATA_IF
 
     apt-get -y install neutron-plugin-openvswitch-agent openvswitch-switch openvswitch-datapath-dkms
+    apt-get -y install bridge-utils
 
+    # Enable packet forwarding which is required for L3 routing.
     # Disable packet destination filtering which is required for network node and compute node.
     cat > /etc/sysctl.conf <<EOF
+net.ipv4.ip_forward=1
 net.ipv4.conf.all.rp_filter=0
 net.ipv4.conf.default.rp_filter=0
 EOF
@@ -184,6 +187,48 @@ EOF
 
 }
 
+install_kvm() {
+    apt-get -y install kvm libvirt-bin pm-utils
+    keep_stock_conf /etc/libvirt/qemu.conf
+    cat > /etc/libvirt/qemu.conf <<EOF
+    cgroup_device_acl = [
+        "/dev/null", "/dev/full", "/dev/zero",
+        "/dev/random", "/dev/urandom",
+        "/dev/ptmx", "/dev/kvm", "/dev/kqemu",
+        "/dev/rtc","/dev/hpet", "/dev/vfio/vfio", "/dev/net/tun"
+    ]
+EOF
+}
+
+install_neutron_bsn_plugin() {
+    service neutron-plugin-openvswitch-agent stop
+    update-rc.d neutron-plugin-openvswitch-agent disable 2345
+
+    # Page 16 of SongBeng's PDF
+    virsh net-destroy default
+    virsh net-undefine default
+
+    sed -i -e 's/^.*listen_tls = .*$/listen_tls = 0/' \
+           -e 's/^.*listen_tcp = .*$/listen_tcp = 1/' \
+           -e 's/^.*auth_tcp = .*$/auth_tcp = "none"/' \
+        /etc/libvirt/libvirtd.conf
+
+    sed -i -e 's/^env libvirtd_opts=.*$/env libvirtd_opts="-d -l"/' /etc/init/libvirt-bin.conf
+    sed -i -e 's/^libvirtd_opts=.*$/libvirtd_opts="-d -l"/' /etc/default/libvirt-bin
+    service libvirt-bin restart
+
+    if ! grep -qs 'libvirt_ovs_bridge=br-int'; then
+        cat >> /etc/nova/nova-compute.conf <<EOF
+libvirt_ovs_bridge=br-int
+libvirt_vif_type=ethernet
+libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
+libvirt_use_virtio_for_bridges=True
+EOF
+    fi
+    service nova-compute restart
+
+    ovs-vsctl add-port br-int em1
+}
 
 # Execution starts here
 
@@ -191,5 +236,7 @@ configure_network
 install_extra_packages
 install_nova_compute
 install_neutron_on_compute_node
+install_kvm
+install_neutron_bsn_plugin
 
 echo "OpenStack compute node installation completed."
