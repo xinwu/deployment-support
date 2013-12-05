@@ -57,9 +57,11 @@ auto $DATA_IF
 iface $DATA_IF inet manual
 EOF
 
+    ifconfig $DATA_IF up
+
     # FIXME: Test that $HOSTNAME_CONTROLLER is reachable.
 
-    apt-get -y install bridge-utils
+    apt-get -y install bridge-utils openvswitch-switch
 
     cat > /etc/sysctl.conf <<EOF
 net.ipv4.ip_forward=1
