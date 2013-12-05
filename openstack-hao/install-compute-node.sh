@@ -46,124 +46,28 @@ keep_stock_conf() {
     fi
 }
 
-configure_network() {
-    cat >> /etc/network/interfaces <<EOF
-
-# The OpenStack data interface
-auto em2
-iface em2 inet static
-address $DATA_IP
-netmask $DATA_MASK
-EOF
-
-    ifup em2
-
-    # FIXME: Test that $HOSTNAME_CONTROLLER is reachable.
-    # FIXME: Make sure $MGMT_IP and $DATA_IP are up.
-}
-
 install_extra_packages() {
     apt-get -y install vim-nox debconf-utils python-mysqldb curl
 }
 
-# http://docs.openstack.org/havana/install-guide/install/apt/content/nova-compute.html
-install_nova_compute() {
-    apt-get -y install nova-compute-kvm python-guestfs
-    chmod 0644 /boot/vmlinuz*
+configure_network() {
+    cat >> /etc/network/interfaces <<EOF
 
-    if ! egrep -qs '^\[database\]' /etc/nova/nova.conf; then
-        sed -i "/^\[DEFAULT\]/i [database]\nconnection = mysql://nova:$NOVA_DB_PASSWORD@$HOSTNAME_CONTROLLER/nova" /etc/nova/nova.conf
-        cat >> /etc/nova/nova.conf <<EOF
-my_ip=$MGMT_IP
-vncserver_listen=0.0.0.0
-vncserver_proxyclient_address=$MGMT_IP
-rpc_backend=nova.rpc.impl_kombu
-rabbit_host=$HOSTNAME_CONTROLLER
-glance_host=$HOSTNAME_CONTROLLER
+auto $DATA_IF
+iface $DATA_IF inet manual
 EOF
-    fi
-    rm -f /var/lib/nova/nova.sqlite
 
-    sed -i \
-        -e "s|^auth_host = .*$|auth_host = $HOSTNAME_CONTROLLER|" \
-        -e "s|%SERVICE_TENANT_NAME%|service|" \
-        -e "s|%SERVICE_USER%|nova|" \
-        -e "s|%SERVICE_PASSWORD%|$NOVA_ADMIN_PASSWORD|" \
-        /etc/nova/api-paste.ini
+    # FIXME: Test that $HOSTNAME_CONTROLLER is reachable.
 
-    service nova-compute restart; sleep 1
-}
-
-
-# http://docs.openstack.org/havana/install-guide/install/apt/content/install-neutron.dedicated-compute-node.html
-install_neutron_on_compute_node() {
-    # FIXME: Verify that the host has at least 2 network interfaces:
-    # $MGMT_IF and $DATA_IF
-
-    apt-get -y install openvswitch-switch openvswitch-datapath-dkms
     apt-get -y install bridge-utils
 
-    # Enable packet forwarding which is required for L3 routing.
-    # Disable packet destination filtering which is required for network node and compute node.
     cat > /etc/sysctl.conf <<EOF
 net.ipv4.ip_forward=1
 net.ipv4.conf.all.rp_filter=0
 net.ipv4.conf.default.rp_filter=0
 EOF
+
     service procps restart; sleep 1
-
-    # neutron.conf and api-paste.ini config which is common to all neutron installations
-    # FIXME: auth_url, auth_strategy, rpc_backend, rabbit_port
-    keep_stock_conf /etc/neutron/neutron.conf
-    cat > /etc/neutron/neutron.conf <<EOF
-[DEFAULT]
-state_path = /var/lib/neutron
-lock_path = \$state_path/lock
-core_plugin = neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2
-allow_overlapping_ips = True
-rabbit_host = $HOSTNAME_CONTROLLER
-rabbit_password = guest
-rabbit_userid = guest
-notification_driver = neutron.openstack.common.notifier.rpc_notifier
-[quotas]
-[agent]
-root_helper = sudo /usr/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
-[keystone_authtoken]
-auth_host = $HOSTNAME_CONTROLLER
-auth_port = 35357
-auth_protocol = http
-admin_tenant_name = service
-admin_user = neutron
-admin_password = $NEUTRON_ADMIN_PASSWORD
-signing_dir = \$state_path/keystone-signing
-[database]
-connection = mysql://neutron:$NEUTRON_DB_PASSWORD@$HOSTNAME_CONTROLLER/neutron
-[service_providers]
-service_provider=LOADBALANCER:Haproxy:neutron.services.loadbalancer.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
-EOF
-
-    if ! egrep -qs "^auth_host=" /etc/neutron/api-paste.ini; then
-        sed -i "/keystoneclient\.middleware\.auth_token:filter_factory/a auth_host=$HOSTNAME_CONTROLLER\nauth_uri=http://$HOSTNAME_CONTROLLER:5000\nadmin_user=neutron\nadmin_tenant_name=service\nadmin_password=$NEUTRON_ADMIN_PASSWORD" /etc/neutron/api-paste.ini
-    fi
-
-    service openvswitch-switch restart
-
-    if ! ovs-vsctl br-exists br-int; then
-        ovs-vsctl add-br br-int
-    fi
-
-    if ! egrep -qs '^network_api_class=' /etc/nova/nova.conf; then
-        cat >> /etc/nova/nova.conf <<EOF
-network_api_class=nova.network.neutronv2.api.API
-neutron_admin_username=neutron
-neutron_admin_password=$NEUTRON_ADMIN_PASSWORD
-neutron_admin_auth_url=http://$HOSTNAME_CONTROLLER:35357/v2.0/
-neutron_auth_strategy=keystone
-neutron_admin_tenant_name=service
-neutron_url=http://$HOSTNAME_CONTROLLER:9696/
-libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
-EOF
-    fi
 }
 
 install_kvm() {
@@ -177,10 +81,7 @@ install_kvm() {
         "/dev/rtc","/dev/hpet", "/dev/vfio/vfio", "/dev/net/tun"
     ]
 EOF
-}
 
-install_neutron_bsn_plugin() {
-    # Page 16 of SongBeng's PDF
     virsh net-destroy default || :
     virsh net-undefine default || :
 
@@ -192,6 +93,17 @@ install_neutron_bsn_plugin() {
     sed -i -e 's/^env libvirtd_opts=.*$/env libvirtd_opts="-d -l"/' /etc/init/libvirt-bin.conf
     sed -i -e 's/^libvirtd_opts=.*$/libvirtd_opts="-d -l"/' /etc/default/libvirt-bin
     service libvirt-bin restart
+}
+
+install_nova_compute() {
+    apt-get -y install nova-compute-kvm
+
+    sed -i \
+        -e "s|^auth_host = .*$|auth_host = $HOSTNAME_CONTROLLER|" \
+        -e "s|%SERVICE_TENANT_NAME%|service|" \
+        -e "s|%SERVICE_USER%|nova|" \
+        -e "s|%SERVICE_PASSWORD%|$NOVA_ADMIN_PASSWORD|" \
+        /etc/nova/api-paste.ini
 
     if ! grep -qs 'libvirt_ovs_bridge=br-int' /etc/nova/nova-compute.conf; then
         cat >> /etc/nova/nova-compute.conf <<EOF
@@ -201,18 +113,40 @@ libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
 libvirt_use_virtio_for_bridges=True
 EOF
     fi
-    service nova-compute restart
 
-    ovs-vsctl add-port br-int $DATA_IF
+    # Tell Nova about Neutron
+    if ! egrep -qs "^firewall_driver=" /etc/nova/nova.conf; then
+        sed -i "/\[DEFAULT\]/a network_api_class=nova.network.neutronv2.api.API\nneutron_url=http://$HOSTNAME_CONTROLLER:9696\nneutron_auth_strategy=keystone\nneutron_admin_tenant_name=service\nneutron_admin_username=neutron\nneutron_admin_password=$NEUTRON_ADMIN_PASSWORD\nneutron_admin_auth_url=http://$HOSTNAME_CONTROLLER:35357/v2.0\nlibvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver\nlinuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver\nfirewall_driver=nova.virt.libvirt.firewall.IptablesFirewallDriver" /etc/nova/nova.conf
+    fi
+
+    if ! egrep -qs '^\[database\]' /etc/nova/nova.conf; then
+        sed -i "/^\[DEFAULT\]/i [database]\nconnection = mysql://nova:$NOVA_DB_PASSWORD@$HOSTNAME_CONTROLLER/nova" /etc/nova/nova.conf
+        cat >> /etc/nova/nova.conf <<EOF
+my_ip=$MGMT_IP
+vncserver_listen=0.0.0.0
+vncserver_proxyclient_address=$MGMT_IP
+rpc_backend=nova.rpc.impl_kombu
+rabbit_host=$HOSTNAME_CONTROLLER
+glance_host=$HOSTNAME_CONTROLLER
+EOF
+    fi
+
+    rm -f /var/lib/nova/nova.sqlite
+
+    service nova-compute restart; sleep 1
+
+    if ! ovs-vsctl br-exists br-int; then
+        ovs-vsctl add-br br-int
+        ovs-vsctl add-port br-int $DATA_IF
+    fi
+
 }
 
 # Execution starts here
 
-configure_network
 install_extra_packages
-install_nova_compute
-install_neutron_on_compute_node
+configure_network
 install_kvm
-install_neutron_bsn_plugin
+install_nova_compute
 
 echo "OpenStack compute node installation completed."
