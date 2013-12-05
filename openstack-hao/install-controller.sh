@@ -411,7 +411,7 @@ GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'%' IDENTIFIED BY '$CINDER_DB_PASSW
 # but not best practice. Best pratice is to install cinder volume on dedicated
 # hardware. That's done with install_cinder_node.sh.
 install_cinder_node() {
-    apt-get -y install cinder-volume lvm2
+    apt-get -y install cinder-volume lvm2 open-iscsi
 
     # Prep LVM
     LOOPDEV=/dev/loop2
@@ -539,6 +539,14 @@ EOF
     fi
 
     service neutron-server restart; sleep 1
+
+    service nova-api restart; sleep 1
+    service nova-cert restart; sleep 1
+    service nova-consoleauth restart; sleep 1
+    service nova-scheduler restart; sleep 1
+    service nova-conductor restart; sleep 1
+    service nova-novncproxy restart; sleep 1
+
     if ! ovs-vsctl br-exists br-int; then
         ovs-vsctl add-br br-int
         ovs-vsctl add-port br-int $DATA_IF
