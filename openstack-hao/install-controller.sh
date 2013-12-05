@@ -78,13 +78,12 @@ configure_network() {
 
     if ! ifconfig -s | egrep -qs "^$DATA_IF\b"; then
         cat >> /etc/network/interfaces <<EOF
-# The OpenStack internal interface
+
 auto $DATA_IF
-iface $DATA_IF inet static
-address $DATA_IP
-netmask $DATA_MASK
+iface $DATA_IF inet manual
 EOF
-        /sbin/ifup $DATA_IF
+
+        ifconfig $DATA_IF up
     fi
 }
 
