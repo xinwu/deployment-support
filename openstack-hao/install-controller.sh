@@ -549,7 +549,7 @@ EOF
         ovs-vsctl add-br br-ex
         ovs-vsctl add-port br-ex $EXT_IF
         # FIXME: remove IP on EXT_IF
-        ifconfig br-ex $EXT_IP netmask $EXT_MASK
+        #ifconfig br-ex $EXT_IP netmask $EXT_MASK
     fi
 }
 
