@@ -43,11 +43,6 @@ DATA_IF=em2
 DATA_IP=10.203.1.13
 DATA_MASK=255.255.255.0
 
-# FIXME: this needs to be defined elsewhere
-EXT_IF=p1p1
-EXT_IP=10.192.64.35
-EXT_MASK=255.255.192.0
-
 # Do NOT use any non-alphanumerical characters that require quoting in
 # passwords below. They would break this script.
 MYSQL_ROOT_PASSWORD=bsn
@@ -552,15 +547,6 @@ EOF
     if ! ovs-vsctl br-exists br-int; then
         ovs-vsctl add-br br-int
         ovs-vsctl add-port br-int $DATA_IF
-        #ovs-vsctl set-controller br-int tcp:bnc-master:6633, tcp:bnc-slave:6633
-        ovs-vsctl set-controller br-int tcp:$BSN_CONTROLLER:6633
-    fi
-
-    if ! ovs-vsctl br-exists br-ex; then
-        ovs-vsctl add-br br-ex
-        ovs-vsctl add-port br-ex $EXT_IF
-        # FIXME: remove IP on EXT_IF
-        #ifconfig br-ex $EXT_IP netmask $EXT_MASK
     fi
 }
 
@@ -569,6 +555,8 @@ install_neutron_bsn_plugin() {
 
     sed -i 's|^NEUTRON_PLUGIN_CONFIG=.*$|NEUTRON_PLUGIN_CONFIG="/etc/neutron/plugins/bigswitch/restproxy.ini"|' /etc/default/neutron-server
     service neutron-server restart; sleep 1
+
+    ovs-vsctl set-controller br-int tcp:$BSN_CONTROLLER:6633
 }
 
 # Execution starts here
