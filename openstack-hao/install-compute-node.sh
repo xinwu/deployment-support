@@ -22,6 +22,8 @@ fi
 # network, often em1.
 HOSTNAME_CONTROLLER=controller
 
+BSN_CONTROLLER=bnc-master
+
 # The interface on openstack management network.
 MGMT_IF=em1
 MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
@@ -140,6 +142,8 @@ EOF
     if ! ovs-vsctl br-exists br-int; then
         ovs-vsctl add-br br-int
         ovs-vsctl add-port br-int $DATA_IF
+        #ovs-vsctl set-controller br-int tcp:bnc-master:6633, tcp:bnc-slave:6633
+        ovs-vsctl set-controller br-int tcp:$BSN_CONTROLLER:6633
     fi
 
 }
