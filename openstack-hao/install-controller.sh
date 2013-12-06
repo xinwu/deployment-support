@@ -536,6 +536,7 @@ EOF
     fi
 
     service neutron-server restart; sleep 1
+    service neutron-dhcp-agent restart; sleep 1
 
     service nova-api restart; sleep 1
     service nova-cert restart; sleep 1
@@ -555,6 +556,7 @@ install_neutron_bsn_plugin() {
 
     sed -i 's|^NEUTRON_PLUGIN_CONFIG=.*$|NEUTRON_PLUGIN_CONFIG="/etc/neutron/plugins/bigswitch/restproxy.ini"|' /etc/default/neutron-server
     service neutron-server restart; sleep 1
+    service neutron-dhcp-agent restart; sleep 1
 
     ovs-vsctl set-controller br-int tcp:$BSN_CONTROLLER:6633
 }
