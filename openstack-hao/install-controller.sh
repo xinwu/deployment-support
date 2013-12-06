@@ -31,7 +31,8 @@ cd $(dirname $0)
 # network, often em1.
 HOSTNAME_CONTROLLER=controller
 
-BSN_CONTROLLER=bnc-master
+# We must use IP (not DNS hostname) of BSN controller in "ovs-vsctl set-controller ..." command.
+BSN_CONTROLLER=10.203.0.21
 
 # FIXME: this needs to be auto-generated
 MGMT_IF=em1

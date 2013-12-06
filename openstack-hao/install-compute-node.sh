@@ -22,7 +22,8 @@ fi
 # network, often em1.
 HOSTNAME_CONTROLLER=controller
 
-BSN_CONTROLLER=bnc-master
+# We must use IP (not DNS hostname) of BSN controller in "ovs-vsctl set-controller ..." command.
+BSN_CONTROLLER=10.203.0.21
 
 # The interface on openstack management network.
 MGMT_IF=em1
