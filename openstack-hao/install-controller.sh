@@ -261,14 +261,15 @@ verify_glance() {
     glance image-list
     if [ -z "$(glance image-list --name='CirrOS-0.3.1' | sed '/^$/d')" ]; then
         curl -O http://cdn.download.cirros-cloud.net/0.3.1/cirros-0.3.1-x86_64-disk.img
-        glance image-create --name="CirrOS-0.3.1" --disk-format=qcow2 \
+        glance image-create --name=CirrOS-0.3.1 --disk-format=qcow2 \
             --container-format=bare --is-public=true < cirros-0.3.1-x86_64-disk.img
         glance image-list
     fi
 
     if [ -z "$(glance image-list --name='Ubuntu-12.04' | sed '/^$/d')" ]; then
-        glance image-create --name=Ubuntu-12.04 --is-public=true --container-format=bare --disk-format=qcow2 \
-            --location=http://uec-images.ubuntu.com/precise/current/precise-server-cloudimg-amd64-disk1.img
+        curl -O http://uec-images.ubuntu.com/precise/current/precise-server-cloudimg-amd64-disk1.img
+        glance image-create --name=Ubuntu-12.04 --disk-format=qcow2 \
+            --container-format=bare --is-public=true < precise-server-cloudimg-amd64-disk1.img
     fi
 }
 
