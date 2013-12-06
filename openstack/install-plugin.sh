@@ -42,6 +42,7 @@ DATABASE_PORT=${6:-'3306'}
 PLUGIN_NAME="bigswitch"
 Q_LOCK_PATH='/run/lock/neutron'
 DHCP_LEASE_TIME=43200
+NEUTRON_ID="Quantum"
 
 # Gracefully cp only if source file/dir exists
 # cp_it source destination
@@ -268,6 +269,7 @@ function InstallPluginOnUbuntu() {
     iniset $quantum_conf DEFAULT force_gateway_on_subnet True
     iniset $quantum_conf DEFAULT dhcp_lease_duration $DHCP_LEASE_TIME
     iniset $plugin_conf_file RESTPROXY servers $RESTPROXY_CONTROLLER
+    iniset $plugin_conf_file restproxy neutron_id $NEUTRON_ID
     iniset $plugin_conf_file DATABASE sql_connection "mysql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$Q_DB_NAME"
     iniset $plugin_conf_file NOVA vif_type $BSN_VIF_TYPE
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
