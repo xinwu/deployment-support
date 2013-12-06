@@ -39,7 +39,7 @@ Q_LOCK_PATH='/run/lock/neutron'
 DB_PLUGIN_USER=neutronUser
 DB_PLUGIN_PASS="$RANDOM$RANDOM"
 DHCP_LEASE_TIME=43200
-$NEUTRON_ID="Quantum"
+NEUTRON_ID="Quantum"
 
 # Gracefully cp only if source file/dir exists
 # cp_it source destination
