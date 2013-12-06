@@ -42,7 +42,7 @@ DATABASE_PORT=${6:-'3306'}
 PLUGIN_NAME="bigswitch"
 Q_LOCK_PATH='/run/lock/neutron'
 DHCP_LEASE_TIME=43200
-$NEUTRON_ID="Quantum"
+NEUTRON_ID="Quantum"
 
 # Gracefully cp only if source file/dir exists
 # cp_it source destination
