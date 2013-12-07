@@ -30,9 +30,6 @@ MGMT_IF=em1
 MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
 
 DATA_IF=em2
-# FIXME: Don't hard code 10.203 here.
-DATA_IP=$(echo $MGMT_IP | sed 's/10\.203\.0\./10.203.1./')
-DATA_MASK=255.255.255.0
 
 # Do NOT use any non-alphanumerical characters that require quoting in
 # passwords below. They would break this script.
@@ -63,6 +60,7 @@ EOF
     ifconfig $DATA_IF up
 
     # FIXME: Test that $HOSTNAME_CONTROLLER is reachable.
+    # FIXME: Verify that both $MGMT_IF and $DATA_IF exists.
 
     apt-get -y install bridge-utils openvswitch-switch
 

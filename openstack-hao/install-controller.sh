@@ -40,8 +40,6 @@ MGMT_IP=10.203.0.13
 
 # FIXME: this needs to be defined elsewhere
 DATA_IF=em2
-DATA_IP=10.203.1.13
-DATA_MASK=255.255.255.0
 
 # Do NOT use any non-alphanumerical characters that require quoting in
 # passwords below. They would break this script.
@@ -71,6 +69,8 @@ keep_stock_conf() {
 
 configure_network() {
     # FIXME: Test that $HOSTNAME_CONTROLLER is this host.
+    # FIXME: Verify that the host has at least 2 network interfaces:
+    # $MGMT_IF, $DATA_IF.
 
     if ! ifconfig -s | egrep -qs "^$DATA_IF\b"; then
         cat >> /etc/network/interfaces <<EOF
@@ -477,11 +477,6 @@ GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY '$NEUTRON_DB_PA
 # http://docs.openstack.org/havana/install-guide/install/apt/content/neutron-install.dedicated-network-node.html
 # Ideally this should be done on a separate box, but we decide to put it on controller box.
 install_neutron_server() {
-    # FIXME: Verify that the host has at least 3 network interfaces:
-    # $MGMT_IF, $DATA_IF and $EXTERNAL_IF.
-    # That's required only on the "dedicated network node" which does L3 routing
-    # between the OpenStack DATA network and EXTERNAL network
-
     apt-get -y install neutron-server neutron-dhcp-agent openvswitch-switch openvswitch-datapath-dkms
 
     # Must disable metadata-agent for BSN plugin
