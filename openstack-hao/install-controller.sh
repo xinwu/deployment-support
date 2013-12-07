@@ -34,11 +34,8 @@ HOSTNAME_CONTROLLER=controller
 # We must use IP (not DNS hostname) of BSN controller in "ovs-vsctl set-controller ..." command.
 BSN_CONTROLLER=10.203.0.21
 
-# FIXME: this needs to be auto-generated
 MGMT_IF=em1
-MGMT_IP=10.203.0.13
-
-# FIXME: this needs to be defined elsewhere
+MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
 DATA_IF=em2
 
 # Do NOT use any non-alphanumerical characters that require quoting in

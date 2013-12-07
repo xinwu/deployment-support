@@ -25,10 +25,8 @@ HOSTNAME_CONTROLLER=controller
 # We must use IP (not DNS hostname) of BSN controller in "ovs-vsctl set-controller ..." command.
 BSN_CONTROLLER=10.203.0.21
 
-# The interface on openstack management network.
 MGMT_IF=em1
 MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
-
 DATA_IF=em2
 
 # Do NOT use any non-alphanumerical characters that require quoting in
