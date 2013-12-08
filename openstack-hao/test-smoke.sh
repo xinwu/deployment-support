@@ -4,6 +4,7 @@ set -e
 set -x
 
 N=coke
+CIDR=10.203.10.0/24
 
 keystone tenant-create --name $N
 keystone user-create --name $N --tenant $N --pass $N --email $N@bigswitch.com
@@ -14,7 +15,7 @@ export OS_PASSWORD=$N
 export OS_TENANT_NAME=$N
 
 neutron net-create $N-network
-neutron subnet-create --name $N-subnet $N-network 10.203.10.0/24
+neutron subnet-create --name $N-subnet $N-network $CIDR
 neutron router-create $N-router
 neutron router-interface-add $N-router $N-subnet
 
