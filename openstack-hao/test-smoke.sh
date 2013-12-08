@@ -10,7 +10,7 @@ CIDR=10.203.10.0/24
 # Clean up
 # ----------------------------------------------------------------------------
 
-unset -e
+set +e
 
 export OS_USERNAME=$N
 export OS_PASSWORD=$N
@@ -24,10 +24,10 @@ nova secgroup-delete-rule default tcp 22 22 0.0.0.0/0
 
 nova keypair-delete $N-key
 
-neutron router-interface-add $N-router $N-subnet
-neutron router-create $N-router
-neutron subnet-create --name $N-subnet $N-network $CIDR
-neutron net-create $N-network
+neutron router-interface-delete $N-router $N-subnet
+neutron router-delete $N-router
+neutron subnet-delete $N-subnet
+neutron net-delete $N-network
 
 export OS_USERNAME=admin
 export OS_PASSWORD=ADMIN_PASS
