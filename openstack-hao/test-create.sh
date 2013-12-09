@@ -32,5 +32,5 @@ nova secgroup-add-rule default udp 1 65535 0.0.0.0/0
 nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0
 nova secgroup-list-rules default
 
-nova boot --flavor m1.small --image Ubuntu-13.10 --key_name $N-key $N-vm1
-nova boot --flavor m1.small --image Ubuntu-13.10 --key_name $N-key $N-vm2
+nova boot --flavor m1.small --image Ubuntu-13.10 --security-groups default --key_name $N-key $N-vm1
+nova boot --flavor m1.small --image Ubuntu-13.10 --security-groups default --key_name $N-key $N-vm2
