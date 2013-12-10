@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script undoes what's done by test-create.sh.
+
 set -e
 set -x
 

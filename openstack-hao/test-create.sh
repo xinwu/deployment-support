@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This script exercises basic OpenStack operations such as creating a network
+# and two VMs within the network.
+
 set -e
 set -x
 

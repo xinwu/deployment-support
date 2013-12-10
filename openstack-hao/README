@@ -4,3 +4,7 @@ scripts have been completed and tested.
 
 For detailed documentation see
 https://bigswitch.atlassian.net/wiki/display/BSC/Installing+OpenStack+Havana+on+Ubuntu+13.10
+
+WARNING: install-plugin-havana.sh is copied from ginness branch. This is for
+lack of a better solution. If the original copy is updated it should be
+manually propagated here.
