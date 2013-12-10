@@ -32,7 +32,8 @@ cd $(dirname $0)
 HOSTNAME_CONTROLLER=controller
 
 # We must use IP (not DNS hostname) of BSN controller in "ovs-vsctl set-controller ..." command.
-BSN_CONTROLLER=10.203.0.21
+# Hostname "bnc-master" must be resolvable (i.e. defined in /etc/dnsmasq_hosts on the testbed router).
+BSN_CONTROLLER=$(host bnc-master | sed 's/^.* has address //')
 
 MGMT_IF=em1
 MGMT_IP=$(ifconfig $MGMT_IF | sed -n 's/^.*inet addr:\([0-9\.]\+\).*$/\1/p')
