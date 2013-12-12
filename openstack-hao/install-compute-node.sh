@@ -137,14 +137,6 @@ EOF
 
     service nova-compute restart; sleep 1
 
-    # Move local nova storage from / to /data partition
-    if cut -d" " -f2 /proc/mounts | egrep -qs '^/data$' && \
-        [ ! -e /data/nova ] && [ ! -L /var/lib/nova ]; then
-        cp -a /var/lib/nova /data
-        rm -rf /var/lib/nova
-        ln -s /data/nova /var/lib
-    fi
-
     if ! ovs-vsctl br-exists br-int; then
         ovs-vsctl add-br br-int
         ovs-vsctl add-port br-int $DATA_IF

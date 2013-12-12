@@ -398,7 +398,7 @@ install_cinder_node() {
 
     # Prep LVM
     LOOPDEV=/dev/loop2
-    FILE=/data/cinder-volumes
+    FILE=/cinder-volumes
 
     if ! vgdisplay cinder-volumes; then
         dd if=/dev/zero of=$FILE bs=1 count=0 seek=100G

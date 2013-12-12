@@ -39,7 +39,7 @@ prep_lvm() {
         #vgcreate cinder-volumes /dev/sdb
 
 	LOOPDEV=/dev/loop2
-	FILE=/data/cinder-volumes
+	FILE=/cinder-volumes
 
 	dd if=/dev/zero of=$FILE bs=1 count=0 seek=100G
 	dd if=/dev/zero of=$FILE bs=512 count=1 conv=notrunc

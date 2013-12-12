@@ -18,10 +18,6 @@ ifup br0
 apt‐get -y install qemu‐kvm libvirt‐bin virt‐manager
 
 IMAGEDIR=/var/lib/libvirt/images
-if [ -d  $IMAGEDIR ] && ! [ -L $IMAGEDIR ]; then
-    mv $IMAGEDIR /data
-    ln -s /data/images $IMAGEDIR
-fi
 
 cd $IMAGEDIR
 # Guinness GA
