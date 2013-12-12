@@ -50,6 +50,20 @@ if [ "${NETWORK_CONTROLERS}"x = ""x ] ; then
     exit 1
 fi
 
+# OVS
+(
+  # remove existing version of openvswitch
+  sudo apt-get purge -y .*openvswitch.*
+  # install openvswitch
+  kernel_version=`cat /proc/version | cut -d " " -f3`
+  sudo apt-get -fy install libtool \
+       pkg-config m4 autoconf autotools-dev bridge-utils
+  sudo apt-get -fy install make fakeroot dkms \
+       openvswitch-datapath-lts-raring-dkms \
+       openvswitch-datapath-lts-raring-source \
+       openvswitch-switch \
+       linux-headers-$kernel_version
+)
 # Create local OVS bridge and configure it
 sudo /etc/init.d/openvswitch-switch stop
 sudo /etc/init.d/openvswitch-switch start
