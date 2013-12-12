@@ -7,7 +7,7 @@ if [ $(id -u) != 0 ]; then
     exit 1
 fi
 
-apt-get -y install openssh-server vim-box
+apt-get -y install openssh-server vim-nox
 
 # Add 2nd network interface
 cat >> /etc/network/interfaces <<EOF
@@ -51,7 +51,6 @@ apt-get -y install git
 git clone -b stable/havana git://github.com/stackforge/puppet-openstack.git openstack
 cp -p openstack/tests/site.pp /etc/puppet/manifests/
 
-vi /etc/puppet/manifests/site.pp
 # Change IPs
 sed -e "s|^\$fixed_network_range *=.*$|\$fixed_network_range = \'10.203.100.0/24\'|" \
     -e "s|^\$floating_network_range *=.*$|\$floating_network_range = \'10.192.23.64/28\'|" \
@@ -63,8 +62,8 @@ sed -i "/# shared variables #/a \$mysql_root_password     = 'mysql_root_password
 sed -i "/openstack::all/a mysql_root_password     => \$mysql_root_password," /etc/puppet/manifests/site.pp
 
 # Comment out line 186
-sed -e 's/neutron_metadata_proxy_shared_secret/# neutron_metadata_proxy_shared_secret/' /etc/puppet/modules/openstack/manifests/nova/controller.pp
+sed -i -e 's/neutron_metadata_proxy_shared_secret/# neutron_metadata_proxy_shared_secret/' /etc/puppet/modules/openstack/manifests/nova/controller.pp
 
-puppet apply /etc/puppet/manifests/site.pp —certname openstack_all
+puppet apply /etc/puppet/manifests/site.pp --certname openstack_all
 source /root/openrc
 nova-manage service list
