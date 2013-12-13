@@ -7,6 +7,37 @@ if [ $(id -u) != 0 ]; then
     exit 1
 fi
 
+######## MUST CUSTOMIZE THESE SETTINGS ########
+FIXED_NETWORK=10.203.100.0/24
+FLOATING_NETWORK=10.192.23.64/28
+
+
+# Figure out controller IP
+ETH0_IP=$(ifconfig eth0 | grep "inet addr" | sed -e 's/^.*inet addr:\(.*\) Bcast.*$/\1/')
+
+case $1 in
+openstack_all|openstack_controller)
+    CONTROLLER_IP=$ETH0_IP
+    ;;
+openstack_compute)
+    CONTROLLER_IP=$2
+    ;;
+*)
+    echo "Usage: $0 <openstack_all|openstack_controller|openstack_compute> [controller_ip]"
+    echo "controller_ip must be provided for openstack_compute type installation."
+    exit 1
+    ;;
+esac
+
+if [ -z "$CONTROLLER_IP" ]; then
+    echo "Unable to determine controller IP"
+    exit 1
+fi
+
+echo "CONTROLLER_IP=$CONTROLLER_IP"
+exit 1
+
+
 apt-get -y install openssh-server vim-nox
 
 # Add 2nd network interface
@@ -52,16 +83,16 @@ git clone -b stable/havana git://github.com/stackforge/puppet-openstack.git open
 cp -p openstack/tests/site.pp /etc/puppet/manifests/
 
 # Change IPs
-sed -e "s|^\$fixed_network_range *=.*$|\$fixed_network_range = \'10.203.100.0/24\'|" \
-    -e "s|^\$floating_network_range *=.*$|\$floating_network_range = \'10.192.23.64/28\'|" \
-    -e "s|^\$controller_node_address *=.*$|\$controller_node_address = \'10.192.23.9\'|" \
+sed -e "s|^\$fixed_network_range *=.*$|\$fixed_network_range = \'$FIXED_NETWORK\'|" \
+    -e "s|^\$floating_network_range *=.*$|\$floating_network_range = \'$FLOATING_NETWORK\'|" \
+    -e "s|^\$controller_node_address *=.*$|\$controller_node_address = \'$CONTROLLER_IP\'|" \
     -i /etc/puppet/manifests/site.pp
 
-# Add mysql password
+# Add mysql password (this is a bug fix for openstack-puppet modules)
 sed -i "/# shared variables #/a \$mysql_root_password     = 'mysql_root_password'" /etc/puppet/manifests/site.pp
 sed -i "/openstack::all/a mysql_root_password     => \$mysql_root_password," /etc/puppet/manifests/site.pp
 
-# Comment out line 186
+# Comment out line 186 (this is a bug fix for openstack-puppet modules)
 sed -i -e 's/neutron_metadata_proxy_shared_secret/# neutron_metadata_proxy_shared_secret/' /etc/puppet/modules/openstack/manifests/nova/controller.pp
 
 puppet apply /etc/puppet/manifests/site.pp --certname openstack_all
