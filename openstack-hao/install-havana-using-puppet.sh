@@ -41,7 +41,7 @@ vgcreate cinder-volumes $LOOPDEV
 
 # Add Havana repo for Ubuntu 12.04.3.
 apt-get -y install python-software-properties
-add-apt-repository cloud-archive:havana
+add-apt-repository -y cloud-archive:havana
 apt-get -y update
 
 puppet module install puppetlabs/openstack
