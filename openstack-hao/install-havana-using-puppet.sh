@@ -1,5 +1,22 @@
 #!/bin/bash
 
+######## CUSTOMIZE FOLLOWING SETTINGS PER INSTALLATION ########
+
+# Installation type, must choose among openstack_all, openstack_controller, or openstack_compute.
+INST_TYPE=openstack_all
+
+# Private subnet for OpenStack VMs
+FIXED_NETWORK=10.203.100.0/24
+
+# Floating IPs
+FLOATING_NETWORK=10.192.23.64/28
+
+# Controller IP. Define only for INST_TYPE openstack_compute.
+CONTROLLER_IP=10.203.0.13
+
+######## END OF USER CUSTOMIZATION ########
+
+
 set -e -x
 
 if [ $(id -u) != 0 ]; then
@@ -7,25 +24,15 @@ if [ $(id -u) != 0 ]; then
     exit 1
 fi
 
-######## MUST CUSTOMIZE THESE SETTINGS ########
-FIXED_NETWORK=10.203.100.0/24
-FLOATING_NETWORK=10.192.23.64/28
-
-
-# Figure out controller IP
-ETH0_IP=$(ifconfig eth0 | grep "inet addr" | sed -e 's/^.*inet addr:\(.*\) Bcast.*$/\1/')
-
-INST_TYPE=$1
 case $INST_TYPE in
 openstack_all|openstack_controller)
-    CONTROLLER_IP=$ETH0_IP
+    CONTROLLER_IP=$(ifconfig eth0 | grep "inet addr" | sed -e 's/^.*inet addr:\(.*\) Bcast.*$/\1/')
     ;;
 openstack_compute)
-    CONTROLLER_IP=$2
     ;;
 *)
-    echo "Usage: $0 <openstack_all|openstack_controller|openstack_compute> [controller_ip]"
-    echo "controller_ip must be provided for openstack_compute type installation."
+    echo "INST_TYPE must be openstack_all or openstack_controller or openstack_compute."
+    echo "controller_ip must be provided when INST_TYPE=openstack_compute."
     exit 1
     ;;
 esac
@@ -34,10 +41,6 @@ if [ -z "$CONTROLLER_IP" ]; then
     echo "Unable to determine controller IP"
     exit 1
 fi
-
-echo "CONTROLLER_IP=$CONTROLLER_IP"
-exit 1
-
 
 apt-get -y install openssh-server vim-nox
 
