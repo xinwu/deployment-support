@@ -15,7 +15,8 @@ FLOATING_NETWORK=10.192.23.64/28
 # Figure out controller IP
 ETH0_IP=$(ifconfig eth0 | grep "inet addr" | sed -e 's/^.*inet addr:\(.*\) Bcast.*$/\1/')
 
-case $1 in
+INST_TYPE=$1
+case $INST_TYPE in
 openstack_all|openstack_controller)
     CONTROLLER_IP=$ETH0_IP
     ;;
@@ -95,6 +96,11 @@ sed -i "/openstack::all/a mysql_root_password     => \$mysql_root_password," /et
 # Comment out line 186 (this is a bug fix for openstack-puppet modules)
 sed -i -e 's/neutron_metadata_proxy_shared_secret/# neutron_metadata_proxy_shared_secret/' /etc/puppet/modules/openstack/manifests/nova/controller.pp
 
-puppet apply /etc/puppet/manifests/site.pp --certname openstack_all
-source /root/openrc
-nova-manage service list
+puppet apply /etc/puppet/manifests/site.pp --certname $INST_TYPE
+
+case $INST_TYPE in
+openstack_all|openstack_controller)
+    source /root/openrc
+    nova-manage service list
+    ;;
+esac
