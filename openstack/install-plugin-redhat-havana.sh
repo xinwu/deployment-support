@@ -219,7 +219,7 @@ function InstallBigHorizon() {
     fi
     tar -zxf $DOWNLOAD_FILE -C "$DOWNLOAD_DIR"
     mkdir -p /usr/lib/bigswitch/static
-    cp -R $DOWNLOAD_DIR/horizon-havana-router_rules/* /usr/lib/bigswitch
+    cp -R $DOWNLOAD_DIR/horizon-stable-havana_routerrules/* /usr/lib/bigswitch
     cp "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/"
     rm -rf /usr/lib/bigswitch/static ||:
     ln -s `rpm -ql openstack-dashboard | grep local_settings.py | xargs dirname`/../../static /usr/lib/bigswitch/static ||:
