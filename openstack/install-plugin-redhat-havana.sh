@@ -200,7 +200,7 @@ function InstallBigHorizon() {
     local DOWNLOAD_DIR="$TEMP_DIR"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/$PLUGIN_TAR"
 
-    local SETTINGS_PATH=`rpm -ql openstack-dashboard | grep local_settings.py`
+    local SETTINGS_PATH=`rpm -ql openstack-dashboard | grep local_settings.py$`
     if [ -z "$SETTINGS_PATH" ]
     then
        echo "Horizon is not installed on this server. Skipping Horizon patch"
