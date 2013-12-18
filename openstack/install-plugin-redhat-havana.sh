@@ -222,12 +222,13 @@ function InstallBigHorizon() {
     cp -R $DOWNLOAD_DIR/horizon-stable-havana_routerrules/* /usr/lib/bigswitch
     cp "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/"
     rm -rf /usr/lib/bigswitch/static ||:
-    ln -s `rpm -ql openstack-dashboard | grep local_settings.py | xargs dirname`/../../static /usr/lib/bigswitch/static ||:
+    ln -s `rpm -ql openstack-dashboard | grep local_settings.py | head -n 1 | xargs dirname`/../../static /usr/lib/bigswitch/static ||:
     sed -i "s/LOGIN_URL='\/dashboard\/auth\/login\/'/LOGIN_URL='\/bigdashboard\/auth\/login\/'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
     sed -i "s/LOGIN_REDIRECT_URL='\/dashboard'/LOGIN_REDIRECT_URL='\/bigdashboard'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
 
     APACHECONF=$(cat <<EOF
-	WSGIDaemonProcess bigdashboard
+    Redirect /dashboard /bigdashboard
+    WSGIDaemonProcess bigdashboard
 	WSGIProcessGroup bigdashboard
 	WSGISocketPrefix run/wsgi
 
