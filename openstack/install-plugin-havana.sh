@@ -275,7 +275,7 @@ function InstallPluginOnUbuntu() {
     iniset $dhcp_conf DEFAULT interface_driver $DHCP_INTERFACE_DRIVER
     iniset $dhcp_conf DEFAULT use_namespaces False
     iniset $dhcp_conf DEFAULT dhcp_lease_time $DHCP_LEASE_TIME
-    sed -ie "s|^QUANTUM_PLUGIN_CONFIG=.*|QUANTUM_PLUGIN_CONFIG=\"$plugin_conf_file\"|" $QUANTUM_SERVER_CONF_FILE
+    sed -ie "s|^NEUTRON_PLUGIN_CONFIG=.*|NEUTRON_PLUGIN_CONFIG=\"$plugin_conf_file\"|" $QUANTUM_SERVER_CONF_FILE
     rm -rf $DOWNLOAD_DIR
 }
 
