@@ -24,6 +24,7 @@
 #   ./sync_network.py
 #
 
+import argparse
 import platform
 import re
 import sys
@@ -33,7 +34,7 @@ warnings.filterwarnings("ignore")
 from oslo.config import cfg
 
 from neutron.openstack.common import log as logging
-from neutron.plugins.bigswitch.plugin import QuantumRestProxyV2
+from neutron.plugins.bigswitch.plugin import NeutronRestProxyV2
 
 
 RED_HAT = 'red hat'
@@ -72,20 +73,35 @@ def init_config():
     cfg.CONF.set_override('debug', True)
 
 
-def send_all_data():
+def send_all_data(send_ports=True, send_floating_ips=True, send_routers=True):
     """Send all data to the configured network controller
        returns: None on success, else the reason for error (string)
     """
     try:
-        rproxy = QuantumRestProxyV2()
+        rproxy = NeutronRestProxyV2()
         print "INFO: Using servers: ", cfg.CONF.RESTPROXY.servers
-        rproxy._send_all_data()
+        rproxy._send_all_data(send_ports, send_floating_ips, send_routers)
     except Exception as e:
         return e.message
     return None
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Push OpenStack Data to Controller')
+    parser.add_argument('--no-routers', action='store_true',
+                        help="Don't include routers in data sent to controller")
+    parser.add_argument('--no-floatingips', action='store_true',
+                        help="Don't include floating IPs in data sent to controller")
+    parser.add_argument('--no-ports', action='store_true',
+                        help="Don't include ports in data sent to controller")
+
+    args = parser.parse_args()
+
+    # hillbilly speak to convert negative boolean to positive boolean
+    send_ports = not args.no_ports
+    send_routers = not args.no_routers
+    send_floating_ips = not args.no_floatingips
+
     linux_distro = platform.linux_distribution()[0]
     print "INFO: Detected linux distro: ", linux_distro
     if re.search(RED_HAT, linux_distro, re.IGNORECASE):
@@ -96,7 +112,9 @@ if __name__ == "__main__":
         print "ERROR: Linux distro not supported"
         sys.exit(1)
     init_config()
-    ret = send_all_data()
+    ret = send_all_data(send_ports=send_ports,
+                        send_floating_ips=send_floating_ips,
+                        send_routers=send_routers)
     if ret is not None:
         print "ERROR: In sending data to network controller"
         print "       " + str(ret)
