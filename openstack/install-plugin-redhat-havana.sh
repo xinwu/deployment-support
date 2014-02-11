@@ -212,6 +212,7 @@ function InstallBigHorizon() {
     mkdir -p $DOWNLOAD_DIR
 
     echo "Downloading BigSwitch Horizon files"
+    rm $DOWNLOAD_FILE 2>/dev/null ||:
     wget -c $HORIZON_URL -O $DOWNLOAD_FILE
     if [[ $? -ne 0 ]]; then
         echo "Not found: $DOWNLOAD_DIR"
@@ -220,7 +221,11 @@ function InstallBigHorizon() {
     tar -zxf $DOWNLOAD_FILE -C "$DOWNLOAD_DIR"
     mkdir -p /usr/lib/bigswitch/static
     cp -R $DOWNLOAD_DIR/horizon-stable-havana_routerrules/* /usr/lib/bigswitch
-    cp "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/"
+    if [ ! -f "$SETTINGS_PATH.orig" ];
+    then
+        cp "$SETTINGS_PATH" "$SETTINGS_PATH.orig"
+    fi
+    ln -s "$SETTINGS_PATH" "/usr/lib/bigswitch/openstack_dashboard/local/" ||:
     rm -rf /usr/lib/bigswitch/static ||:
     ln -s `rpm -ql openstack-dashboard | grep local_settings.py | head -n 1 | xargs dirname`/../../static /usr/lib/bigswitch/static ||:
     sed -i "s/LOGIN_URL='\/dashboard\/auth\/login\/'/LOGIN_URL='\/bigdashboard\/auth\/login\/'/g"  /usr/lib/bigswitch/openstack_dashboard/local/local_settings.py
