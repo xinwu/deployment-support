@@ -78,6 +78,10 @@ def send_all_data():
     """
     try:
         rproxy = NeutronRestProxyV2()
+        serverpool = rproxy.servers
+        serverpool.timeout = None
+        for server in serverpool.servers:
+            server.timeout = None
         print "INFO: Using servers: ", cfg.CONF.RESTPROXY.servers
         rproxy._send_all_data()
     except Exception as e:
