@@ -61,8 +61,8 @@ fi
   sudo apt-get -fy install make fakeroot dkms \
        openvswitch-datapath-lts-raring-dkms \
        openvswitch-datapath-lts-raring-source \
-       openvswitch-common=1.4.0-1ubuntu1.5 \
-       openvswitch-switch=1.4.0-1ubuntu1.5 \
+       openvswitch-common=1.4* \
+       openvswitch-switch=1.4* \
        linux-headers-$kernel_version
 )
 # Create local OVS bridge and configure it
