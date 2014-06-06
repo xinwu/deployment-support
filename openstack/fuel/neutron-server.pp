@@ -1,7 +1,7 @@
 # TODO populate from external
 $bigswitch_serverauth = 'admin:adminadmin'
 $bigswitch_servers = '10.210.48.13:8000,10.210.48.14:8000'
-$bond_name = 'bond0'
+$bond_name = 'ovs-bond0'
 $bond_interfaces = 'eth0,eth1'
 
 #$bigswitch_servers = $::fuel_settings['bsn']['servers']
@@ -57,6 +57,13 @@ exec{"aptupdate":
     notify => File['lldpdconfig'],
 }
 
+exec{"restartneutronservices":
+    refreshonly => true,
+    command => "/etc/init.d/neutron-server restart ||:;
+               /etc/init.d/neutron-l3-agent restart ||:;
+               /etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
+}
+
 file{'lldpdconfig':
     ensure => file,
     mode   => 0644,
@@ -78,6 +85,7 @@ ini_setting {"ml2core":
   setting => 'core_plugin',
   value   => 'ml2',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 # enable l3
 ini_setting {"serviceplugins":
@@ -86,6 +94,7 @@ ini_setting {"serviceplugins":
   setting => 'service_plugins',
   value   => 'router',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 # reference ml2 ini from init script
@@ -94,6 +103,7 @@ file{'neutron_init_config':
   mode   => 0644,
   path   => '/etc/default/neutron-server',
   content =>"NEUTRON_PLUGIN_CONFIG='${neutron_conf_path}'\n",
+  notify => Exec['restartneutronservices'],
 }
 
 
@@ -104,6 +114,7 @@ ini_setting { "roothelper":
   setting => 'root_helper',
   value   => 'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting { "secgroup":
@@ -112,6 +123,7 @@ ini_setting { "secgroup":
   setting => 'firewall_driver',
   value   => 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting {"type_drivers":
@@ -120,6 +132,7 @@ ini_setting {"type_drivers":
   setting => 'type_drivers',
   value   => 'vlan',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting {"tenant_network_types":
@@ -128,6 +141,7 @@ ini_setting {"tenant_network_types":
   setting => 'tenant_network_types',
   value   => 'vlan',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting {"mechanism_drivers":
@@ -136,6 +150,7 @@ ini_setting {"mechanism_drivers":
   setting => 'mechanism_drivers',
   value   => 'openvswitch,bigswitch,logger',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting {"vlan_ranges":
@@ -144,6 +159,7 @@ ini_setting {"vlan_ranges":
   setting => 'network_vlan_ranges',
   value   => $network_vlan_ranges,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting {"bigswitch_servers":
@@ -152,6 +168,7 @@ ini_setting {"bigswitch_servers":
   setting => 'servers',
   value   => $bigswitch_servers,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting { "bigswitch_auth":
@@ -160,6 +177,7 @@ ini_setting { "bigswitch_auth":
   setting => 'server_auth',
   value   => $bigswitch_serverauth,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting { "bigswitch_ssl":
@@ -168,8 +186,26 @@ ini_setting { "bigswitch_ssl":
   setting => 'ssl_cert_directory',
   value   => $bigswitch_ssl_cert_directory,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
+file { 'ssl_dir':
+  ensure => "directory",
+  path   => $bigswitch_ssl_cert_directory,
+  owner  => "neutron",
+  group  => "neutron",
+  mode   => 0750,
+  notify => Exec['restartneutronservices'],
+}
+
+file {'keystone':
+  path   => '/usr/lib/python2.7/dist-packages/keystone-signing',
+  ensure => 'directory',
+  owner  => 'root',
+  group  => 'root',
+  mode   => 0777,
+  notify => Exec['restartneutronservices'],
+}
 
 # configure ovs agent
 
@@ -179,6 +215,7 @@ ini_setting {"ovs_vlan_ranges":
   setting => 'network_vlan_ranges',
   value   => $network_vlan_ranges,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 ini_setting {"ovs_bridge_mappings":
@@ -187,6 +224,7 @@ ini_setting {"ovs_bridge_mappings":
   setting => 'bridge_mappings',
   value   => $ovs_bridge_mappings,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 #configure l3 agent
@@ -194,6 +232,7 @@ ini_setting {"ext_net_bridge":
   path    => $neutron_l3_conf_path,
   section => 'DEFAULT',
   setting => 'external_network_bridge',
-  value   => '',
+  value   => 'br-ex',
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
