@@ -463,6 +463,15 @@ ini_setting {"ext_net_bridge":
   notify => Exec['restartneutronservices'],
 }
 
+ini_setting {"handle_internal_only":
+  path    => $neutron_l3_conf_path,
+  section => 'DEFAULT',
+  setting => 'handle_internal_only_routers',
+  value   => 'True',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+
 exec {"cleanup_neutron":
   onlyif => ["which mysql", "echo 'show tables' | mysql -u root neutron"],
   path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
