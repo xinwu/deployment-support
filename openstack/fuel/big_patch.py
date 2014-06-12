@@ -79,39 +79,34 @@ class FuelEnvironment(Environment):
         except Exception as e:
             raise Exception("Error parsing fuel json settings.\n%s" % e)
 
-        # grab deployment files
+        # grab list of hosts
         output, errors = subprocess.Popen(
-            ["fuel", "--json", "--env", str(environment_id), "deployment", "default"],
+            ["fuel", "nodes", "--env", str(environment_id)],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
         if errors:
-            raise Exception("Error Loading node definitions %s:\n%s"
+            raise Exception("Error Loading node list %s:\n%s"
                             % (environment_id, errors))
         try:
-            path = output.split('downloaded to ')[1].rstrip()
+            lines = [l for l in output.splitlines()
+                     if '----' not in l and 'pending_roles' not in l]
+            self.nodes = [str(netaddr.IPAddress(l.split('|')[4].strip()))
+                          for l in lines]
         except IndexError:
-            raise Exception("Could not download fuel settings: %s" %output)
-        try:
-            files = os.listdir(path)
-            for f in files:
-                if f.endswith(".json"):
-                     node_name = self.get_node_IP(f.split('.json')[0])
-                     self.nodes.append(node_name)
-                     self.node_settings[node_name] = json.loads(
-                         open(os.path.join(path, f), 'r').read())
-        except Exception as e:
-            raise Exception("Could not get individual node settings:\n%s" % e)
+            raise Exception("Could not parse node list:\n%s" %output)
+        for node in self.nodes:
+            self.node_settings[node] = self.get_node_config(node)
 
-    def get_node_IP(self, node):
-        id = node.split("_")[1]
-        resp, errors = subprocess.Popen(["fuel", "node", "--node-id", id],
+    def get_node_config(self, node):
+        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node, "cat", "/etc/astute.yaml"],
                                          stdout=subprocess.PIPE,
                                          stderr=subprocess.PIPE).communicate()
+        if errors:
+            raise Exception("Error retrieving config for node %s:\n%s" %(node, errors))
         try:
-            # should be last line 5th column
-            IP = str(netaddr.IPAddress(resp.splitlines()[-1].split('|')[4].strip()))
-        except:
-            raise Exception("Could not retrieve node IP address for node %s" % node)
-        return IP
+            conf = yaml.load(resp)
+        except Exception as e:
+            raise Exception("Error parsing node yaml file:\n%s\n%s" %(e, resp))
+        return conf
 
     @property
     def network_vlan_ranges(self):
@@ -239,19 +234,19 @@ auto bond0
 ",
    notify => Exec['networkingrestart'],
 }
-
 exec {"networkingrestart":
    refreshonly => true,
    require => Exec['loadbond'],
    command => '/etc/init.d/networking restart',
    notify => Exec['addbondtobridge'],
 }
-
 exec {"addbondtobridge":
    refreshonly => true,
    command => 'ovs-vsctl add-port br-ovs-bond0 bond0 --may-exist',
    path    => "/usr/local/bin/:/bin/:/usr/bin",
 }
+
+
 
 
 file {'sources':
@@ -450,7 +445,7 @@ ini_setting {"ext_net_bridge":
 }
 
 exec {"cleanup_neutron":
-  onlyif => "echo 'show tables' | mysql -u root neutron",
+  onlyif => ["which mysql", "echo 'show tables' | mysql -u root neutron"],
   path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
   command => "echo 'delete from networks where id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
               echo 'delete from ports where network_id NOT IN (select id from networks);' | mysql -u root neutron;
