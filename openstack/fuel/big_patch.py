@@ -299,6 +299,7 @@ $bond_int1 = '%(bond_int1)s'
 $bond_name = 'ovs-bond0'
 
 $neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
+$neutron_ovs_conf_path = "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 $neutron_l3_conf_path = '/etc/neutron/l3_agent.ini'
 $neutron_main_conf_path = "/etc/neutron/neutron.conf"
 $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
@@ -401,6 +402,15 @@ ini_setting {"mechanism_drivers":
 ini_setting {"vlan_ranges":
   path    => $neutron_conf_path,
   section => 'ml2_type_vlan',
+  setting => 'network_vlan_ranges',
+  value   => $network_vlan_ranges,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+
+ini_setting {"ovs_vlan_ranges":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
   setting => 'network_vlan_ranges',
   value   => $network_vlan_ranges,
   ensure  => present,
