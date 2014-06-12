@@ -190,16 +190,39 @@ class ConfigDeployer(object):
 class PuppetTemplate(object):
 
     def __init__(self, settings):
+        self.settings = {
+            'bond_int0': '', 'bond_int1': '', 'bond_interfaces': '',
+            'bigswitch_servers': '', 'bigswitch_serverauth': '',
+            'network_vlan_ranges': ''}
+        self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
 
     def get_string(self):
-        return self.body % self.settings
+        # inject settings into template
+        manifest = self.body % self.settings
+        # only setup bond stuff if interfaces are defined
+        if self.settings['bond_interfaces']:
+            manifest += self.bond_and_lldpd_configuration
 
-    settings = {'bond_int0': '', 'bond_int1': '', 'bond_interfaces': '',
-                'bigswitch_servers': '', 'bigswitch_serverauth': '',
-                'network_vlan_ranges': ''}
-    body = """
+        # inject all replacement files
+        for path, contents in self.files_to_replace:
+            escaped_content = contents.replace("'", "\\'")
+            manifest += ("\nfile {'%(path)s':\nensure => file,"
+                         "\npath => '%(path)s',\nmode => 0755,"
+                         "\ncontent => '%(escaped_content)s'\n")
+        return manifest
+
+    def add_replacement_file(self, path, contents):
+        """Adds a file that needs to be replaced.
+
+        Path specifies the location on the server and contents will be the
+        contents loaded into the file.
+        """
+        self.files_to_replace.append((path, contents))
+        return self
+
+    main_body = """
 $bigswitch_serverauth = '%(bigswitch_serverauth)s'
 $bigswitch_servers = '%(bigswitch_servers)s'
 $bond_interfaces = '%(bond_interfaces)s'
@@ -214,80 +237,6 @@ $neutron_main_conf_path = "/etc/neutron/neutron.conf"
 $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
 
 
-# make sure bond module is loaded
-file_line { 'bond':
-   path => '/etc/modules',
-   line => 'bonding',
-   notify => Exec['loadbond'],
-}
-exec {"loadbond":
-   command => 'modprobe bonding',
-   path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-   unless => "modinfo bonding",
-   notify => Exec['deleteovsbond'],
-}
-exec {"deleteovsbond":
-  command => "/usr/bin/ovs-aptctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
-  path    => "/usr/local/bin/:/bin/:/usr/bin",
-  onlyif  => "/sbin/ifconfig ${bond_name} && /sbin/ifconfig br-ovs-bond0"
-}
-file {'bondmembers':
-    ensure => file,
-    path => '/etc/network/interfaces.d/bond',
-    mode => 0644,
-    content => "
-auto ${bond_int0}
-iface eth0 inet manual
-bond-master bond0
-
-auto ${bond_int1}
-iface eth1 inet manual
-bond-master bond0
-
-auto bond0
-    iface bond0 inet manual
-    bond-mode 0
-    bond-slaves none
-",
-   notify => Exec['networkingrestart'],
-}
-exec {"networkingrestart":
-   refreshonly => true,
-   require => Exec['loadbond'],
-   command => '/etc/init.d/networking restart',
-   notify => Exec['addbondtobridge'],
-}
-exec {"addbondtobridge":
-   refreshonly => true,
-   command => 'ovs-vsctl add-port br-ovs-bond0 bond0 --may-exist',
-   path    => "/usr/local/bin/:/bin/:/usr/bin",
-}
-
-
-
-
-file {'sources':
-      ensure  => file,
-      path    => '/etc/apt/sources.list.d/universe.list',
-      mode    => 0644,
-      notify => Exec['aptupdate'],
-      content => "
-deb http://us.archive.ubuntu.com/ubuntu/ precise universe
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise universe
-deb http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu precise-security universe
-deb-src http://security.ubuntu.com/ubuntu precise-security universe",
-    }
-
-exec{"aptupdate":
-    refreshonly => true,
-    command => "apt-get update; apt-get install --allow-unauthenticated -y lldpd",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    notify => File['lldpdconfig'],
-}
 
 exec{"restartneutronservices":
     refreshonly => true,
@@ -305,20 +254,6 @@ exec{"neutronl3restart":
     command => "/etc/init.d/neutron-l3-agent restart ||:;",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     onlyif => "file /etc/init.d/neutron-l3-agent"
-}
-
-file{'lldpdconfig':
-    ensure => file,
-    mode   => 0644,
-    path   => '/etc/default/lldpd',
-    content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
-    notify => Exec['lldpdrestart'],
-}
-
-exec{'lldpdrestart':
-    refreshonly => true,
-    command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin",
 }
 
 # make sure ml2 is core plugin
@@ -473,6 +408,94 @@ exec {"cleanup_neutron":
              "
 }
 
+"""  # noqa
+
+    bond_and_lldpd_configuration = """
+# make sure bond module is loaded
+file_line { 'bond':
+   path => '/etc/modules',
+   line => 'bonding',
+   notify => Exec['loadbond'],
+}
+exec {"loadbond":
+   command => 'modprobe bonding',
+   path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+   unless => "modinfo bonding",
+   notify => Exec['deleteovsbond'],
+}
+exec {"deleteovsbond":
+  command => "/usr/bin/ovs-aptctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
+  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  onlyif  => "/sbin/ifconfig ${bond_name} && /sbin/ifconfig br-ovs-bond0"
+}
+file {'bondmembers':
+    ensure => file,
+    path => '/etc/network/interfaces.d/bond',
+    mode => 0644,
+    content => "
+auto ${bond_int0}
+iface eth0 inet manual
+bond-master bond0
+
+auto ${bond_int1}
+iface eth1 inet manual
+bond-master bond0
+
+auto bond0
+    iface bond0 inet manual
+    bond-mode 0
+    bond-slaves none
+",
+   notify => Exec['networkingrestart'],
+}
+exec {"networkingrestart":
+   refreshonly => true,
+   require => Exec['loadbond'],
+   command => '/etc/init.d/networking restart',
+   notify => Exec['addbondtobridge'],
+}
+exec {"addbondtobridge":
+   refreshonly => true,
+   command => 'ovs-vsctl add-port br-ovs-bond0 bond0 --may-exist',
+   path    => "/usr/local/bin/:/bin/:/usr/bin",
+}
+
+file {'sources':
+      ensure  => file,
+      path    => '/etc/apt/sources.list.d/universe.list',
+      mode    => 0644,
+      notify => Exec['aptupdate'],
+      content => "
+deb http://us.archive.ubuntu.com/ubuntu/ precise universe
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise universe
+deb http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
+deb http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu precise-security universe
+deb-src http://security.ubuntu.com/ubuntu precise-security universe",
+    }
+
+exec{"aptupdate":
+    refreshonly => true,
+    command => "apt-get update; apt-get install --allow-unauthenticated -y lldpd",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    notify => File['lldpdconfig'],
+}
+
+file{'lldpdconfig':
+    ensure => file,
+    mode   => 0644,
+    path   => '/etc/default/lldpd',
+    content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
+    notify => Exec['lldpdrestart'],
+}
+
+exec{'lldpdrestart':
+    refreshonly => true,
+    command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin",
+}
 """  # noqa
 
 if __name__ == '__main__':
