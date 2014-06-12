@@ -52,7 +52,8 @@ class Environment(object):
         self.bigswitch_auth = auth
 
     def get_node_python_package_path(self, node, package):
-        com = ["ssh", '-o LogLevel=quiet', node,
+        com = ["ssh", '-o LogLevel=quiet',
+               "root@%s" % node,
                'python -c "import %s;import os;print '
                'os.path.dirname(%s.__file__)"'
                % (package, package)]
@@ -142,7 +143,8 @@ class FuelEnvironment(Environment):
 
     def get_node_config(self, node):
         print "Retrieving Fuel configuration for node %s..." % node
-        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node,
+        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet',
+                                         "root@%s" % node,
                                          "cat", "/etc/astute.yaml"],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE).communicate()
@@ -234,13 +236,14 @@ class ConfigDeployer(object):
         f.flush()
         remotefile = '~/generated_manifest.pp'
         resp, errors = subprocess.Popen(["scp", '-o LogLevel=quiet', f.name,
-                                         "%s:%s" % (node, remotefile)],
+                                         "root@%s:%s" % (node, remotefile)],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE).communicate()
         if errors:
             raise Exception("error pushing puppet manifest to %s:\n%s"
                             % (node, errors))
-        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node,
+        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet',
+                                         "root@%s" % node,
                                          "puppet apply %s" % remotefile],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE).communicate()
