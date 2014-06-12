@@ -8,7 +8,19 @@ import netaddr
 import os
 import tempfile
 import subprocess
+import urllib2
 import yaml
+
+# each entry is a 3-tuple naming the python package,
+# the relative path inside the package, and the source URL
+PYTHON_FILES_TO_PATCH = [
+    ('neutron', 'plugins/bigswitch/plugin.py',
+     'https://raw.githubusercontent.com/bigswitch/neutron/'
+     'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
+    ('neutron', 'plugins/bigswitch/servermanager.py',
+     'https://raw.githubusercontent.com/bigswitch/neutron/'
+     'stable/icehouse/neutron/plugins/bigswitch/servermanager.py'),
+]
 
 
 class Environment(object):
@@ -38,6 +50,19 @@ class Environment(object):
             raise Exception('Invalid credentials "%s".\n'
                             'Format should be user:pass' % auth)
         self.bigswitch_auth = auth
+
+    def get_node_python_package_path(self, node, package):
+        com = ["ssh", '-o LogLevel=quiet', node,
+               '"echo \'import %s;import os;print '
+               'os.path.dirname(%s.__file__)\' | python"'
+               % (package, package)]
+        resp, errors = subprocess.Popen(com, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE).communicate()
+        if errors or not resp.strip() or len(resp.strip().splitlines()) > 1:
+            raise Exception("Error retrieving path to pyhon package '%s' on "
+                            "node '%s'.\n%s\n%s" % (package, node,
+                                                    errors, resp))
+        return resp.strip()
 
 
 class ConfigEnvironment(Environment):
@@ -72,9 +97,14 @@ class FuelEnvironment(Environment):
         self.node_settings = {}
         self.nodes = []
         self.settings = {}
-        output, errors = subprocess.Popen(
-            ["fuel", "--json", "--env", str(environment_id), "settings", "-d"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+        try:
+            output, errors = subprocess.Popen(
+                ["fuel", "--json", "--env", str(environment_id),
+                 "settings", "-d"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+        except Exception as e:
+            raise Exception("Error encountered trying to execute the Fuel "
+                            "CLI:\n%s" % e)
         if errors:
             raise Exception("Error Loading cluster %s:\n%s"
                             % (environment_id, errors))
@@ -143,13 +173,25 @@ class FuelEnvironment(Environment):
 
 
 class ConfigDeployer(object):
-    def __init__(self, environment):
+    def __init__(self, environment, patch_python_files=True):
         self.env = environment
+        self.patch_python_files = patch_python_files
+        self.patch_file_cache = {}
         if any([not self.env.bigswitch_auth,
                 not self.env.bigswitch_servers,
                 not self.env.nodes]):
             raise Exception('Environment must have at least 1 node '
                             'and controller options')
+        if self.patch_python_files:
+            for patchset in PYTHON_FILES_TO_PATCH:
+                url = patchset[2]
+                try:
+                    body = urllib2.urlopen(url).read()
+                except Exception as e:
+                    raise Exception("Error encountered while trying to "
+                                    "download patch file at %s.\n%s"
+                                    % (url, e))
+                self.patch_file_cache[url] = body
 
     def deploy_to_all(self):
         for node in self.env.nodes:
@@ -165,7 +207,16 @@ class ConfigDeployer(object):
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges
         }
-        pbody = PuppetTemplate(puppet_settings).get_string()
+        ptemplate = PuppetTemplate(puppet_settings)
+        if self.patch_python_files:
+            for package, rel_path, url in PYTHON_FILES_TO_PATCH:
+                full_path = os.join.path(
+                    self.env.get_node_python_package_path(node, package),
+                    rel_path
+                )
+                contents = self.patch_file_cache[url]
+                ptemplate.add_replacement_file(full_path, contents)
+        pbody = ptemplate.get_string()
         f = tempfile.NamedTemporaryFile(delete=True)
         f.write(pbody)
         f.flush()
@@ -512,6 +563,9 @@ if __name__ == '__main__':
     parser.add_argument("-a", "--controller-auth", required=True,
                         help="Username and password <user:pass> "
                              "to connect to controller.")
+    parser.add_argument('--skip-file-patching', action='store_true',
+                        help="Do not patch openstack packages with updated "
+                             "versions.")
     args = parser.parse_args()
     if args.fuel_environment:
         environment = FuelEnvironment(args.fuel_environment)
@@ -522,5 +576,6 @@ if __name__ == '__main__':
                      'environment or the config file.')
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
-    deployer = ConfigDeployer(environment)
+    deployer = ConfigDeployer(environment,
+                              patch_python_files=not args.skip_file_patching)
     deployer.deploy_to_all()
