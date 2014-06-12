@@ -100,6 +100,7 @@ class FuelEnvironment(Environment):
         self.nodes = []
         self.settings = {}
         try:
+            print "Retrieving general Fuel settings..."
             output, errors = subprocess.Popen(
                 ["fuel", "--json", "--env", str(environment_id),
                  "settings", "-d"],
@@ -121,6 +122,7 @@ class FuelEnvironment(Environment):
             raise Exception("Error parsing fuel json settings.\n%s" % e)
 
         # grab list of hosts
+        print "Retrieving list of Fuel nodes..."
         output, errors = subprocess.Popen(
             ["fuel", "nodes", "--env", str(environment_id)],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -132,12 +134,14 @@ class FuelEnvironment(Environment):
                      if '----' not in l and 'pending_roles' not in l]
             self.nodes = [str(netaddr.IPAddress(l.split('|')[4].strip()))
                           for l in lines]
+            print "Found nodes: %s" % self.nodes
         except IndexError:
             raise Exception("Could not parse node list:\n%s" % output)
         for node in self.nodes:
             self.node_settings[node] = self.get_node_config(node)
 
     def get_node_config(self, node):
+        print "Retrieving Fuel configuration for node %s..." % node
         resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node,
                                          "cat", "/etc/astute.yaml"],
                                         stdout=subprocess.PIPE,
@@ -160,8 +164,10 @@ class FuelEnvironment(Environment):
         physnets = self.node_settings[node][
             'quantum_settings']['L2']['phys_nets']
         for physnet in physnets:
-            net_vlan += '%s:%s,' % (
-                physnet, physnets[physnet]['vlan_range'])
+            range = physnets[physnet]['vlan_range']
+            if not range:
+                continue
+            net_vlan += '%s:%s,' % (physnet, range)
         return net_vlan
 
     def get_node_bond_interfaces(self, node):
@@ -198,8 +204,10 @@ class ConfigDeployer(object):
     def deploy_to_all(self):
         for node in self.env.nodes:
             self.deploy_to_node(node)
+        print "Deployment Complete!"
 
     def deploy_to_node(self, node):
+        print "Applying configuration to %s..." % node
         puppet_settings = {
             'bond_int0': self.env.get_node_bond_interfaces(node)[0],
             'bond_int1': self.env.get_node_bond_interfaces(node)[1],
@@ -239,7 +247,6 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
-        print resp
 
 
 class PuppetTemplate(object):
