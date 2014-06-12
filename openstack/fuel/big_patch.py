@@ -1,3 +1,7 @@
+# Copyright 2014 Big Switch Networks, Inc.
+# All Rights Reserved.
+#
+# @author: Kevin Benton
 import argparse
 import json
 import netaddr
@@ -26,7 +30,7 @@ class Environment(object):
                 int(s.split(':')[1])
             except:
                 raise Exception('Invalid server "%s".\n'
-                                'Format should be ip:port' %s)
+                                'Format should be ip:port' % s)
         self.bigswitch_servers = servers
 
     def set_bigswitch_auth(self, auth):
@@ -46,11 +50,14 @@ class ConfigEnvironment(Environment):
         if not isinstance(self.settings.get('nodes'), list):
             raise Exception("Missing nodes in yaml data.\n%s" % self.settings)
         if not self.settings.get('network_vlan_ranges'):
-            raise Exception('Missing network_vlan_ranges in config.\n%s' % self.settings)
+            raise Exception('Missing network_vlan_ranges in config.\n%s'
+                            % self.settings)
+        self.network_vlan_ranges = self.settings.get('network_vlan_ranges')
         try:
             self.nodes = [n['hostname'] for n in self.settings['nodes']]
         except KeyError:
-            raise Exception('missing hostname in nodes %s' % self.settings['nodes'])
+            raise Exception('missing hostname in nodes %s'
+                            % self.settings['nodes'])
 
     def get_node_bond_interfaces(self, node):
         for n in self.settings['nodes']:
@@ -69,13 +76,15 @@ class FuelEnvironment(Environment):
             ["fuel", "--json", "--env", str(environment_id), "settings", "-d"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
         if errors:
-            raise Exception("Error Loading cluster %s:\n%s" % (environment_id, errors))
+            raise Exception("Error Loading cluster %s:\n%s"
+                            % (environment_id, errors))
         try:
             path = output.split('downloaded to ')[1].rstrip()
         except IndexError:
-            raise Exception("Could not download fuel settings: %s" %output)
+            raise Exception("Could not download fuel settings: %s"
+                            % output)
         try:
-            self.settings=json.loads(open(path, 'r').read())
+            self.settings = json.loads(open(path, 'r').read())
         except Exception as e:
             raise Exception("Error parsing fuel json settings.\n%s" % e)
 
@@ -92,20 +101,23 @@ class FuelEnvironment(Environment):
             self.nodes = [str(netaddr.IPAddress(l.split('|')[4].strip()))
                           for l in lines]
         except IndexError:
-            raise Exception("Could not parse node list:\n%s" %output)
+            raise Exception("Could not parse node list:\n%s" % output)
         for node in self.nodes:
             self.node_settings[node] = self.get_node_config(node)
 
     def get_node_config(self, node):
-        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node, "cat", "/etc/astute.yaml"],
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE).communicate()
+        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node,
+                                         "cat", "/etc/astute.yaml"],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE).communicate()
         if errors:
-            raise Exception("Error retrieving config for node %s:\n%s" %(node, errors))
+            raise Exception("Error retrieving config for node %s:\n%s"
+                            % (node, errors))
         try:
             conf = yaml.load(resp)
         except Exception as e:
-            raise Exception("Error parsing node yaml file:\n%s\n%s" %(e, resp))
+            raise Exception("Error parsing node yaml file:\n%s\n%s"
+                            % (e, resp))
         return conf
 
     @property
@@ -113,10 +125,11 @@ class FuelEnvironment(Environment):
         net_vlan = ''
         # comes from compute settings file
         node = self.node_settings.keys()[0]
-        physnets = self.node_settings[node]['quantum_settings']['L2']['phys_nets']
+        physnets = self.node_settings[node][
+            'quantum_settings']['L2']['phys_nets']
         for physnet in physnets:
-             net_vlan += '%s:%s,' % (
-                 physnet, physnets[physnet]['vlan_range'])
+            net_vlan += '%s:%s,' % (
+                physnet, physnets[physnet]['vlan_range'])
         return net_vlan
 
     def get_node_bond_interfaces(self, node):
@@ -146,7 +159,8 @@ class ConfigDeployer(object):
         puppet_settings = {
             'bond_int0': self.env.get_node_bond_interfaces(node)[0],
             'bond_int1': self.env.get_node_bond_interfaces(node)[1],
-            'bond_interfaces': ','.join(self.env.get_node_bond_interfaces(node)),
+            'bond_interfaces': ','.join(
+                self.env.get_node_bond_interfaces(node)),
             'bigswitch_servers': self.env.bigswitch_servers,
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges
@@ -156,18 +170,21 @@ class ConfigDeployer(object):
         f.write(pbody)
         f.flush()
         remotefile = '~/generated_manifest.pp'
-        resp, errors = subprocess.Popen(["scp",'-o LogLevel=quiet', f.name, "%s:%s" % (node, remotefile)],
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE).communicate()
+        resp, errors = subprocess.Popen(["scp", '-o LogLevel=quiet', f.name,
+                                         "%s:%s" % (node, remotefile)],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE).communicate()
         if errors:
-            raise Exception("error pushing puppet manifest to %s:\n%s" %(node, errors))
-        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node, "puppet apply %s" % remotefile],
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE).communicate()
+            raise Exception("error pushing puppet manifest to %s:\n%s"
+                            % (node, errors))
+        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet', node,
+                                         "puppet apply %s" % remotefile],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE).communicate()
         if errors:
-            raise Exception("error applying puppet configuration to %s:\n%s" %(node, errors))
+            raise Exception("error applying puppet configuration to %s:\n%s"
+                            % (node, errors))
         print resp
-
 
 
 class PuppetTemplate(object):
@@ -456,7 +473,7 @@ exec {"cleanup_neutron":
              "
 }
 
-"""
+"""  # noqa
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -464,18 +481,22 @@ if __name__ == '__main__':
     group.add_argument("-f", "--fuel-environment",
                        help="Fuel environment ID to load node settings from.")
     group.add_argument("-c", "--config-file", type=argparse.FileType('r'),
-                       help="Path to YAML config file for non-fuel deployments.")
+                       help="Path to YAML config file for "
+                            "non-Fuel deployments.")
     parser.add_argument("-s", "--controllers", required=True,
-                        help="Comma-separated list of <controller:port> pairs.")
+                        help="Comma-separated list of "
+                             "<controller:port> pairs.")
     parser.add_argument("-a", "--controller-auth", required=True,
-                        help="Username and password <user:pass> to connect to controller.")
+                        help="Username and password <user:pass> "
+                             "to connect to controller.")
     args = parser.parse_args()
     if args.fuel_environment:
         environment = FuelEnvironment(args.fuel_environment)
     elif args.config_file:
         environment = ConfigEnvironment(args.config_file.read())
     else:
-        parser.error('You must specify either the Fuel environment or the config file.')
+        parser.error('You must specify either the Fuel '
+                     'environment or the config file.')
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     deployer = ConfigDeployer(environment)
