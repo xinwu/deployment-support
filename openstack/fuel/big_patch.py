@@ -544,7 +544,14 @@ exec {"addbondtobridge":
    refreshonly => true,
    command => 'ovs-vsctl add-port br-ovs-bond0 bond0 --may-exist',
    path    => "/usr/local/bin/:/bin/:/usr/bin",
+   notify => Exec['openvswitchrestart'],
 }
+exec {"openvswitchrestart":
+   refreshonly => true,
+   command => '/etc/init.d/openvswitch-switch restart',
+   path    => "/usr/local/bin/:/bin/:/usr/bin",
+}
+
 
 file {'sources':
       ensure  => file,
