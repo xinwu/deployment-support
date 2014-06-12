@@ -53,12 +53,14 @@ class Environment(object):
 
     def get_node_python_package_path(self, node, package):
         com = ["ssh", '-o LogLevel=quiet', node,
-               '"echo \'import %s;import os;print '
-               'os.path.dirname(%s.__file__)\' | python"'
+               'python -c "import %s;import os;print '
+               'os.path.dirname(%s.__file__)"'
                % (package, package)]
         resp, errors = subprocess.Popen(com, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE).communicate()
         if errors or not resp.strip() or len(resp.strip().splitlines()) > 1:
+            if 'ImportError' in errors:
+                return False
             raise Exception("Error retrieving path to pyhon package '%s' on "
                             "node '%s'.\n%s\n%s" % (package, node,
                                                     errors, resp))
@@ -210,10 +212,12 @@ class ConfigDeployer(object):
         ptemplate = PuppetTemplate(puppet_settings)
         if self.patch_python_files:
             for package, rel_path, url in PYTHON_FILES_TO_PATCH:
-                full_path = os.join.path(
-                    self.env.get_node_python_package_path(node, package),
-                    rel_path
-                )
+                node_path = self.env.get_node_python_package_path(node,
+                                                                  package)
+                # package is not installed on this node
+                if not node_path:
+                    continue
+                full_path = os.path.join(node_path, rel_path)
                 contents = self.patch_file_cache[url]
                 ptemplate.add_replacement_file(full_path, contents)
         pbody = ptemplate.get_string()
@@ -251,7 +255,7 @@ class PuppetTemplate(object):
 
     def get_string(self):
         # inject settings into template
-        manifest = self.body % self.settings
+        manifest = self.main_body % self.settings
         # only setup bond stuff if interfaces are defined
         if self.settings['bond_interfaces']:
             manifest += self.bond_and_lldpd_configuration
@@ -261,7 +265,9 @@ class PuppetTemplate(object):
             escaped_content = contents.replace("'", "\\'")
             manifest += ("\nfile {'%(path)s':\nensure => file,"
                          "\npath => '%(path)s',\nmode => 0755,"
-                         "\ncontent => '%(escaped_content)s'\n")
+                         "\nnotify => Exec['restartneutronservices'],"
+                         "\ncontent => '%(escaped_content)s'\n}" %
+                         {'path': path, 'escaped_content': escaped_content})
         return manifest
 
     def add_replacement_file(self, path, contents):
