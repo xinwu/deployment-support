@@ -542,7 +542,7 @@ exec {"networkingrestart":
 }
 exec {"addbondtobridge":
    refreshonly => true,
-   command => 'ovs-vsctl add-port br-ovs-bond0 bond0 --may-exist',
+   command => 'ovs-vsctl --may-exist add-port br-ovs-bond0 bond0',
    path    => "/usr/local/bin/:/bin/:/usr/bin",
    notify => Exec['openvswitchrestart'],
 }
