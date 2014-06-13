@@ -487,6 +487,7 @@ exec {"cleanup_neutron":
   path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
   command => "echo 'delete ports, floatingips from ports INNER JOIN floatingips on floatingips.floating_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
               echo 'delete ports, routers from ports INNER JOIN routers on routers.gw_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
+              echo 'delete from ports where network_id NOT in (select network_id from ml2_network_segments);' | mysql -u root neutron;
               echo 'delete from subnets where network_id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
               echo 'delete from networks where id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
               echo 'delete from ports where network_id NOT IN (select network_id from networks);' | mysql -u root neutron;
