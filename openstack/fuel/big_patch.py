@@ -485,8 +485,11 @@ ini_setting {"handle_internal_only":
 exec {"cleanup_neutron":
   onlyif => ["which mysql", "echo 'show tables' | mysql -u root neutron"],
   path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  command => "echo 'delete from networks where id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
-              echo 'delete from ports where network_id NOT IN (select id from networks);' | mysql -u root neutron;
+  command => "echo 'delete ports, floatingips from ports INNER JOIN floatingips on floatingips.floating_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
+              echo 'delete ports, routers from ports INNER JOIN routers on routers.gw_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
+              echo 'delete from subnets where network_id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
+              echo 'delete from networks where id NOT IN (select network_id from ml2_network_segments);' | mysql -u root neutron;
+              echo 'delete from ports where network_id NOT IN (select network_id from networks);' | mysql -u root neutron;
               echo 'delete from routers where gw_port_id NOT IN (select id from ports);' | mysql -u root neutron;
               echo 'delete from floatingips where floating_port_id NOT IN (select id from ports);' | mysql -u root neutron;
               echo 'delete from floatingips where fixed_port_id NOT IN (select id from ports);' | mysql -u root neutron;
@@ -510,7 +513,7 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => "/usr/bin/ovs-aptctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
+  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   onlyif  => "/sbin/ifconfig ${bond_name} && /sbin/ifconfig br-ovs-bond0"
 }
