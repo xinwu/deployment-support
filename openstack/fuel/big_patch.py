@@ -549,7 +549,7 @@ exec {"addbondtobridge":
 exec {"openvswitchrestart":
    refreshonly => true,
    command => '/etc/init.d/openvswitch-switch restart',
-   path    => "/usr/local/bin/:/bin/:/usr/bin",
+   path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
 
 
@@ -587,7 +587,7 @@ file{'lldpdconfig':
 exec{'lldpdrestart':
     refreshonly => true,
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
 """  # noqa
 
