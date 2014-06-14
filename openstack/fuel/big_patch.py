@@ -272,12 +272,12 @@ class PuppetTemplate(object):
 
         # inject all replacement files
         for path, contents in self.files_to_replace:
-            escaped_content = contents.replace("'", "\\'")
+            escaped = contents.replace("\\", "\\\\").replace("'", "\\'")
             manifest += ("\nfile {'%(path)s':\nensure => file,"
                          "\npath => '%(path)s',\nmode => 0755,"
                          "\nnotify => Exec['restartneutronservices'],"
                          "\ncontent => '%(escaped_content)s'\n}" %
-                         {'path': path, 'escaped_content': escaped_content})
+                         {'path': path, 'escaped_content': escaped})
         return manifest
 
     def add_replacement_file(self, path, contents):
@@ -500,7 +500,7 @@ exec {"cleanup_neutron":
 
 """  # noqa
 
-    bond_and_lldpd_configuration = """
+    bond_and_lldpd_configuration = '''
 # make sure bond module is loaded
 file_line { 'bond':
    path => '/etc/modules',
@@ -514,9 +514,10 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
+  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
-  onlyif  => "/sbin/ifconfig ${bond_name} && /sbin/ifconfig br-ovs-bond0"
+  onlyif  => "/sbin/ifconfig br-ovs-bond0 && ovs-vsctl show | grep '\\"${bond_name}\\"'",
+  notify => Exec['networkingrestart']
 }
 file {'bondmembers':
     ensure => file,
@@ -593,7 +594,7 @@ exec{'lldpdrestart':
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
-"""  # noqa
+'''  # noqa
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
