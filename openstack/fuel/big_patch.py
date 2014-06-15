@@ -8,6 +8,7 @@ import netaddr
 import os
 import tempfile
 import subprocess
+import threading
 import urllib2
 import yaml
 
@@ -21,6 +22,37 @@ PYTHON_FILES_TO_PATCH = [
      'https://raw.githubusercontent.com/bigswitch/neutron/'
      'stable/icehouse/neutron/plugins/bigswitch/servermanager.py'),
 ]
+
+
+class TimedCommand(object):
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.process = None
+        self.retries = 0
+        self.resp = None
+        self.errors = None
+
+    def run(self, timeout=60, retries=0):
+        def target():
+            self.process = subprocess.Popen(
+                self.cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            self.resp, self.errors = self.process.communicate()
+
+        thread = threading.Thread(target=target)
+        thread.start()
+
+        thread.join(timeout)
+        if thread.is_alive():
+            self.process.terminate()
+            thread.join()
+            if self.retries < retries:
+                self.retries += 1
+                self.run(timeout, retries)
+            else:
+                self.errors = "Timed out waiting for command to finish."
+
+        return self.resp, self.errors
 
 
 class Environment(object):
@@ -57,8 +89,7 @@ class Environment(object):
                'python -c "import %s;import os;print '
                'os.path.dirname(%s.__file__)"'
                % (package, package)]
-        resp, errors = subprocess.Popen(com, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE).communicate()
+        resp, errors = TimedCommand(com).run()
         if errors or not resp.strip() or len(resp.strip().splitlines()) > 1:
             if 'ImportError' in errors:
                 return False
@@ -102,10 +133,9 @@ class FuelEnvironment(Environment):
         self.settings = {}
         try:
             print "Retrieving general Fuel settings..."
-            output, errors = subprocess.Popen(
+            output, errors = TimedCommand(
                 ["fuel", "--json", "--env", str(environment_id),
-                 "settings", "-d"],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+                 "settings", "-d"]).run()
         except Exception as e:
             raise Exception("Error encountered trying to execute the Fuel "
                             "CLI:\n%s" % e)
@@ -124,9 +154,8 @@ class FuelEnvironment(Environment):
 
         # grab list of hosts
         print "Retrieving list of Fuel nodes..."
-        output, errors = subprocess.Popen(
-            ["fuel", "nodes", "--env", str(environment_id)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+        output, errors = TimedCommand(
+            ["fuel", "nodes", "--env", str(environment_id)]).run()
         if errors:
             raise Exception("Error Loading node list %s:\n%s"
                             % (environment_id, errors))
@@ -143,11 +172,9 @@ class FuelEnvironment(Environment):
 
     def get_node_config(self, node):
         print "Retrieving Fuel configuration for node %s..." % node
-        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet',
-                                         "root@%s" % node,
-                                         "cat", "/etc/astute.yaml"],
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE).communicate()
+        resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
+                                     "root@%s" % node,
+                                     "cat", "/etc/astute.yaml"]).run()
         if errors:
             raise Exception("Error retrieving config for node %s:\n%s"
                             % (node, errors))
@@ -235,18 +262,15 @@ class ConfigDeployer(object):
         f.write(pbody)
         f.flush()
         remotefile = '~/generated_manifest.pp'
-        resp, errors = subprocess.Popen(["scp", '-o LogLevel=quiet', f.name,
-                                         "root@%s:%s" % (node, remotefile)],
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE).communicate()
+        resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', f.name,
+                                     "root@%s:%s" % (node, remotefile)]).run()
         if errors:
             raise Exception("error pushing puppet manifest to %s:\n%s"
                             % (node, errors))
-        resp, errors = subprocess.Popen(["ssh", '-o LogLevel=quiet',
-                                         "root@%s" % node,
-                                         "puppet apply %s" % remotefile],
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE).communicate()
+        resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
+                                     "root@%s" % node,
+                                     "puppet apply %s" % remotefile]).run(30,
+                                                                          1)
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
