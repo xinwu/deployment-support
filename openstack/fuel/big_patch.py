@@ -23,6 +23,9 @@ PYTHON_FILES_TO_PATCH = [
      'stable/icehouse/neutron/plugins/bigswitch/servermanager.py'),
 ]
 
+# path to neutron tar.gz for CentOS nodes
+NEUTRON_TGZ_URL = 'https://github.com/bigswitch/neutron/archive/stable/icehouse.tar.gz'
+
 
 class TimedCommand(object):
     def __init__(self, cmd):
@@ -646,7 +649,12 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
         notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
     }
-
+    exec{"triggerinstall":
+        onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
+        command => 'echo',
+        notify => Exec['aptupdate'],
+        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
     file{'ubuntulldpdconfig':
         ensure => file,
         mode   => 0644,
