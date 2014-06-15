@@ -222,7 +222,7 @@ class ConfigDeployer(object):
             raise Exception('Environment must have at least 1 node '
                             'and controller options')
         if self.patch_python_files:
-            for patchset in PYTHON_FILES_TO_PATCH:
+            for patchset in PYTHON_FILES_TO_PATCH + [('','', NEUTRON_TGZ_URL)]:
                 url = patchset[2]
                 try:
                     body = urllib2.urlopen(url).read()
@@ -270,6 +270,22 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error pushing puppet manifest to %s:\n%s"
                             % (node, errors))
+
+        # Find where python libs are installed
+        netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
+        # we need to replace all of neutron in CentOS
+        if netaddr_path and '2.6' in netaddr_path:
+            target_neutron_path = ("/".join(netaddr_path.split("/")[:-1])
+                                   + 'neutron')
+            f = tempfile.NamedTemporaryFile(delete=True)
+            f.write(self.patch_file_cache[NEUTRON_TGZ_URL])
+            f.flush()
+            nfile = '~/neutron.tar.gz'
+            resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', f.name,
+                                         "root@%s:%s" % (node, nfile)]).run()
+            if errors:
+                raise Exception("error pushing neutron to %s:\n%s"
+                                % (node, errors))
         resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                      "root@%s" % node,
                                      "puppet apply %s" % remotefile]).run(30,
