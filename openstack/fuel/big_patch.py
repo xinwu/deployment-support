@@ -557,10 +557,10 @@ if $operatingsystem == 'CentOS'{
       notify => Exec['restartneutronservices'],
     }
     exec {'centosprereqs':
-       onlyif => "yum --version && (! git --version || ! ls /usr/lib/python2.6/site-packages/neutron/plugins/bigswitch)",
-       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install git lldpd'",
+       onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
+       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-       notify => [Exec['centosneutroninstall'], File['centoslldpdconfig']],
+       notify => File['centoslldpdconfig'],
     }
 }
 
@@ -697,7 +697,7 @@ if $operatingsystem == 'CentOS' {
        notify => Exec['addbondtobridge'],
     }
     file{'bondmembers':
-        require => Exec['loadbond'],
+        require => [Exec['centosprereqs'],Exec['loadbond'],File['centoslldpdconfig']],
         ensure => file,
         mode => 0644,
         path => '/etc/sysconfig/network-scripts/ifcfg-bond0',
