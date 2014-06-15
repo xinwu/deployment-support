@@ -711,17 +711,19 @@ BONDING_OPTS="mode=0 miimon=50"
     }
     file{'bond_int0config':
         require => File['bondmembers'],
+        notify => Exec['networkingrestart'],
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "MASTER=bond0\nSLAVE=yes\n",
+        content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
     }
     file{'bond_int1config':
         require => File['bondmembers'],
+        notify => Exec['networkingrestart'],
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-        content => "MASTER=bond0\nSLAVE=yes\n",
+        content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
     }
 
 }
