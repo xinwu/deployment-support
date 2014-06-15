@@ -46,12 +46,11 @@ class TimedCommand(object):
         if thread.is_alive():
             self.process.terminate()
             thread.join()
-            if self.retries < retries:
-                self.retries += 1
-                self.run(timeout, retries)
-            else:
-                self.errors = "Timed out waiting for command to finish."
+            self.errors = "Timed out waiting for command to finish."
 
+        if self.errors and self.retries < retries:
+            self.retries += 1
+            return self.run(timeout, retries)
         return self.resp, self.errors
 
 
@@ -270,7 +269,7 @@ class ConfigDeployer(object):
         resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                      "root@%s" % node,
                                      "puppet apply %s" % remotefile]).run(30,
-                                                                          1)
+                                                                          2)
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
@@ -300,6 +299,7 @@ class PuppetTemplate(object):
             manifest += ("\nfile {'%(path)s':\nensure => file,"
                          "\npath => '%(path)s',\nmode => 0755,"
                          "\nnotify => Exec['restartneutronservices'],"
+                         "\nrequire => Exec['neutronfilespresent'],"
                          "\ncontent => '%(escaped_content)s'\n}" %
                          {'path': path, 'escaped_content': escaped})
         return manifest
@@ -322,14 +322,24 @@ $bond_int0 = '%(bond_int0)s'
 $bond_int1 = '%(bond_int1)s'
 $bond_name = 'ovs-bond0'
 
-$neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
+if $operatingsystem == 'Ubuntu'{
+    $neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
+}
+if $operatingsystem == 'CentOS'{
+    $neutron_conf_path = "/etc/neutron/plugin.ini"
+}
+
 $neutron_ovs_conf_path = "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 $neutron_l3_conf_path = '/etc/neutron/l3_agent.ini'
 $neutron_main_conf_path = "/etc/neutron/neutron.conf"
 $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
 
 
-
+exec{'neutronfilespresent':
+    onlyif => "python -c 'import neutron, os; print os.path.dirname(neutron.__file__)' && python -c 'import neutron, os; print os.path.dirname(neutron.__file__)' | xargs -I {} ls {}/plugins/bigswitch",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    command => "echo",
+}
 exec{"restartneutronservices":
     refreshonly => true,
     command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
@@ -339,13 +349,22 @@ exec{"neutronserverrestart":
     refreshonly => true,
     command => "/etc/init.d/neutron-server restart ||:;",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    onlyif => "file /etc/init.d/neutron-server"
+    onlyif => "ls /etc/init.d/neutron-server"
 }
 exec{"neutronl3restart":
     refreshonly => true,
     command => "/etc/init.d/neutron-l3-agent restart ||:;",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    onlyif => "file /etc/init.d/neutron-l3-agent"
+    onlyif => "ls /etc/init.d/neutron-l3-agent"
+}
+
+# basic conf directories
+$conf_dirs = ["/etc/neutron/plugins/ml2"]
+file {$conf_dirs:
+    ensure => "directory",
+    owner => "neutron",
+    group => "neutron",
+    mode => 755,
 }
 
 # make sure ml2 is core plugin
@@ -385,6 +404,7 @@ ini_setting { "roothelper":
   value   => 'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting { "secgroup":
@@ -394,6 +414,7 @@ ini_setting { "secgroup":
   value   => 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting {"type_drivers":
@@ -403,6 +424,7 @@ ini_setting {"type_drivers":
   value   => 'vlan',
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting {"tenant_network_types":
@@ -412,6 +434,7 @@ ini_setting {"tenant_network_types":
   value   => 'vlan',
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting {"mechanism_drivers":
@@ -421,6 +444,7 @@ ini_setting {"mechanism_drivers":
   value   => 'openvswitch,bigswitch,logger',
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting {"vlan_ranges":
@@ -430,6 +454,7 @@ ini_setting {"vlan_ranges":
   value   => $network_vlan_ranges,
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting {"ovs_vlan_ranges":
@@ -439,6 +464,7 @@ ini_setting {"ovs_vlan_ranges":
   value   => $network_vlan_ranges,
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting {"bigswitch_servers":
@@ -448,6 +474,7 @@ ini_setting {"bigswitch_servers":
   value   => $bigswitch_servers,
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting { "bigswitch_auth":
@@ -457,6 +484,7 @@ ini_setting { "bigswitch_auth":
   value   => $bigswitch_serverauth,
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 ini_setting { "bigswitch_ssl":
@@ -466,6 +494,7 @@ ini_setting { "bigswitch_ssl":
   value   => $bigswitch_ssl_cert_directory,
   ensure  => present,
   notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
 }
 
 file { 'ssl_dir':
@@ -477,15 +506,40 @@ file { 'ssl_dir':
   notify => Exec['restartneutronservices'],
 }
 
-file {'keystone':
-  path   => '/usr/lib/python2.7/dist-packages/keystone-signing',
-  ensure => 'directory',
-  owner  => 'root',
-  group  => 'root',
-  mode   => 0777,
-  notify => Exec['restartneutronservices'],
+if $operatingsystem == 'Ubuntu'{
+    file {'keystone':
+      path   => '/usr/lib/python2.7/dist-packages/keystone-signing',
+      ensure => 'directory',
+      owner  => 'root',
+      group  => 'root',
+      mode   => 0777,
+      notify => Exec['restartneutronservices'],
+    }
 }
+if $operatingsystem == 'CentOS'{
+    file {'keystone26':
+      path   => '/usr/lib/python2.6/site-packages/keystone-signing',
+      ensure => 'directory',
+      owner  => 'root',
+      group  => 'root',
+      mode   => 0777,
+      notify => Exec['restartneutronservices'],
+    }
+    exec {'centosprereqs':
+       onlyif => "yum --version && (! git --version || ! ls /usr/lib/python2.6/site-packages/neutron/plugins/bigswitch)",
+       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install git lldpd'",
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+       notify => [Exec['centosneutroninstall'], File['centoslldpdconfig']],
+    }
 
+    exec {'centosneutroninstall':
+       require => Exec['centosprereqs'],
+       onlyif => "ls /usr/lib/python2.6/site-packages/ && ! ls /usr/lib/python2.6/site-packages/neutron/plugins/bigswitch",
+       command => "rm -rf /usr/lib/python2.6/site-packages/neutron;
+                   git clone -b stable/icehouse https://github.com/bigswitch/neutron.git /usr/lib/python2.6/site-packages/neutron",
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
+}
 
 #configure l3 agent
 ini_setting {"ext_net_bridge":
@@ -524,13 +578,7 @@ exec {"cleanup_neutron":
 
 """  # noqa
 
-    bond_and_lldpd_configuration = '''
-# make sure bond module is loaded
-file_line { 'bond':
-   path => '/etc/modules',
-   line => 'bonding',
-   notify => Exec['loadbond'],
-}
+    bond_and_lldpd_configuration = r'''
 exec {"loadbond":
    command => 'modprobe bonding',
    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
@@ -538,16 +586,23 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}",
+  command => '/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F \'\t\' \'{ print $1 }\' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}',
   path    => "/usr/local/bin/:/bin/:/usr/bin",
-  onlyif  => "/sbin/ifconfig br-ovs-bond0 && ovs-vsctl show | grep '\\"${bond_name}\\"'",
+  onlyif  => "/sbin/ifconfig br-ovs-bond0 && ovs-vsctl show | grep '\"${bond_name}\"'",
   notify => Exec['networkingrestart']
 }
-file {'bondmembers':
-    ensure => file,
-    path => '/etc/network/interfaces.d/bond',
-    mode => 0644,
-    content => "
+# make sure bond module is loaded
+if $operatingsystem == 'Ubuntu' {
+    file_line { 'bond':
+       path => '/etc/modules',
+       line => 'bonding',
+       notify => Exec['loadbond'],
+    }
+    file {'bondmembers':
+        ensure => file,
+        path => '/etc/network/interfaces.d/bond',
+        mode => 0644,
+        content => "
 auto ${bond_int0}
 iface eth0 inet manual
 bond-master bond0
@@ -560,14 +615,88 @@ auto bond0
     iface bond0 inet manual
     bond-mode 0
     bond-slaves none
-",
-   notify => Exec['networkingrestart'],
+    ",
+       notify => Exec['networkingrestart'],
+    }
+    exec {"networkingrestart":
+       refreshonly => true,
+       require => [Exec['loadbond'], File['bondmembers']],
+       command => '/etc/init.d/networking restart',
+       notify => Exec['addbondtobridge'],
+    }
+    file {'sources':
+          ensure  => file,
+          path    => '/etc/apt/sources.list.d/universe.list',
+          mode    => 0644,
+          notify => Exec['aptupdate'],
+          content => "
+deb http://us.archive.ubuntu.com/ubuntu/ precise universe
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise universe
+deb http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
+deb http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu precise-security universe
+deb-src http://security.ubuntu.com/ubuntu precise-security universe",
+        }
+
+    exec{"aptupdate":
+        refreshonly => true,
+        command => "apt-get update; apt-get install --allow-unauthenticated -y lldpd",
+        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+        notify => File['ubuntulldpdconfig'],
+    }
+
+    file{'ubuntulldpdconfig':
+        ensure => file,
+        mode   => 0644,
+        path   => '/etc/default/lldpd',
+        content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
+        notify => Exec['lldpdrestart'],
+    }
 }
-exec {"networkingrestart":
-   refreshonly => true,
-   require => Exec['loadbond'],
-   command => '/etc/init.d/networking restart',
-   notify => Exec['addbondtobridge'],
+if $operatingsystem == 'CentOS' {
+    file{'centoslldpdconfig':
+        ensure => file,
+        mode   => 0644,
+        path   => '/etc/sysconfig/lldpd',
+        content => "LLDPD_OPTIONS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
+        notify => Exec['lldpdrestart'],
+    }
+    exec {"networkingrestart":
+       refreshonly => true,
+       command => '/etc/init.d/network restart',
+       require => [Exec['loadbond'], File['bondmembers']],
+       notify => Exec['addbondtobridge'],
+    }
+    file{'bondmembers':
+        require => Exec['loadbond'],
+        ensure => file,
+        mode => 0644,
+        path => '/etc/sysconfig/network-scripts/ifcfg-bond0',
+        content => '
+DEVICE=bond0
+USERCTL=no
+BOOTPROTO=none
+ONBOOT=yes
+BONDING_OPTS="mode=0 miimon=50"
+',
+    }
+    file{'bond_int0config':
+        require => File['bondmembers'],
+        ensure => file,
+        mode => 0644,
+        path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
+        content => "MASTER=bond0\nSLAVE=yes\n",
+    }
+    file{'bond_int1config':
+        require => File['bondmembers'],
+        ensure => file,
+        mode => 0644,
+        path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
+        content => "MASTER=bond0\nSLAVE=yes\n",
+    }
+
 }
 exec {"addbondtobridge":
    refreshonly => true,
@@ -580,44 +709,14 @@ exec {"openvswitchrestart":
    command => '/etc/init.d/openvswitch-switch restart',
    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
-
-
-file {'sources':
-      ensure  => file,
-      path    => '/etc/apt/sources.list.d/universe.list',
-      mode    => 0644,
-      notify => Exec['aptupdate'],
-      content => "
-deb http://us.archive.ubuntu.com/ubuntu/ precise universe
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise universe
-deb http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu precise-security universe
-deb-src http://security.ubuntu.com/ubuntu precise-security universe",
-    }
-
-exec{"aptupdate":
-    refreshonly => true,
-    command => "apt-get update; apt-get install --allow-unauthenticated -y lldpd",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    notify => File['lldpdconfig'],
-}
-
-file{'lldpdconfig':
-    ensure => file,
-    mode   => 0644,
-    path   => '/etc/default/lldpd',
-    content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
-    notify => Exec['lldpdrestart'],
-}
-
 exec{'lldpdrestart':
     refreshonly => true,
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
+
+
+
 '''  # noqa
 
 if __name__ == '__main__':
