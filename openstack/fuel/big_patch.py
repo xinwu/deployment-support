@@ -46,11 +46,11 @@ class TimedCommand(object):
         if thread.is_alive():
             self.process.terminate()
             thread.join()
+            if self.retries < retries:
+                self.retries += 1
+                return self.run(timeout, retries)
             self.errors = "Timed out waiting for command to finish."
 
-        if self.errors and self.retries < retries:
-            self.retries += 1
-            return self.run(timeout, retries)
         return self.resp, self.errors
 
 
@@ -251,7 +251,8 @@ class ConfigDeployer(object):
                 node_path = self.env.get_node_python_package_path(node,
                                                                   package)
                 # package is not installed on this node
-                if not node_path:
+                # FIXME: Skipping 2.6 to workaround issues with CentOS
+                if not node_path or '2.6' in node_path:
                     continue
                 full_path = os.path.join(node_path, rel_path)
                 contents = self.patch_file_cache[url]
