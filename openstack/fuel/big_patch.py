@@ -604,11 +604,11 @@ if $operatingsystem == 'Ubuntu' {
         mode => 0644,
         content => "
 auto ${bond_int0}
-iface eth0 inet manual
+iface ${bond_int0} inet manual
 bond-master bond0
 
 auto ${bond_int1}
-iface eth1 inet manual
+iface ${bond_int1} inet manual
 bond-master bond0
 
 auto bond0
@@ -616,7 +616,6 @@ auto bond0
     bond-mode 0
     bond-slaves none
     ",
-       notify => Exec['networkingrestart'],
     }
     exec {"networkingrestart":
        refreshonly => true,
@@ -644,7 +643,7 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
         refreshonly => true,
         command => "apt-get update; apt-get install --allow-unauthenticated -y lldpd",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-        notify => File['ubuntulldpdconfig'],
+        notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
     }
 
     file{'ubuntulldpdconfig':
