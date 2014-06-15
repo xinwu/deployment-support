@@ -275,8 +275,8 @@ class ConfigDeployer(object):
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
         # we need to replace all of neutron in CentOS
         if netaddr_path and '2.6' in netaddr_path:
-            target_neutron_path = ("/".join(netaddr_path.split("/")[:-1])
-                                   + 'neutron')
+            python_lib_dir = "/".join(netaddr_path.split("/")[:-1]) + "/"
+            target_neutron_path = python_lib_dir + 'neutron'
             f = tempfile.NamedTemporaryFile(delete=True)
             f.write(self.patch_file_cache[NEUTRON_TGZ_URL])
             f.flush()
@@ -286,6 +286,17 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error pushing neutron to %s:\n%s"
                                 % (node, errors))
+            extract = "rm -rf '%s';" % target_neutron_path
+            extract += "export TGT=$(mktemp -d);"
+            extract += 'tar --strip-components=1 -xf ~/neutron.tar.gz -C "$TGT";'
+            extract += 'mv "$TGT/neutron" "%s"' % python_lib_dir
+            resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
+                                         "root@%s" % node,
+                                         "'%s'" % extract]).run()
+            if errors:
+                raise Exception("error installing neutron to %s:\n%s"
+                                % (node, errors))
+
         resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                      "root@%s" % node,
                                      "puppet apply %s" % remotefile]).run(30,
