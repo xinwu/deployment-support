@@ -292,7 +292,7 @@ class ConfigDeployer(object):
             extract += 'mv "$TGT/neutron" "%s"' % python_lib_dir
             resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                          "root@%s" % node,
-                                         "'%s'" % extract]).run()
+                                         "bash -c '%s'" % extract]).run()
             if errors:
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
@@ -561,14 +561,6 @@ if $operatingsystem == 'CentOS'{
        command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install git lldpd'",
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
        notify => [Exec['centosneutroninstall'], File['centoslldpdconfig']],
-    }
-
-    exec {'centosneutroninstall':
-       require => Exec['centosprereqs'],
-       onlyif => "ls /usr/lib/python2.6/site-packages/ && ! ls /usr/lib/python2.6/site-packages/neutron/plugins/bigswitch",
-       command => "rm -rf /usr/lib/python2.6/site-packages/neutron;
-                   git clone -b stable/icehouse https://github.com/bigswitch/neutron.git /usr/lib/python2.6/site-packages/neutron",
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
 }
 
