@@ -210,6 +210,7 @@ class FuelEnvironment(Environment):
         for t in trans:
             if t.get('action') == 'add-bond':
                 return t.get('interfaces', [])
+        print 'Node %s has no bond interfaces.' % node
         return []
 
 
@@ -242,15 +243,15 @@ class ConfigDeployer(object):
 
     def deploy_to_node(self, node):
         print "Applying configuration to %s..." % node
+        bond_interfaces = self.env.get_node_bond_interfaces(node)
         puppet_settings = {
-            'bond_int0': self.env.get_node_bond_interfaces(node)[0],
-            'bond_int1': self.env.get_node_bond_interfaces(node)[1],
-            'bond_interfaces': ','.join(
-                self.env.get_node_bond_interfaces(node)),
+            'bond_interfaces': ','.join(bond_interfaces),
             'bigswitch_servers': self.env.bigswitch_servers,
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges
         }
+        for key, val in enumerate(bond_interfaces):
+            puppet_settings['bond_int%s' % key] = val
         ptemplate = PuppetTemplate(puppet_settings)
         if self.patch_python_files:
             for package, rel_path, url in PYTHON_FILES_TO_PATCH:
@@ -378,10 +379,19 @@ exec{'neutronfilespresent':
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     command => "echo",
 }
-exec{"restartneutronservices":
-    refreshonly => true,
-    command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
-    notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+if $operatingsystem == 'Ubuntu' {
+  exec{"restartneutronservices":
+      refreshonly => true,
+      command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
+      notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+  }
+}
+if $operatingsystem == 'CentOS' {
+  exec{"restartneutronservices":
+      refreshonly => true,
+      command => "/etc/init.d/neutron-openvswitch-agent restart ||:;",
+      notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+  }
 }
 exec{"neutronserverrestart":
     refreshonly => true,
@@ -565,12 +575,6 @@ if $operatingsystem == 'CentOS'{
       mode   => 0777,
       notify => Exec['restartneutronservices'],
     }
-    exec {'lldpdinstall':
-       onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
-       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-       notify => File['centoslldpdconfig'],
-    }
 }
 
 #configure l3 agent
@@ -693,6 +697,12 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
     }
 }
 if $operatingsystem == 'CentOS' {
+    exec {'lldpdinstall':
+       onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
+       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+       notify => File['centoslldpdconfig'],
+    }
     file{'centoslldpdconfig':
         ensure => file,
         mode   => 0644,
