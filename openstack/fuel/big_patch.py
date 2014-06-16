@@ -103,7 +103,7 @@ class Environment(object):
 
 class ConfigEnvironment(Environment):
 
-    def __init__(self, yaml_string, skip_nodes=[]):
+    def __init__(self, yaml_string, skip_nodes=[], specific_nodes=[]):
         try:
             self.settings = yaml.load(yaml_string)
         except Exception as e:
@@ -116,7 +116,9 @@ class ConfigEnvironment(Environment):
         self.network_vlan_ranges = self.settings.get('network_vlan_ranges')
         try:
             self.nodes = [n['hostname'] for n in self.settings['nodes']
-                          if n['hostname'] not in skip_nodes]
+                          if n['hostname'] not in skip_nodes and
+                          (not specific_nodes or
+                           n['hostname'] in specific_nodes)]
         except KeyError:
             raise Exception('missing hostname in nodes %s'
                             % self.settings['nodes'])
@@ -131,7 +133,7 @@ class ConfigEnvironment(Environment):
 
 class FuelEnvironment(Environment):
 
-    def __init__(self, environment_id, skip_nodes=[]):
+    def __init__(self, environment_id, skip_nodes=[], specific_nodes=[]):
         self.node_settings = {}
         self.nodes = []
         self.settings = {}
@@ -168,7 +170,8 @@ class FuelEnvironment(Environment):
                      if '----' not in l and 'pending_roles' not in l]
             nodes = [str(netaddr.IPAddress(l.split('|')[4].strip()))
                      for l in lines]
-            self.nodes = [n for n in nodes if n not in skip_nodes]
+            self.nodes = [n for n in nodes if n not in skip_nodes and
+                          (not specific_nodes or n in specific_nodes)]
             print "Nodes to configure: %s" % self.nodes
         except IndexError:
             raise Exception("Could not parse node list:\n%s" % output)
@@ -790,17 +793,26 @@ if __name__ == '__main__':
     parser.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
                              "configurations to.")
+    parser.add_argument('--specific-nodes',
+                        help="Comma-separate list of nodes to deploy to. All "
+                             "others will be skipped.")
     args = parser.parse_args()
+    if args.specific_nodes:
+        specific_nodes = args.specific_nodes.split(',')
+    else:
+        specific_nodes = []
     if args.skip_nodes:
         skip_nodes = args.skip_nodes.split(',')
     else:
         skip_nodes = []
     if args.fuel_environment:
         environment = FuelEnvironment(args.fuel_environment,
-                                      skip_nodes=skip_nodes)
+                                      skip_nodes=skip_nodes,
+                                      specific_nodes=specific_nodes)
     elif args.config_file:
         environment = ConfigEnvironment(args.config_file.read(),
-                                        skip_nodes=skip_nodes)
+                                        skip_nodes=skip_nodes,
+                                        specific_nodes=specific_nodes)
     else:
         parser.error('You must specify either the Fuel '
                      'environment or the config file.')
