@@ -222,6 +222,7 @@ class ConfigDeployer(object):
             raise Exception('Environment must have at least 1 node '
                             'and controller options')
         if self.patch_python_files:
+            print 'Downloading patch files...'
             for patchset in PYTHON_FILES_TO_PATCH + [('','', NEUTRON_TGZ_URL)]:
                 url = patchset[2]
                 try:
