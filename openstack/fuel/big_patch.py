@@ -561,7 +561,7 @@ if $operatingsystem == 'CentOS'{
       mode   => 0777,
       notify => Exec['restartneutronservices'],
     }
-    exec {'centosprereqs':
+    exec {'lldpdinstall':
        onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
        command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
@@ -616,6 +616,7 @@ exec {"loadbond":
 exec {"deleteovsbond":
   command => '/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F \'\t\' \'{ print $1 }\' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}',
   path    => "/usr/local/bin/:/bin/:/usr/bin",
+  require => Exec['lldpdinstall'],
   onlyif  => "/sbin/ifconfig br-ovs-bond0 && ovs-vsctl show | grep '\"${bond_name}\"'",
   notify => Exec['networkingrestart']
 }
@@ -647,7 +648,7 @@ auto bond0
     }
     exec {"networkingrestart":
        refreshonly => true,
-       require => [Exec['loadbond'], File['bondmembers']],
+       require => [Exec['loadbond'], File['bondmembers'], Exec['deleteovsbond'], Exec['lldpdinstall']],
        command => '/etc/init.d/networking restart',
        notify => Exec['addbondtobridge'],
     }
@@ -655,7 +656,7 @@ auto bond0
           ensure  => file,
           path    => '/etc/apt/sources.list.d/universe.list',
           mode    => 0644,
-          notify => Exec['aptupdate'],
+          notify => Exec['lldpdinstall'],
           content => "
 deb http://us.archive.ubuntu.com/ubuntu/ precise universe
 deb-src http://us.archive.ubuntu.com/ubuntu/ precise universe
@@ -667,8 +668,7 @@ deb http://security.ubuntu.com/ubuntu precise-security universe
 deb-src http://security.ubuntu.com/ubuntu precise-security universe",
         }
 
-    exec{"aptupdate":
-        refreshonly => true,
+    exec{"lldpdinstall":
         command => "apt-get update; apt-get install --allow-unauthenticated -y lldpd",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
         notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
@@ -676,7 +676,7 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
     exec{"triggerinstall":
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
         command => 'echo',
-        notify => Exec['aptupdate'],
+        notify => Exec['lldpdinstall'],
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
     file{'ubuntulldpdconfig':
@@ -698,11 +698,11 @@ if $operatingsystem == 'CentOS' {
     exec {"networkingrestart":
        refreshonly => true,
        command => '/etc/init.d/network restart',
-       require => [Exec['loadbond'], File['bondmembers']],
+       require => [Exec['loadbond'], File['bondmembers'], Exec['deleteovsbond'], Exec['lldpdinstall']],
        notify => Exec['addbondtobridge'],
     }
     file{'bondmembers':
-        require => [Exec['centosprereqs'],Exec['loadbond'],File['centoslldpdconfig']],
+        require => [Exec['lldpdinstall'],Exec['loadbond'],File['centoslldpdconfig']],
         ensure => file,
         mode => 0644,
         path => '/etc/sysconfig/network-scripts/ifcfg-bond0',
@@ -745,6 +745,7 @@ exec {"openvswitchrestart":
 }
 exec{'lldpdrestart':
     refreshonly => true,
+    require => Exec['lldpdinstall'],
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
