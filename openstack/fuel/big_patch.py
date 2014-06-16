@@ -540,6 +540,8 @@ file { 'ssl_dir':
   path   => $bigswitch_ssl_cert_directory,
   owner  => "neutron",
   group  => "neutron",
+  purge => true,
+  recurse => true,
   mode   => 0750,
   notify => Exec['restartneutronservices'],
 }
