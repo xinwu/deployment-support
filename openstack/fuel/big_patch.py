@@ -273,7 +273,7 @@ class ConfigDeployer(object):
 
         # Find where python libs are installed
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
-        # we need to replace all of neutron in CentOS
+        # we need to replace all of neutron plugins dir in CentOS
         if netaddr_path and '2.6' in netaddr_path:
             python_lib_dir = "/".join(netaddr_path.split("/")[:-1]) + "/"
             target_neutron_path = python_lib_dir + 'neutron'
@@ -286,10 +286,14 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error pushing neutron to %s:\n%s"
                                 % (node, errors))
-            extract = "rm -rf '%s';" % target_neutron_path
+            # remove existing plugins directory
+            extract = "rm -rf '%s/plugins';" % target_neutron_path
+            # temp dir to extract to
             extract += "export TGT=$(mktemp -d);"
+            # extract with strip-components to remove the branch dir
             extract += 'tar --strip-components=1 -xf ~/neutron.tar.gz -C "$TGT";'
-            extract += 'mv "$TGT/neutron" "%s"' % python_lib_dir
+            # move the extraced plugins to the neutron dir
+            extract += 'mv "$TGT/neutron/plugins" "%s/"' % target_neutron_path
             resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                          "root@%s" % node,
                                          "bash -c '%s'" % extract]).run()
