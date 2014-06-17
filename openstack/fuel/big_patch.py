@@ -103,6 +103,8 @@ class Environment(object):
 
 class ConfigEnvironment(Environment):
 
+    network_vlan_ranges = None
+
     def __init__(self, yaml_string, skip_nodes=[], specific_nodes=[]):
         try:
             self.settings = yaml.load(yaml_string)
