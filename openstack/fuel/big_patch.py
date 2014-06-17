@@ -212,7 +212,7 @@ class FuelEnvironment(Environment):
 
     @property
     def network_vlan_ranges(self):
-        net_vlan = ''
+        net_vlans = []
         # comes from compute settings file
         node = self.node_settings.keys()[0]
         physnets = self.node_settings[node][
@@ -221,8 +221,8 @@ class FuelEnvironment(Environment):
             range = physnets[physnet]['vlan_range']
             if not range:
                 continue
-            net_vlan += '%s:%s,' % (physnet, range)
-        return net_vlan
+            net_vlans.append('%s:%s' % (physnet, range))
+        return ','.join(net_vlans)
 
     def get_node_bond_interfaces(self, node):
         if node not in self.nodes:
