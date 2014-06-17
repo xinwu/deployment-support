@@ -663,13 +663,13 @@ exec {"clearint0":
   command => "ovs-vsctl --if-exists del-port $bond_int0",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   require => Exec['lldpdinstall'],
-  onlyif => "ovs-vsctl show | grep 'Port ${bond_int0}'",
+  onlyif => "ovs-vsctl show | grep 'Port \"${bond_int0}\"'",
 }
 exec {"clearint1":
   command => "ovs-vsctl --if-exists del-port $bond_int1",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   require => Exec['lldpdinstall'],
-  onlyif => "ovs-vsctl show | grep 'Port ${bond_int1}'",
+  onlyif => "ovs-vsctl show | grep 'Port \"${bond_int1}\"'",
 }
 
 # make sure bond module is loaded
