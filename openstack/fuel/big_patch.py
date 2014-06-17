@@ -70,6 +70,9 @@ class Environment(object):
     def get_node_bond_interfaces(self, node):
         raise NotImplementedError()
 
+    def get_node_phy_bridge(self, node):
+        raise NotImplementedError()
+
     def set_bigswitch_servers(self, servers):
         for s in servers.split(','):
             try:
@@ -131,6 +134,17 @@ class ConfigEnvironment(Environment):
                 return n.get('bond_interfaces', '').split(',')
         print 'Node %s has no bond interfaces.' % node
         return []
+
+    def get_node_phy_bridge(self, node):
+        phy_br = None
+        for n in self.settings['nodes']:
+            if n['hostname'] == node:
+                phy_br = n.get('physical_interface_bridge')
+        if not phy_br:
+            raise Exception('Node %s is missing physical_interface_bridge '
+                            'which is required for bonding configuration.'
+                            % node)
+        return phy_br
 
 
 class FuelEnvironment(Environment):
@@ -219,6 +233,10 @@ class FuelEnvironment(Environment):
         print 'Node %s has no bond interfaces.' % node
         return []
 
+    def get_node_phy_bridge(self, node):
+        # TODO: Actually pull this out of the config in case Fuel changes
+        return 'br-ovs-bond0'
+
 
 class ConfigDeployer(object):
     def __init__(self, environment, patch_python_files=True):
@@ -256,8 +274,11 @@ class ConfigDeployer(object):
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges
         }
-        for key, val in enumerate(bond_interfaces):
-            puppet_settings['bond_int%s' % key] = val
+        if bond_interfaces:
+            puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
+                node)
+            for key, val in enumerate(bond_interfaces):
+                puppet_settings['bond_int%s' % key] = val
         ptemplate = PuppetTemplate(puppet_settings)
         if self.patch_python_files:
             for package, rel_path, url in PYTHON_FILES_TO_PATCH:
