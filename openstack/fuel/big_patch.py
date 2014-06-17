@@ -329,7 +329,7 @@ class PuppetTemplate(object):
         self.settings = {
             'bond_int0': '', 'bond_int1': '', 'bond_interfaces': '',
             'bigswitch_servers': '', 'bigswitch_serverauth': '',
-            'network_vlan_ranges': ''}
+            'network_vlan_ranges': '', 'physical_bridge': 'br-ovs-bond0'}
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -369,6 +369,7 @@ $network_vlan_ranges = '%(network_vlan_ranges)s'
 $bond_int0 = '%(bond_int0)s'
 $bond_int1 = '%(bond_int1)s'
 $bond_name = 'ovs-bond0'
+$phy_bridge = '%(physical_bridge)s'
 
 if $operatingsystem == 'Ubuntu'{
     $neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
@@ -631,12 +632,25 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => '/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F \'\t\' \'{ print $1 }\' | xargs -I {} ovs-vsctl del-port br-ovs-bond0 {}',
+  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port ${phy_bridge} {}",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   require => Exec['lldpdinstall'],
-  onlyif  => "/sbin/ifconfig br-ovs-bond0 && ovs-vsctl show | grep '\"${bond_name}\"'",
+  onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_name}\"'",
   notify => Exec['networkingrestart']
 }
+exec {"clearint0":
+  command => "ovs-vsctl --if-exists del-port $bond_int0",
+  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  require => Exec['lldpdinstall'],
+  onlyif => "ovs-vsctl show | grep 'Port ${bond_int0}'",
+}
+exec {"clearint1":
+  command => "ovs-vsctl --if-exists del-port $bond_int1",
+  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  require => Exec['lldpdinstall'],
+  onlyif => "ovs-vsctl show | grep 'Port ${bond_int1}'",
+}
+
 # make sure bond module is loaded
 if $operatingsystem == 'Ubuntu' {
     file_line { 'bond':
@@ -744,7 +758,7 @@ BONDING_OPTS="mode=0 miimon=50"
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
     }
     file{'bond_int1config':
         require => File['bondmembers'],
@@ -758,7 +772,7 @@ BONDING_OPTS="mode=0 miimon=50"
 }
 exec {"addbondtobridge":
    refreshonly => true,
-   command => 'ovs-vsctl --may-exist add-port br-ovs-bond0 bond0',
+   command => 'ovs-vsctl --may-exist add-port ${phy_bridge} bond0',
    path    => "/usr/local/bin/:/bin/:/usr/bin",
    notify => Exec['openvswitchrestart'],
 }
