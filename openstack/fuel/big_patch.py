@@ -235,8 +235,9 @@ class FuelEnvironment(Environment):
         return []
 
     def get_node_phy_bridge(self, node):
-        # TODO: Actually pull this out of the config in case Fuel changes
-        return 'br-ovs-bond0'
+        if node not in self.nodes:
+            raise Exception('No node in fuel environment %s' % node)
+        return self.node_settings[node]['network_scheme']['roles']['private']
 
 
 class ConfigDeployer(object):
