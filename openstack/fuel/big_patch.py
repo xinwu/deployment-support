@@ -24,7 +24,8 @@ PYTHON_FILES_TO_PATCH = [
 ]
 
 # path to neutron tar.gz for CentOS nodes
-NEUTRON_TGZ_URL = 'https://github.com/bigswitch/neutron/archive/stable/icehouse.tar.gz'
+NEUTRON_TGZ_URL = ('https://github.com/bigswitch/neutron/archive/'
+                   'stable/icehouse.tar.gz')
 
 
 class TimedCommand(object):
@@ -277,6 +278,13 @@ class ConfigDeployer(object):
         if bond_interfaces:
             puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
                 node)
+            physnets = self.env.network_vlan_ranges.split(',')
+            if len(physnets) > 1:
+                print ('Warning, multiple physnets configured "%s". A '
+                       'bridge_mapping will only be configured for %s'
+                       % (physnets, physnets[0]))
+            puppet_settings['bridge_mappings'] = '%s:%s' % (
+                physnets[0].split(':')[0], puppet_settings['physical_bridge'])
             for key, val in enumerate(bond_interfaces):
                 puppet_settings['bond_int%s' % key] = val
         ptemplate = PuppetTemplate(puppet_settings)
@@ -323,7 +331,8 @@ class ConfigDeployer(object):
             # temp dir to extract to
             extract += "export TGT=$(mktemp -d);"
             # extract with strip-components to remove the branch dir
-            extract += 'tar --strip-components=1 -xf ~/neutron.tar.gz -C "$TGT";'
+            extract += 'tar --strip-components=1 -xf '
+            extract += '~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
             extract += 'mv "$TGT/neutron/plugins" "%s/";' % target_neutron_path
             # move the extraced agent dir to the neutron dir
@@ -350,7 +359,8 @@ class PuppetTemplate(object):
         self.settings = {
             'bond_int0': '', 'bond_int1': '', 'bond_interfaces': '',
             'bigswitch_servers': '', 'bigswitch_serverauth': '',
-            'network_vlan_ranges': '', 'physical_bridge': 'br-ovs-bond0'}
+            'network_vlan_ranges': '', 'physical_bridge': 'br-ovs-bond0',
+            'bridge_mappings': ''}
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -391,6 +401,7 @@ $bond_int0 = '%(bond_int0)s'
 $bond_int1 = '%(bond_int1)s'
 $bond_name = 'ovs-bond0'
 $phy_bridge = '%(physical_bridge)s'
+$ovs_bridge_mappings = '%(bridge_mappings)s'
 
 if $operatingsystem == 'Ubuntu'{
     $neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
@@ -809,7 +820,13 @@ exec{'lldpdrestart':
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
 
-
+ini_setting {"ovs_bridge_mappings":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
+  setting => 'bridge_mappings',
+  value   => $ovs_bridge_mappings,
+  ensure  => present,
+}
 
 '''  # noqa
 
