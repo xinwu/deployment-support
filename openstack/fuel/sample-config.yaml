@@ -1,5 +1,5 @@
 nodes:
 - {hostname: '1.2.3.4', bond_interfaces: 'eth0,eth1'}
 - {hostname: 'node1.domain.local', bond_interfaces: 'eth1,eth2'}
-network_vlan_ranges: 'physnet1:100-3000'
+network_vlan_ranges: 'physnet1:100:3000'
 
