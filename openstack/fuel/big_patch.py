@@ -495,7 +495,7 @@ ini_setting {"mechanism_drivers":
   path    => $neutron_conf_path,
   section => 'ml2',
   setting => 'mechanism_drivers',
-  value   => 'openvswitch,bigswitch,logger',
+  value   => 'openvswitch,bigswitch',
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
