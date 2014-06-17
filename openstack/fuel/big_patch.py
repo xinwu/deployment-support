@@ -296,14 +296,17 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error pushing neutron to %s:\n%s"
                                 % (node, errors))
-            # remove existing plugins directory
+            # remove existing plugins and agent directory
             extract = "rm -rf '%s/plugins';" % target_neutron_path
+            extract += "rm -rf '%s/agent';" % target_neutron_path
             # temp dir to extract to
             extract += "export TGT=$(mktemp -d);"
             # extract with strip-components to remove the branch dir
             extract += 'tar --strip-components=1 -xf ~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
-            extract += 'mv "$TGT/neutron/plugins" "%s/"' % target_neutron_path
+            extract += 'mv "$TGT/neutron/plugins" "%s/";' % target_neutron_path
+            # move the extraced agent dir to the neutron dir
+            extract += 'mv "$TGT/neutron/agent" "%s/"' % target_neutron_path
             resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                          "root@%s" % node,
                                          "bash -c '%s'" % extract]).run()
