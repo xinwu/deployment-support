@@ -826,6 +826,7 @@ ini_setting {"ovs_bridge_mappings":
   setting => 'bridge_mappings',
   value   => $ovs_bridge_mappings,
   ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 '''  # noqa
