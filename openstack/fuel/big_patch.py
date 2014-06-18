@@ -843,8 +843,8 @@ BONDING_OPTS="mode=0 miimon=50"
 
 }
 exec {"addbondtobridge":
-   refreshonly => true,
-   command => 'ovs-vsctl --may-exist add-port ${phy_bridge} bond0',
+   command => "ovs-vsctl --may-exist add-port ${phy_bridge} bond0",
+   onlyif => "/sbin/ifconfig bond0 && ! ovs-ofctl show ${phy_bridge} | grep '(bond0)'",
    path    => "/usr/local/bin/:/bin/:/usr/bin",
    notify => Exec['openvswitchrestart'],
 }
