@@ -790,6 +790,11 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
         content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
         notify => Exec['lldpdrestart'],
     }
+    exec {"openvswitchrestart":
+       refreshonly => true,
+       command => '/etc/init.d/openvswitch-switch restart',
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
 }
 if $operatingsystem == 'CentOS' {
     exec {'lldpdinstall':
@@ -841,17 +846,17 @@ BONDING_OPTS="mode=0 miimon=50"
         content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
     }
 
+    exec {"openvswitchrestart":
+       refreshonly => true,
+       command => '/etc/init.d/openvswitch restart',
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
 }
 exec {"addbondtobridge":
    command => "ovs-vsctl --may-exist add-port ${phy_bridge} bond0",
    onlyif => "/sbin/ifconfig bond0 && ! ovs-ofctl show ${phy_bridge} | grep '(bond0)'",
    path    => "/usr/local/bin/:/bin/:/usr/bin",
    notify => Exec['openvswitchrestart'],
-}
-exec {"openvswitchrestart":
-   refreshonly => true,
-   command => '/etc/init.d/openvswitch-switch restart',
-   path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
 exec{'lldpdrestart':
     refreshonly => true,
