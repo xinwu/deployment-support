@@ -1,5 +1,7 @@
 nodes:
-- {hostname: '1.2.3.4', bond_interfaces: 'eth0,eth1', physical_interface_bridge: 'br-prv'}
-- {hostname: 'node1.domain.local', bond_interfaces: 'eth1,eth2', physical_interface_bridge: 'br-prv'}
+- {hostname: '1.2.3.4', bond_interfaces: 'eth0,eth1',
+   physical_interface_bridge: 'br-eth0', bridge_mappings: 'physnet1:br-prv'}
+- {hostname: 'node1.domain.local', bond_interfaces: 'eth1,eth2',
+   physical_interface_bridge: 'br-eth0', bridge_mappings: 'physnet1:br-prv'}
 network_vlan_ranges: 'physnet1:100:3000'
 

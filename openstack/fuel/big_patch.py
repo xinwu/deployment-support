@@ -71,7 +71,12 @@ class Environment(object):
     def get_node_bond_interfaces(self, node):
         raise NotImplementedError()
 
+    # where the physical interfaces should be added
     def get_node_phy_bridge(self, node):
+        raise NotImplementedError()
+
+    # associations of physnets to bridges
+    def get_node_bridge_mappings(self, node):
         raise NotImplementedError()
 
     def set_bigswitch_servers(self, servers):
@@ -135,6 +140,25 @@ class ConfigEnvironment(Environment):
                 return n.get('bond_interfaces', '').split(',')
         print 'Node %s has no bond interfaces.' % node
         return []
+
+    def get_node_bridge_mappings(self, node):
+        br_mappings = None
+        for n in self.settings['nodes']:
+            if n['hostname'] == node:
+                br_mappings = n.get('bridge_mappins')
+        if not br_mappings:
+            raise Exception('Node %s is missing bridge_mappings '
+                            'which is required for the OVS agent.'
+                            % node)
+        cleaned = []
+        for m in br_mappings.rstrip(',').split(','):
+            if len(m.split(':')) != 2:
+                raise Exception('Invalid bridge_mappings setting for node %s. '
+                                'bridge_mappings should be a comma-separated '
+                                'list of physnetName:bridgeName pairs.\n'
+                                'Input -> %s ' % (br_mappings))
+            cleaned.append(m.strip())
+        return ','.join(cleaned)
 
     def get_node_phy_bridge(self, node):
         phy_br = None
@@ -235,9 +259,24 @@ class FuelEnvironment(Environment):
         return []
 
     def get_node_phy_bridge(self, node):
+        bridge = None
         if node not in self.nodes:
             raise Exception('No node in fuel environment %s' % node)
-        return self.node_settings[node]['network_scheme']['roles']['private']
+        trans = self.node_settings[node]['network_scheme']['transformations']
+        for t in trans:
+            if t.get('action') == 'add-bond':
+                bridge = t.get('bridge')
+        if not bridge:
+            raise Exception('Node %s has no bridge for the bond.' % node)
+        return bridge
+
+    def get_node_bridge_mappings(self, node):
+        if node not in self.nodes:
+            raise Exception('No node in fuel environment %s' % node)
+        # NOTE: only one used network vlan range supported for now
+        physnet = self.network_vlan_ranges.split(',')[0].split(':')[0]
+        bridge = self.node_settings[node]['network_scheme']['roles']['private']
+        return '%s:%s' % (physnet, bridge)
 
 
 class ConfigDeployer(object):
@@ -284,8 +323,8 @@ class ConfigDeployer(object):
                 print ('Warning, multiple physnets configured "%s". A '
                        'bridge_mapping will only be configured for %s'
                        % (physnets, physnets[0]))
-            puppet_settings['bridge_mappings'] = '%s:%s' % (
-                physnets[0].split(':')[0], puppet_settings['physical_bridge'])
+            puppet_settings['bridge_mappings'] = (
+                self.env.get_node_bridge_mappings(node))
             for key, val in enumerate(bond_interfaces):
                 puppet_settings['bond_int%s' % key] = val
         ptemplate = PuppetTemplate(puppet_settings)
@@ -665,7 +704,7 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\t' '{ print $1 }' | xargs -I {} ovs-vsctl del-port ${phy_bridge} {}",
+  command => "/usr/bin/ovs-appctl bond/list | grep -v slaves | head -n1 | awk -F '\\t' '{ print \$1 }' | xargs -I {} ovs-vsctl del-port ${phy_bridge} {}",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   require => Exec['lldpdinstall'],
   onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_name}\"'",
