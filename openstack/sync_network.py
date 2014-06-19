@@ -25,6 +25,7 @@
 #
 
 import argparse
+import os
 import platform
 import re
 import sys
@@ -35,28 +36,31 @@ from oslo.config import cfg
 
 from neutron.openstack.common import log as logging
 from neutron.plugins.bigswitch.plugin import NeutronRestProxyV2
-
+from neutron.plugins.bigswitch import config
 
 RED_HAT = 'red hat'
-UBUNTU  = 'ubuntu'
+UBUNTU = 'ubuntu'
+CENTOS = 'CentOS'
 DISTRO = None
+
 
 def get_config_files():
     """Get config file for restproxy"""
-    if DISTRO in [RED_HAT]:
-        return [
+    if DISTRO in [RED_HAT, CENTOS]:
+        files = [
             "/usr/share/neutron/neutron-dist.conf",
             "/etc/neutron/neutron.conf",
             "/etc/neutron/dhcp_agent.ini",
             "/etc/neutron/plugin.ini",
         ]
     elif DISTRO in [UBUNTU]:
-        return [
+        files = [
             "/etc/neutron/neutron.conf",
             "/etc/neutron/dhcp_agent.ini",
             "/etc/neutron/plugins/bigswitch/restproxy.ini",
             "/etc/neutron/plugins/ml2/ml2_conf.ini",
         ]
+    return [f for f in files if os.path.exists(f)]
 
 
 def init_config():
@@ -64,15 +68,16 @@ def init_config():
     logging.setup("sync_network")
     cfgfile = get_config_files()
     cfg.CONF(
-        args = [j for i in zip(["--config-file"]*len(cfgfile), cfgfile)
-                  for j in i],
-        project = "neutron",
+        args=[j for i in zip(["--config-file"]*len(cfgfile), cfgfile)
+              for j in i],
+        project="neutron",
     )
-    cfg.CONF.set_override('consistency_interval', 0, 'RESTPROXY')
     cfg.CONF.set_override('control_exchange', '')
     cfg.CONF.set_override('rpc_backend', 'neutron.openstack.common.rpc.impl_fake')
     cfg.CONF.set_override('verbose', True)
     cfg.CONF.set_override('debug', True)
+    config.register_config()
+    cfg.CONF.set_override('consistency_interval', 0, 'RESTPROXY')
 
 
 def send_all_data(send_ports=True, send_floating_ips=True, send_routers=True):
@@ -110,6 +115,8 @@ if __name__ == "__main__":
         DISTRO = RED_HAT
     elif re.search(UBUNTU, linux_distro, re.IGNORECASE):
         DISTRO = UBUNTU
+    elif re.search(CENTOS, linux_distro, re.IGNORECASE):
+        DISTRO = CENTOS
     else:
         print "ERROR: Linux distro not supported"
         sys.exit(1)
