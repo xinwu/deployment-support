@@ -55,6 +55,7 @@ def get_config_files():
             "/etc/neutron/neutron.conf",
             "/etc/neutron/dhcp_agent.ini",
             "/etc/neutron/plugins/bigswitch/restproxy.ini",
+            "/etc/neutron/plugins/ml2/ml2_conf.ini",
         ]
 
 
@@ -67,6 +68,7 @@ def init_config():
                   for j in i],
         project = "neutron",
     )
+    cfg.CONF.set_override('consistency_interval', 0, 'RESTPROXY')
     cfg.CONF.set_override('control_exchange', '')
     cfg.CONF.set_override('rpc_backend', 'neutron.openstack.common.rpc.impl_fake')
     cfg.CONF.set_override('verbose', True)
