@@ -627,6 +627,28 @@ ini_setting { "bigswitch_ssl":
   require => File[$conf_dirs],
 }
 
+# temporarily disable sync until beta-2
+ini_setting { "bigswitch_auto_sync":
+  path    => $neutron_conf_path,
+  section => 'restproxy',
+  setting => 'auto_sync_on_failure',
+  value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting { "bigswitch_consistency_interval":
+  path    => $neutron_conf_path,
+  section => 'restproxy',
+  setting => 'consistency_interval',
+  value   => '0',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+
+
+
 file { 'ssl_dir':
   ensure => "directory",
   path   => $bigswitch_ssl_cert_directory,
