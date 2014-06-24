@@ -105,8 +105,9 @@ def send_all_data(send_ports=True, send_floating_ips=True, send_routers=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Push OpenStack Data to Controller')
-    parser.add_argument('--no-routers', action='store_true',
-                        help="Don't include routers in data sent to controller")
+    parser.add_argument('--include-routers', action='store_true',
+                        help="Include routers in data sent to controller. "
+                             "(Do not use with ML2)")
     parser.add_argument('--no-floatingips', action='store_true',
                         help="Don't include floating IPs in data sent to controller")
     parser.add_argument('--no-ports', action='store_true',
@@ -116,8 +117,8 @@ if __name__ == "__main__":
 
     # hillbilly speak to convert negative boolean to positive boolean
     send_ports = not args.no_ports
-    send_routers = not args.no_routers
     send_floating_ips = not args.no_floatingips
+    send_routers = args.include_routers
 
     linux_distro = platform.linux_distribution()[0]
     print "INFO: Detected linux distro: ", linux_distro
