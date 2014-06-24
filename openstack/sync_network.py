@@ -25,6 +25,7 @@
 #
 
 import argparse
+import eventlet
 import os
 import platform
 import re
@@ -34,14 +35,18 @@ warnings.filterwarnings("ignore")
 
 from oslo.config import cfg
 
+from neutron.openstack.common.db.sqlalchemy import session
 from neutron.openstack.common import log as logging
 from neutron.plugins.bigswitch.plugin import NeutronRestProxyV2
+from neutron.plugins.bigswitch import servermanager
 from neutron.plugins.bigswitch import config
 
 RED_HAT = 'red hat'
 UBUNTU = 'ubuntu'
 CENTOS = 'CentOS'
 DISTRO = None
+
+eventlet.monkey_patch()
 
 
 def get_config_files():
@@ -78,6 +83,11 @@ def init_config():
     cfg.CONF.set_override('debug', True)
     config.register_config()
     cfg.CONF.set_override('consistency_interval', 0, 'RESTPROXY')
+    cfg.CONF.set_override('sync_data', False, 'RESTPROXY')
+    # override to suppress annoying mysql mode warning
+    session.LOG.warning = lambda *args, **kwargs: True
+    # replace watchdog so it doesn't try to start
+    servermanager.ServerPool._consistency_watchdog = lambda x, y: True
 
 
 def send_all_data(send_ports=True, send_floating_ips=True, send_routers=True):
