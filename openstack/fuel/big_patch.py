@@ -327,6 +327,10 @@ class ConfigDeployer(object):
                 self.env.get_node_bridge_mappings(node))
             for key, val in enumerate(bond_interfaces):
                 puppet_settings['bond_int%s' % key] = val
+            # If only one bond interface was provided, set the second bond
+            # interface to the same as the first to prevent empty config errors
+            if len(bond_interfaces) < 2:
+                puppet_settings['bond_int1'] = bond_interfaces[0]
         ptemplate = PuppetTemplate(puppet_settings)
         if self.patch_python_files:
             for package, rel_path, url in PYTHON_FILES_TO_PATCH:
