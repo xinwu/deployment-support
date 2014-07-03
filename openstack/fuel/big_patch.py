@@ -137,7 +137,8 @@ class ConfigEnvironment(Environment):
     def get_node_bond_interfaces(self, node):
         for n in self.settings['nodes']:
             if n['hostname'] == node:
-                return n.get('bond_interfaces', '').split(',')
+                return [i for i in n.get('bond_interfaces', '').split(',')
+                        if i]
         print 'Node %s has no bond interfaces.' % node
         return []
 
