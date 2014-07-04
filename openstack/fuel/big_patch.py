@@ -10,7 +10,6 @@ import tempfile
 import subprocess
 import threading
 import urllib2
-import yaml
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
@@ -64,6 +63,12 @@ class Environment(object):
     bigswitch_auth = None
     bigswitch_servers = None
 
+    def run_command_on_node(self, node, command, timeout=60, retries=0):
+        raise NotImplementedError()
+
+    def copy_file_to_node(self, node, local_path, remote_path):
+        raise NotImplementedError()
+
     @property
     def network_vlan_ranges(self):
         raise NotImplementedError()
@@ -95,12 +100,10 @@ class Environment(object):
         self.bigswitch_auth = auth
 
     def get_node_python_package_path(self, node, package):
-        com = ["ssh", '-o LogLevel=quiet',
-               "root@%s" % node,
-               'python -c "import %s;import os;print '
+        com = ('python -c "import %s;import os;print '
                'os.path.dirname(%s.__file__)"'
-               % (package, package)]
-        resp, errors = TimedCommand(com).run()
+               % (package, package))
+        resp, errors = self.run_command_on_node(node, com)
         if errors or not resp.strip() or len(resp.strip().splitlines()) > 1:
             if 'ImportError' in errors:
                 return False
@@ -115,6 +118,7 @@ class ConfigEnvironment(Environment):
     network_vlan_ranges = None
 
     def __init__(self, yaml_string, skip_nodes=[], specific_nodes=[]):
+        import yaml
         try:
             self.settings = yaml.load(yaml_string)
         except Exception as e:
@@ -146,7 +150,7 @@ class ConfigEnvironment(Environment):
         br_mappings = None
         for n in self.settings['nodes']:
             if n['hostname'] == node:
-                br_mappings = n.get('bridge_mappins')
+                br_mappings = n.get('bridge_mappings')
         if not br_mappings:
             raise Exception('Node %s is missing bridge_mappings '
                             'which is required for the OVS agent.'
@@ -171,6 +175,17 @@ class ConfigEnvironment(Environment):
                             'which is required for bonding configuration.'
                             % node)
         return phy_br
+
+    def copy_file_to_node(self, node, local_path, remote_path):
+        resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', local_path,
+                                     "root@%s:%s" % (node, remote_path)]).run()
+        return resp, errors
+
+    def run_command_on_node(self, node, command, timeout=60, retries=0):
+        resp, errors = TimedCommand(
+            ["ssh", '-o LogLevel=quiet', "root@%s" % node, command]
+        ).run(timeout, retries)
+        return resp, errors
 
 
 class FuelEnvironment(Environment):
@@ -219,6 +234,17 @@ class FuelEnvironment(Environment):
             raise Exception("Could not parse node list:\n%s" % output)
         for node in self.nodes:
             self.node_settings[node] = self.get_node_config(node)
+
+    def copy_file_to_node(self, node, local_path, remote_path):
+        resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', local_path,
+                                     "root@%s:%s" % (node, remote_path)]).run()
+        return resp, errors
+
+    def run_command_on_node(self, node, command, timeout=60, retries=0):
+        resp, errors = TimedCommand(
+            ["ssh", '-o LogLevel=quiet', "root@%s" % node, command]
+        ).run(timeout, retries)
+        return resp, errors
 
     def get_node_config(self, node):
         print "Retrieving Fuel configuration for node %s..." % node
@@ -278,6 +304,47 @@ class FuelEnvironment(Environment):
         physnet = self.network_vlan_ranges.split(',')[0].split(':')[0]
         bridge = self.node_settings[node]['network_scheme']['roles']['private']
         return '%s:%s' % (physnet, bridge)
+
+
+class StandaloneEnvironment(Environment):
+    network_vlan_ranges = None
+    nodes = ['localhost']
+
+    def __init__(self, network_vlan_ranges, bridge_mappings, bond_interfaces,
+                 physical_bridge):
+        self.network_vlan_ranges = network_vlan_ranges
+        # optional
+        bond_interfaces = bond_interfaces or ''
+        self.bridge_mappings = bridge_mappings
+        self.bond_interfaces = [i for i in bond_interfaces.split(',') if i]
+        self.phy_bridge = physical_bridge
+
+    def get_node_bond_interfaces(self, node):
+        return self.bond_interfaces
+
+    def get_node_phy_bridge(self, node):
+        return self.phy_bridge
+
+    def get_node_bridge_mappings(self, node):
+        if not self.bridge_mappings:
+            raise Exception("Missing bridge_mappings setting")
+        cleaned = []
+        for m in self.bridge_mappings.rstrip(',').split(','):
+            if len(m.split(':')) != 2:
+                raise Exception('Invalid bridge_mappings setting for node %s. '
+                                'bridge_mappings should be a comma-separated '
+                                'list of physnetName:bridgeName pairs.\n'
+                                'Input -> %s ' % (self.bridge_mappings))
+            cleaned.append(m.strip())
+        return ','.join(cleaned)
+
+    def copy_file_to_node(self, node, local_path, remote_path):
+        resp, errors = TimedCommand(["cp", local_path, remote_path]).run()
+        return resp, errors
+
+    def run_command_on_node(self, node, command, timeout=60, retries=0):
+        resp, errors = TimedCommand([command]).run(timeout, retries)
+        return resp, errors
 
 
 class ConfigDeployer(object):
@@ -349,8 +416,7 @@ class ConfigDeployer(object):
         f.write(pbody)
         f.flush()
         remotefile = '~/generated_manifest.pp'
-        resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', f.name,
-                                     "root@%s:%s" % (node, remotefile)]).run()
+        resp, errors = self.env.copy_file_to_node(node, f.name, remotefile)
         if errors:
             raise Exception("error pushing puppet manifest to %s:\n%s"
                             % (node, errors))
@@ -365,8 +431,7 @@ class ConfigDeployer(object):
             f.write(self.patch_file_cache[NEUTRON_TGZ_URL])
             f.flush()
             nfile = '~/neutron.tar.gz'
-            resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', f.name,
-                                         "root@%s:%s" % (node, nfile)]).run()
+            resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
             if errors:
                 raise Exception("error pushing neutron to %s:\n%s"
                                 % (node, errors))
@@ -382,17 +447,14 @@ class ConfigDeployer(object):
             extract += 'mv "$TGT/neutron/plugins" "%s/";' % target_neutron_path
             # move the extraced agent dir to the neutron dir
             extract += 'mv "$TGT/neutron/agent" "%s/"' % target_neutron_path
-            resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
-                                         "root@%s" % node,
-                                         "bash -c '%s'" % extract]).run()
+            resp, errors = self.env.run_command_on_node(
+                node, "bash -c '%s'" % extract)
             if errors:
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
 
-        resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
-                                     "root@%s" % node,
-                                     "puppet apply %s" % remotefile]).run(30,
-                                                                          2)
+        resp, errors = self.env.run_command_on_node(
+            node, "puppet apply %s" % remotefile, 30, 2)
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
@@ -906,6 +968,9 @@ ini_setting {"ovs_bridge_mappings":
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
+    group.add_argument("-i", "--stand-alone", action='store_true',
+                       help="Configure the server running this script "
+                            "(root privileges required).")
     group.add_argument("-f", "--fuel-environment",
                        help="Fuel environment ID to load node settings from.")
     group.add_argument("-c", "--config-file", type=argparse.FileType('r'),
@@ -920,12 +985,28 @@ if __name__ == '__main__':
     parser.add_argument('--skip-file-patching', action='store_true',
                         help="Do not patch openstack packages with updated "
                              "versions.")
-    parser.add_argument('--skip-nodes',
+    remote = parser.add_argument_group('remote-deployment')
+    remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
                              "configurations to.")
-    parser.add_argument('--specific-nodes',
+    remote.add_argument('--specific-nodes',
                         help="Comma-separate list of nodes to deploy to. All "
                              "others will be skipped.")
+    local = parser.add_argument_group(
+        'standalone-deployment', 'Arguments for standalone deployments')
+    local.add_argument('--network-vlan-ranges',
+                       help="Comma-separated list of physical network vlan "
+                            "ranges. (e.g. a single vlan range would be "
+                            "physnet1:100:3000)")
+    local.add_argument('--phy-int-bridge',
+                       help="OVS bridge that will contain the bond "
+                            "interface. (e.g. br-eth0)")
+    local.add_argument('--bridge-mappings',
+                       help="Mappings between physical networks and OVS "
+                            "bridges. (e.g. physnet1:br-eth0)")
+    local.add_argument('--bond-interfaces',
+                       help="Comma-separated list of interfaces to configure. "
+                            "(e.g. eth1,eth2)")
     args = parser.parse_args()
     if args.specific_nodes:
         specific_nodes = args.specific_nodes.split(',')
@@ -943,9 +1024,25 @@ if __name__ == '__main__':
         environment = ConfigEnvironment(args.config_file.read(),
                                         skip_nodes=skip_nodes,
                                         specific_nodes=specific_nodes)
+    elif args.stand_alone:
+        if not args.network_vlan_ranges:
+            parser.error('--network-vlan-ranges is required when using '
+                         'stand-alone mode.')
+        if args.bond_interfaces:
+            missing = []
+            if not args.phy_int_bridge:
+                missing.append('--phy-int-bridge')
+            if not args.bridge_mappings:
+                missing.append('--bridge-mappings')
+            if missing:
+                parser.error('Missing required params %s when specifying bond '
+                             'interfaces.' % missing)
+        environment = StandaloneEnvironment(
+            args.network_vlan_ranges, args.bridge_mappings,
+            args.bond_interfaces, args.phy_int_bridge)
     else:
-        parser.error('You must specify either the Fuel '
-                     'environment or the config file.')
+        parser.error('You must specify the Fuel environment, the config '
+                     'file, or standalone mode.')
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     deployer = ConfigDeployer(environment,
