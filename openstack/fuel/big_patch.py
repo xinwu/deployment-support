@@ -537,10 +537,17 @@ if $operatingsystem == 'Ubuntu' {
       notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
   }
 }
-if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat' {
+if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-openvswitch-agent restart ||:;",
+      notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+  }
+}
+if $operatingsystem == 'RedHat' {
+  exec{"restartneutronservices":
+      refreshonly => true,
+      command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
       notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
   }
 }
@@ -933,7 +940,7 @@ BONDING_OPTS="mode=0 miimon=50"
 
     exec {"openvswitchrestart":
        refreshonly => true,
-       command => '/etc/init.d/openvswitch restart',
+       command => 'service openvswitch restart',
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
 
