@@ -340,12 +340,12 @@ class StandaloneEnvironment(Environment):
 
     def copy_file_to_node(self, node, local_path, remote_path):
         resp, errors = TimedCommand(
-            'bash', '-lc', "cp %s %s" % (local_path, remote_path)]).run()
+            ['bash', '-lc', "cp %s %s" % (local_path, remote_path)]).run()
         return resp, errors
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
-        resp, errors = TimedCommand(['bash','-lc', command]).run(timeout,
-                                                                 retries)
+        resp, errors = TimedCommand(['bash', '-lc', command]).run(timeout,
+                                                                  retries)
         return resp, errors
 
 
@@ -515,7 +515,7 @@ $ovs_bridge_mappings = '%(bridge_mappings)s'
 if $operatingsystem == 'Ubuntu'{
     $neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
 }
-if $operatingsystem == 'CentOS'{
+if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat'{
     $neutron_conf_path = "/etc/neutron/plugin.ini"
 }
 
@@ -537,7 +537,7 @@ if $operatingsystem == 'Ubuntu' {
       notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
   }
 }
-if $operatingsystem == 'CentOS' {
+if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-openvswitch-agent restart ||:;",
@@ -887,6 +887,52 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
 }
+if $operatingsystem == 'RedHat' {
+    exec {"networkingrestart":
+       refreshonly => true,
+       command => '/etc/init.d/network restart',
+       require => [Exec['loadbond'], File['bondmembers'], Exec['deleteovsbond']],
+       notify => Exec['addbondtobridge'],
+    }
+    file{'bondmembers':
+        require => [Exec['loadbond']],
+        ensure => file,
+        mode => 0644,
+        path => '/etc/sysconfig/network-scripts/ifcfg-bond0',
+        content => '
+DEVICE=bond0
+USERCTL=no
+BOOTPROTO=none
+ONBOOT=yes
+BONDING_OPTS="mode=0 miimon=50"
+',
+    }
+    file{'bond_int0config':
+        require => File['bondmembers'],
+        notify => Exec['networkingrestart'],
+        ensure => file,
+        mode => 0644,
+        path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+    }
+    if $bond_int0 != $bond_int1 {
+        file{'bond_int1config':
+            require => File['bondmembers'],
+            notify => Exec['networkingrestart'],
+            ensure => file,
+            mode => 0644,
+            path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        }
+    }
+
+    exec {"openvswitchrestart":
+       refreshonly => true,
+       command => '/etc/init.d/openvswitch restart',
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
+
+}
 if $operatingsystem == 'CentOS' {
     exec {'lldpdinstall':
        onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
@@ -928,15 +974,16 @@ BONDING_OPTS="mode=0 miimon=50"
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
         content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
     }
-    file{'bond_int1config':
-        require => File['bondmembers'],
-        notify => Exec['networkingrestart'],
-        ensure => file,
-        mode => 0644,
-        path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-        content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+    if $bond_int0 != $bond_int1 {
+        file{'bond_int1config':
+            require => File['bondmembers'],
+            notify => Exec['networkingrestart'],
+            ensure => file,
+            mode => 0644,
+            path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        }
     }
-
     exec {"openvswitchrestart":
        refreshonly => true,
        command => '/etc/init.d/openvswitch restart',
