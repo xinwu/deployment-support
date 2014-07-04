@@ -339,11 +339,13 @@ class StandaloneEnvironment(Environment):
         return ','.join(cleaned)
 
     def copy_file_to_node(self, node, local_path, remote_path):
-        resp, errors = TimedCommand(["cp", local_path, remote_path]).run()
+        resp, errors = TimedCommand(
+            'bash', '-lc', "cp %s %s" % (local_path, remote_path)]).run()
         return resp, errors
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
-        resp, errors = TimedCommand([command]).run(timeout, retries)
+        resp, errors = TimedCommand(['bash','-lc', command]).run(timeout,
+                                                                 retries)
         return resp, errors
 
 
@@ -424,7 +426,7 @@ class ConfigDeployer(object):
         # Find where python libs are installed
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
         # we need to replace all of neutron plugins dir in CentOS
-        if netaddr_path and '2.6' in netaddr_path:
+        if netaddr_path:
             python_lib_dir = "/".join(netaddr_path.split("/")[:-1]) + "/"
             target_neutron_path = python_lib_dir + 'neutron'
             f = tempfile.NamedTemporaryFile(delete=True)
