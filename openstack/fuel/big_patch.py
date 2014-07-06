@@ -695,6 +695,24 @@ ini_setting {"ovs_vlan_ranges":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"ovs_enable_tunneling":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
+  setting => 'ovs_enable_tunneling',
+  value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"ovs_tunnel_types":
+  path    => $neutron_ovs_conf_path,
+  section => 'agent',
+  setting => 'tunnel_types',
+  value   => '',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 
 ini_setting {"bigswitch_servers":
   path    => $neutron_conf_path,
