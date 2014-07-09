@@ -456,6 +456,11 @@ class ConfigDeployer(object):
                                 % (node, errors))
 
         resp, errors = self.env.run_command_on_node(
+            node, "puppet module install puppetlabs-inifile", 30, 2)
+        if errors:
+            raise Exception("error installing puppet prereqs on %s:\n%s"
+                            % (node, errors))
+        resp, errors = self.env.run_command_on_node(
             node, "puppet apply %s" % remotefile, 30, 2)
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
@@ -1002,11 +1007,16 @@ BONDING_OPTS="mode=0 miimon=50"
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
 }
+exec {"ensurebridge":
+  command => "ovs-vsctl --may-exist add-br ${phy_bridge}",
+  path    => "/usr/local/bin/:/bin/:/usr/bin",
+}
 exec {"addbondtobridge":
    command => "ovs-vsctl --may-exist add-port ${phy_bridge} bond0",
    onlyif => "/sbin/ifconfig bond0 && ! ovs-ofctl show ${phy_bridge} | grep '(bond0)'",
    path    => "/usr/local/bin/:/bin/:/usr/bin",
    notify => Exec['openvswitchrestart'],
+   require => Exec['ensurebridge'],
 }
 exec{'lldpdrestart':
     refreshonly => true,
