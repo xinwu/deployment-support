@@ -389,6 +389,17 @@ class ConfigDeployer(object):
             'network_vlan_ranges': self.env.network_vlan_ranges
         }
         if bond_interfaces:
+            for bondint in bond_interfaces:
+                resp, errors = self.env.run_command_on_node(
+                    node, "ifconfig %s" % bondint)
+                if not resp:
+                    raise Exception("Error: bond member '%s' on node '%s' was "
+                                    "not found.\n%s" % (bondint, node, errors))
+                if 'inet addr' in resp:
+                    raise Exception("Error: bond member '%s' on node '%s' has "
+                                    "an IP address configured. Interfaces must"
+                                    " not be in use.\nAddress: %s"
+                                    % (bondint, node, resp))
             puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
                 node)
             physnets = self.env.network_vlan_ranges.split(',')
