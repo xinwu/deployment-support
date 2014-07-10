@@ -10,6 +10,10 @@ import tempfile
 import subprocess
 import threading
 import urllib2
+try:
+    import yaml
+except:
+    pass
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
@@ -118,7 +122,6 @@ class ConfigEnvironment(Environment):
     network_vlan_ranges = None
 
     def __init__(self, yaml_string, skip_nodes=[], specific_nodes=[]):
-        import yaml
         try:
             self.settings = yaml.load(yaml_string)
         except Exception as e:
@@ -455,6 +458,10 @@ class ConfigDeployer(object):
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
 
+        self.env.run_command_on_node(
+            node,
+            "yum -y remove facter && gem install puppet facter "
+            "--no-ri --no-rdoc")
         resp, errors = self.env.run_command_on_node(
             node, "puppet module install puppetlabs-inifile", 30, 2)
         if errors:
