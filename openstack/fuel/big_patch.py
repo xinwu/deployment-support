@@ -474,7 +474,7 @@ class ConfigDeployer(object):
             "yum -y remove facter && gem install puppet facter "
             "--no-ri --no-rdoc")
         resp, errors = self.env.run_command_on_node(
-            node, "puppet module install puppetlabs-inifile", 30, 2)
+            node, "puppet module install puppetlabs-inifile --force", 30, 2)
         if errors:
             raise Exception("error installing puppet prereqs on %s:\n%s"
                             % (node, errors))
