@@ -894,7 +894,7 @@ deb-src http://security.ubuntu.com/ubuntu precise-security universe",
 
     exec{"lldpdinstall":
         onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-        command => "apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
+        command => "rm /var/lib/dpkg/lock ||:; apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
         notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
     }
