@@ -475,6 +475,7 @@ class ConfigDeployer(object):
             node,
             "yum -y remove facter && gem install puppet facter "
             "--no-ri --no-rdoc")
+        self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         resp, errors = self.env.run_command_on_node(
             node, "puppet module install puppetlabs-inifile --force", 30, 2)
         if errors:
