@@ -454,6 +454,7 @@ class ConfigDeployer(object):
             # remove existing plugins and agent directory
             extract = "rm -rf '%s/plugins';" % target_neutron_path
             extract += "rm -rf '%s/agent';" % target_neutron_path
+            extract += "rm -rf '%s/common';" % target_neutron_path
             # temp dir to extract to
             extract += "export TGT=$(mktemp -d);"
             # extract with strip-components to remove the branch dir
@@ -462,7 +463,8 @@ class ConfigDeployer(object):
             # move the extraced plugins to the neutron dir
             extract += 'mv "$TGT/neutron/plugins" "%s/";' % target_neutron_path
             # move the extraced agent dir to the neutron dir
-            extract += 'mv "$TGT/neutron/agent" "%s/"' % target_neutron_path
+            extract += 'mv "$TGT/neutron/agent" "%s/";' % target_neutron_path
+            extract += 'mv "$TGT/neutron/common" "%s/"' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
                 node, "bash -c '%s'" % extract)
             if errors:
@@ -695,6 +697,23 @@ ini_setting {"ovs_vlan_ranges":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"ovs_big_enable_tunneling":
+  path    => $neutron_ovs_conf_path,
+  section => 'OVS',
+  setting => 'ovs_enable_tunneling',
+  value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"ovs_big_tunnel_types":
+  path    => $neutron_ovs_conf_path,
+  section => 'AGENT',
+  setting => 'tunnel_types',
+  ensure  => absent,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 ini_setting {"ovs_enable_tunneling":
   path    => $neutron_ovs_conf_path,
   section => 'ovs',
@@ -708,8 +727,7 @@ ini_setting {"ovs_tunnel_types":
   path    => $neutron_ovs_conf_path,
   section => 'agent',
   setting => 'tunnel_types',
-  value   => '',
-  ensure  => present,
+  ensure  => absent,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
