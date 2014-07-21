@@ -486,6 +486,7 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
+        print "Configuration applied to %s." % node
 
 
 class PuppetTemplate(object):
