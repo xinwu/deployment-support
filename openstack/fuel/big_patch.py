@@ -3,6 +3,7 @@
 #
 # @author: Kevin Benton
 import argparse
+import collections
 import json
 import netaddr
 import os
@@ -14,6 +15,9 @@ try:
     import yaml
 except:
     pass
+
+# Maximum number of threads to deploy to nodes concurrently
+MAX_THREADS = 4
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
@@ -375,9 +379,30 @@ class ConfigDeployer(object):
                 self.patch_file_cache[url] = body
 
     def deploy_to_all(self):
+        thread_list = collections.deque()
+        errors = []
         for node in self.env.nodes:
+            t = threading.Thread(target=self.deploy_to_node_catch_errors,
+                                 args=(node, errors))
+            thread_list.append(t)
+            t.start()
+            if len(thread_list) > MAX_THREADS:
+                top = thread_list.popleft()
+                top.join()
+        for thread in thread_list:
+            thread.join()
+        if errors:
+            print "Encountered errors while deploying patch to nodes."
+            for node, error in errors:
+                print "Error on node %s:\n%s" % (node, error)
+        else:
+            print "Deployment Complete!"
+
+    def deploy_to_node_catch_errors(self, node, error_log):
+        try:
             self.deploy_to_node(node)
-        print "Deployment Complete!"
+        except Exception as e:
+            error_log.append((node, str(e)))
 
     def deploy_to_node(self, node):
         print "Applying configuration to %s..." % node
