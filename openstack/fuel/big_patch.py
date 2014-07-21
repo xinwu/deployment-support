@@ -386,7 +386,7 @@ class ConfigDeployer(object):
                                  args=(node, errors))
             thread_list.append(t)
             t.start()
-            if len(thread_list) > MAX_THREADS:
+            if len(thread_list) >= MAX_THREADS:
                 top = thread_list.popleft()
                 top.join()
         for thread in thread_list:
