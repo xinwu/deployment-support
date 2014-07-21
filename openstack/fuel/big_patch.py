@@ -919,14 +919,10 @@ auto bond0
           mode    => 0644,
           notify => Exec['lldpdinstall'],
           content => "
-deb http://us.archive.ubuntu.com/ubuntu/ precise universe
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise universe
-deb http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise-updates universe
-deb http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb-src http://us.archive.ubuntu.com/ubuntu/ precise-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu precise-security universe
-deb-src http://security.ubuntu.com/ubuntu precise-security universe",
+deb mirror://mirrors.ubuntu.com/mirrors.txt precise universe
+deb mirror://mirrors.ubuntu.com/mirrors.txt precise-updates universe
+deb mirror://mirrors.ubuntu.com/mirrors.txt precise-backports main restricted universe multiverse
+deb mirror://mirrors.ubuntu.com/mirrors.txt precise-security universe",
         }
 
     exec{"lldpdinstall":
