@@ -17,7 +17,7 @@ except:
     pass
 
 # Maximum number of threads to deploy to nodes concurrently
-MAX_THREADS = 4
+MAX_THREADS = 10
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
