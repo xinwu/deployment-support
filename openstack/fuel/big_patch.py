@@ -115,7 +115,7 @@ class Environment(object):
         if errors or not resp.strip() or len(resp.strip().splitlines()) > 1:
             if 'ImportError' in errors:
                 return False
-            raise Exception("Error retrieving path to pyhon package '%s' on "
+            raise Exception("Error retrieving path to python package '%s' on "
                             "node '%s'.\n%s\n%s" % (package, node,
                                                     errors, resp))
         return resp.strip()
@@ -258,8 +258,9 @@ class FuelEnvironment(Environment):
         resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
                                      "root@%s" % node,
                                      "cat", "/etc/astute.yaml"]).run()
-        if errors:
-            raise Exception("Error retrieving config for node %s:\n%s"
+        if errors or not resp:
+            raise Exception("Error retrieving config for node %s:\n%s\n"
+                            "Is the node online?"
                             % (node, errors))
         try:
             conf = yaml.load(resp)
