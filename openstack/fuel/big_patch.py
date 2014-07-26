@@ -888,7 +888,7 @@ exec {"cleanup_neutron":
 exec {"loadbond":
    command => 'modprobe bonding',
    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-   unless => "modinfo bonding",
+   unless => "lsmod | grep bonding",
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
