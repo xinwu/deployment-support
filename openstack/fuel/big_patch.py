@@ -190,7 +190,8 @@ class ConfigEnvironment(Environment):
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         resp, errors = TimedCommand(
-            ["ssh", '-o LogLevel=quiet', "root@%s" % node, command]
+            ["ssh", '-oStrictHostKeyChecking=no',
+             '-o LogLevel=quiet', "root@%s" % node, command]
         ).run(timeout, retries)
         return resp, errors
 
@@ -249,13 +250,15 @@ class FuelEnvironment(Environment):
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         resp, errors = TimedCommand(
-            ["ssh", '-o LogLevel=quiet', "root@%s" % node, command]
+            ["ssh", '-oStrictHostKeyChecking=no',
+             '-o LogLevel=quiet', "root@%s" % node, command]
         ).run(timeout, retries)
         return resp, errors
 
     def get_node_config(self, node):
         print "Retrieving Fuel configuration for node %s..." % node
-        resp, errors = TimedCommand(["ssh", '-o LogLevel=quiet',
+        resp, errors = TimedCommand(["ssh", '-oStrictHostKeyChecking=no',
+                                     '-o LogLevel=quiet',
                                      "root@%s" % node,
                                      "cat", "/etc/astute.yaml"]).run()
         if errors or not resp:
