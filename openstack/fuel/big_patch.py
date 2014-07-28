@@ -590,36 +590,57 @@ if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
-      notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
   }
 }
 if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
   }
 }
 if $operatingsystem == 'RedHat' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutronl3restart'], Exec['neutronserverrestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
+  }
+  exec{"neutronserverrestart":
+      refreshonly => true,
+      command => "/usr/sbin/service neutron-server restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+  }
+  exec{"neutronl3restart":
+      refreshonly => true,
+      command => "/usr/sbin/service neutron-l3-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+  }
+  exec{"neutrondhcprestart":
+      refreshonly => true,
+      command => "/usr/sbin/service neutron-dhcp-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+  }
+} else {
+  exec{"neutronserverrestart":
+      refreshonly => true,
+      command => "/etc/init.d/neutron-server restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+      onlyif => "ls /etc/init.d/neutron-server"
+  }
+  exec{"neutronl3restart":
+      refreshonly => true,
+      command => "/etc/init.d/neutron-l3-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+      onlyif => "ls /etc/init.d/neutron-l3-agent"
+  }
+  exec{"neutrondhcprestart":
+      refreshonly => true,
+      command => "/etc/init.d/neutron-dhcp-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+      onlyif => "ls /etc/init.d/neutron-dhcp-agent"
   }
 }
-exec{"neutronserverrestart":
-    refreshonly => true,
-    command => "/etc/init.d/neutron-server restart ||:;",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    onlyif => "ls /etc/init.d/neutron-server"
-}
-exec{"neutronl3restart":
-    refreshonly => true,
-    command => "/etc/init.d/neutron-l3-agent restart ||:;",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    onlyif => "ls /etc/init.d/neutron-l3-agent"
-}
-
 # basic conf directories
 $conf_dirs = ["/etc/neutron/plugins/ml2"]
 file {$conf_dirs:
