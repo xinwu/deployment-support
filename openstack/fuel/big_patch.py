@@ -70,6 +70,7 @@ class Environment(object):
     nodes = []
     bigswitch_auth = None
     bigswitch_servers = None
+    neutron_id = 'neutron'
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         raise NotImplementedError()
@@ -91,6 +92,11 @@ class Environment(object):
     # associations of physnets to bridges
     def get_node_bridge_mappings(self, node):
         raise NotImplementedError()
+
+    def set_neutron_id(self, neutron_id):
+        if not neutron_id:
+            raise Exception("A non-empty cluster-id must be specified.")
+        self.neutron_id = neutron_id
 
     def set_bigswitch_servers(self, servers):
         for s in servers.split(','):
@@ -413,6 +419,7 @@ class ConfigDeployer(object):
         bond_interfaces = self.env.get_node_bond_interfaces(node)
         puppet_settings = {
             'bond_interfaces': ','.join(bond_interfaces),
+            'neutron_id': self.env.neutron_id,
             'bigswitch_servers': self.env.bigswitch_servers,
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges
@@ -523,9 +530,9 @@ class PuppetTemplate(object):
     def __init__(self, settings):
         self.settings = {
             'bond_int0': '', 'bond_int1': '', 'bond_interfaces': '',
-            'bigswitch_servers': '', 'bigswitch_serverauth': '',
-            'network_vlan_ranges': '', 'physical_bridge': 'br-ovs-bond0',
-            'bridge_mappings': ''}
+            'neutron_id': '', 'bigswitch_servers': '',
+            'bigswitch_serverauth': '', 'network_vlan_ranges': '',
+            'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': ''}
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -558,6 +565,7 @@ class PuppetTemplate(object):
         return self
 
     main_body = """
+$neutron_id = '%(neutron_id)s'
 $bigswitch_serverauth = '%(bigswitch_serverauth)s'
 $bigswitch_servers = '%(bigswitch_servers)s'
 $bond_interfaces = '%(bond_interfaces)s'
@@ -784,6 +792,15 @@ ini_setting {"ovs_tunnel_types":
   require => File[$conf_dirs],
 }
 
+ini_setting {"neutron_id":
+  path    => $neutron_conf_path,
+  section => 'restproxy',
+  setting => 'neutron_id',
+  value   => $neutron_id,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 ini_setting {"bigswitch_servers":
   path    => $neutron_conf_path,
   section => 'restproxy',
@@ -1149,6 +1166,9 @@ if __name__ == '__main__':
     group.add_argument("-c", "--config-file", type=argparse.FileType('r'),
                        help="Path to YAML config file for "
                             "non-Fuel deployments.")
+    parser.add_argument("--neutron-cluster-name", default='neutron',
+                        help="Name used to set origin field of the "
+                             "objects created on the backend controllers.")
     parser.add_argument("-s", "--controllers", required=True,
                         help="Comma-separated list of "
                              "<controller:port> pairs.")
@@ -1218,6 +1238,7 @@ if __name__ == '__main__':
                      'file, or standalone mode.')
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
+    environment.set_neutron_id(args.neutron_cluster_name)
     deployer = ConfigDeployer(environment,
                               patch_python_files=not args.skip_file_patching)
     deployer.deploy_to_all()
