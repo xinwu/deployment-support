@@ -490,10 +490,10 @@ class ConfigDeployer(object):
             extract += 'tar --strip-components=1 -xf '
             extract += '~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
-            extract += 'mv "$TGT/neutron/plugins" "%s/";' % target_neutron_path
+            extract += 'cp -rp "$TGT/neutron/plugins" "%s/";' % target_neutron_path
             # move the extraced agent dir to the neutron dir
-            extract += 'mv "$TGT/neutron/agent" "%s/";' % target_neutron_path
-            extract += 'mv "$TGT/neutron/common" "%s/"' % target_neutron_path
+            extract += 'cp -rp "$TGT/neutron/agent" "%s/";' % target_neutron_path
+            extract += 'cp -rp "$TGT/neutron/common" "%s/"' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
                 node, "bash -c '%s'" % extract)
             if errors:
