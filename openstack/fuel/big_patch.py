@@ -1209,7 +1209,9 @@ if __name__ == '__main__':
         skip_nodes = args.skip_nodes.split(',')
     else:
         skip_nodes = []
+    neutron_id = args.neutron_cluster_name
     if args.fuel_environment:
+        neutron_id = '%s-%s' % (neutron_id, args.fuel_environment)
         environment = FuelEnvironment(args.fuel_environment,
                                       skip_nodes=skip_nodes,
                                       specific_nodes=specific_nodes)
@@ -1238,7 +1240,7 @@ if __name__ == '__main__':
                      'file, or standalone mode.')
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
-    environment.set_neutron_id(args.neutron_cluster_name)
+    environment.set_neutron_id(neutron_id)
     deployer = ConfigDeployer(environment,
                               patch_python_files=not args.skip_file_patching)
     deployer.deploy_to_all()
