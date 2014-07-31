@@ -585,6 +585,7 @@ if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat'{
 
 $neutron_ovs_conf_path = "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 $neutron_l3_conf_path = '/etc/neutron/l3_agent.ini'
+$neutron_dhcp_conf_path = '/etc/neutron/dhcp_agent.ini'
 $neutron_main_conf_path = "/etc/neutron/neutron.conf"
 $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
 
@@ -883,6 +884,15 @@ if $operatingsystem == 'CentOS'{
       mode   => 0777,
       notify => Exec['restartneutronservices'],
     }
+}
+#configure dhcp agent
+ini_setting {"dhcp_int_driver":
+  path    => $neutron_dhcp_conf_path,
+  section => 'DEFAULT',
+  setting => 'interface_driver',
+  value   => 'neutron.agent.linux.interface.OVSInterfaceDriver',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 
 #configure l3 agent
