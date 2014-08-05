@@ -452,6 +452,8 @@ class ConfigDeployer(object):
             if len(bond_interfaces) < 2:
                 puppet_settings['bond_int1'] = bond_interfaces[0]
         ptemplate = PuppetTemplate(puppet_settings)
+        ptemplate.settings['neutron_path'] = (
+            self.env.get_node_python_package_path(node, 'neutron'))
         if self.patch_python_files:
             for package, rel_path, url in PYTHON_FILES_TO_PATCH:
                 node_path = self.env.get_node_python_package_path(node,
@@ -532,7 +534,8 @@ class PuppetTemplate(object):
             'bond_int0': '', 'bond_int1': '', 'bond_interfaces': '',
             'neutron_id': '', 'bigswitch_servers': '',
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
-            'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': ''}
+            'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
+            'neutron_path': ''}
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -540,6 +543,8 @@ class PuppetTemplate(object):
     def get_string(self):
         # inject settings into template
         manifest = self.main_body % self.settings
+        if self.settings['neutron_path']:
+            manifest += self.neutron_body % self.settings
         # only setup bond stuff if interfaces are defined
         if self.settings['bond_interfaces']:
             manifest += self.bond_and_lldpd_configuration
@@ -576,6 +581,8 @@ $bond_name = 'ovs-bond0'
 $phy_bridge = '%(physical_bridge)s'
 $ovs_bridge_mappings = '%(bridge_mappings)s'
 
+"""  # noqa
+    neutron_body = """
 if $operatingsystem == 'Ubuntu'{
     $neutron_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
 }
@@ -749,6 +756,14 @@ ini_setting {"vlan_ranges":
   require => File[$conf_dirs],
 }
 
+ini_setting {"ovs_bridge_mappings":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
+  setting => 'bridge_mappings',
+  value   => $ovs_bridge_mappings,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
 ini_setting {"ovs_vlan_ranges":
   path    => $neutron_ovs_conf_path,
   section => 'ovs',
@@ -1152,15 +1167,6 @@ exec{'lldpdrestart':
     require => Exec['lldpdinstall'],
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-}
-
-ini_setting {"ovs_bridge_mappings":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'bridge_mappings',
-  value   => $ovs_bridge_mappings,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
 }
 
 '''  # noqa
