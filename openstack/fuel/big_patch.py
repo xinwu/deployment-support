@@ -781,9 +781,36 @@ ini_setting {"ovs_vlan_ranges":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"big_enable_tunneling":
+  path    => $neutron_ovs_conf_path,
+  section => 'OVS',
+  setting => 'enable_tunneling',
+  value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"enable_tunneling":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
+  setting => 'enable_tunneling',
+  value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 ini_setting {"ovs_big_enable_tunneling":
   path    => $neutron_ovs_conf_path,
   section => 'OVS',
+  setting => 'ovs_enable_tunneling',
+  value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"ovs_enable_tunneling":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
   setting => 'ovs_enable_tunneling',
   value   => 'False',
   ensure  => present,
@@ -798,15 +825,6 @@ ini_setting {"ovs_big_tunnel_types":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
-ini_setting {"ovs_enable_tunneling":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'ovs_enable_tunneling',
-  value   => 'False',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
 ini_setting {"ovs_tunnel_types":
   path    => $neutron_ovs_conf_path,
   section => 'agent',
@@ -815,7 +833,22 @@ ini_setting {"ovs_tunnel_types":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
-
+ini_setting {"Ctbridge":
+  path    => $neutron_ovs_conf_path,
+  section => 'OVS',
+  setting => 'tunnel_bridge',
+  ensure  => absent,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"tbridge":
+  path    => $neutron_ovs_conf_path,
+  section => 'ovs',
+  setting => 'tunnel_bridge',
+  ensure  => absent,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 ini_setting {"neutron_id":
   path    => $neutron_conf_path,
   section => 'restproxy',
