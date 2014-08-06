@@ -505,6 +505,14 @@ class ConfigDeployer(object):
             extract += 'cp -rp "$TGT/neutron/common" "%s/"' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
                 node, "bash -c '%s'" % extract)
+            # ignore bug in facter
+            actual_errors = []
+            errors = errors.splitlines()
+            for e in errors:
+                if "Device" in e and "does not exist." in e:
+                    continue
+                actual_errors.append(e)
+            errors = '\n'.join(actual_errors)
             if errors:
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
