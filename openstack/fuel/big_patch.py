@@ -618,7 +618,7 @@ if $operatingsystem == 'Ubuntu' {
 if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
       refreshonly => true,
-      command => "/etc/init.d/neutron-openvswitch-agent restart ||:;",
+      command => "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;",
       notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
   }
 }
