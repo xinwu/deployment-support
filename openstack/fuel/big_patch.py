@@ -836,7 +836,7 @@ ini_setting {"report_interval":
   path    => $neutron_conf_path,
   section => 'AGENT',
   setting => 'report_interval',
-  value => 20,
+  value => 15,
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
