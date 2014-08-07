@@ -672,6 +672,7 @@ if $operatingsystem == 'RedHat' {
       refreshonly => true,
       command => "/etc/init.d/neutron-metadata-agent restart ||:;",
       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+      onlyif => "ls /etc/init.d/neutron-metadata-agent"
   }
   exec{"neutrondhcprestart":
       refreshonly => true,
