@@ -498,6 +498,8 @@ class ConfigDeployer(object):
             extract += '~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
             extract += 'yes | cp -rfp "$TGT/neutron" "%s/../";' % target_neutron_path
+            # cleanup old pyc files
+            extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
                 node, "bash -c '%s'" % extract)
             if errors:
@@ -612,21 +614,26 @@ if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart']]
   }
 }
 if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
+      notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart']]
+  }
+  exec{"checkagent":
+      refreshonly => true,
+      command => "[ $(ps -ef | grep openvswitch-agent | wc -l) -eq 0 ] && service neutron-openvswitch-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
   }
 }
 if $operatingsystem == 'RedHat' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart']]
   }
   exec{"neutronserverrestart":
       refreshonly => true,
@@ -636,6 +643,11 @@ if $operatingsystem == 'RedHat' {
   exec{"neutronl3restart":
       refreshonly => true,
       command => "/usr/sbin/service neutron-l3-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+  }
+  exec{"neutronmetarestart":
+      refreshonly => true,
+      command => "/usr/sbin/service neutron-metadata-agent restart ||:;",
       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
   }
   exec{"neutrondhcprestart":
@@ -655,6 +667,11 @@ if $operatingsystem == 'RedHat' {
       command => "/etc/init.d/neutron-l3-agent restart ||:;",
       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
       onlyif => "ls /etc/init.d/neutron-l3-agent"
+  }
+  exec{"neutronmetarestart":
+      refreshonly => true,
+      command => "/etc/init.d/neutron-metadata-agent restart ||:;",
+      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
   }
   exec{"neutrondhcprestart":
       refreshonly => true,
@@ -811,6 +828,15 @@ ini_setting {"ovs_enable_tunneling":
   section => 'ovs',
   setting => 'ovs_enable_tunneling',
   value   => 'False',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"report_interval":
+  path    => $neutron_conf_path,
+  section => 'AGENT',
+  setting => 'report_interval',
+  value => 20,
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
