@@ -60,7 +60,8 @@ class TimedCommand(object):
             if self.retries < retries:
                 self.retries += 1
                 return self.run(timeout, retries)
-            self.errors = "Timed out waiting for command to finish."
+            self.errors = (
+                "Timed out waiting for command '%s' to finish." % self.cmd)
 
         return self.resp, self.errors
 
@@ -190,8 +191,9 @@ class ConfigEnvironment(Environment):
         return phy_br
 
     def copy_file_to_node(self, node, local_path, remote_path):
-        resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', local_path,
-                                     "root@%s:%s" % (node, remote_path)]).run()
+        resp, errors = TimedCommand(
+            ["scp", '-o LogLevel=quiet', local_path, "root@%s:%s" % (node, remote_path)]
+        ).run(timeout=180)
         return resp, errors
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
@@ -489,20 +491,13 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error pushing neutron to %s:\n%s"
                                 % (node, errors))
-            # remove existing plugins and agent directory
-            extract = "rm -rf '%s/plugins';" % target_neutron_path
-            extract += "rm -rf '%s/agent';" % target_neutron_path
-            extract += "rm -rf '%s/common';" % target_neutron_path
             # temp dir to extract to
-            extract += "export TGT=$(mktemp -d);"
+            extract = "export TGT=$(mktemp -d);"
             # extract with strip-components to remove the branch dir
             extract += 'tar --strip-components=1 -xf '
             extract += '~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
-            extract += 'cp -rp "$TGT/neutron/plugins" "%s/";' % target_neutron_path
-            # move the extraced agent dir to the neutron dir
-            extract += 'cp -rp "$TGT/neutron/agent" "%s/";' % target_neutron_path
-            extract += 'cp -rp "$TGT/neutron/common" "%s/"' % target_neutron_path
+            extract += 'yes | cp -rfp "$TGT/neutron" "%s/../";' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
                 node, "bash -c '%s'" % extract)
             # ignore bug in facter
@@ -522,6 +517,9 @@ class ConfigDeployer(object):
             "yum -y remove facter && gem install puppet facter "
             "--no-ri --no-rdoc")
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
+        self.env.run_command_on_node(node, "yum -y install python-pip")
+        self.env.run_command_on_node(node, "apt-get install python-pip")
+        self.env.run_command_on_node(node, "pip install pbr")
         resp, errors = self.env.run_command_on_node(
             node, "puppet module install puppetlabs-inifile --force", 30, 2)
         if errors:
