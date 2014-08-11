@@ -1003,11 +1003,11 @@ $MYSQL_COM="mysql -u `$MYSQL_USER` -p`$MYSQL_PASS` -h `$MYSQL_HOST` `$MYSQL_DB`"
 exec {"cleanup_neutron":
   onlyif => ["which mysql", "echo 'show tables' | $MYSQL_COM"],
   path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  command => "echo 'delete ports, floatingips from ports INNER JOIN floatingips on floatingips.floating_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type="vlan");' | $MYSQL_COM;
-              echo 'delete ports, routers from ports INNER JOIN routers on routers.gw_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type="vlan");' | $MYSQL_COM;
-              echo 'delete from ports where network_id NOT in (select network_id from ml2_network_segments where network_type="vlan");' | $MYSQL_COM;
-              echo 'delete from subnets where network_id NOT IN (select network_id from ml2_network_segments where network_type="vlan");' | $MYSQL_COM;
-              echo 'delete from networks where id NOT IN (select network_id from ml2_network_segments where network_type="vlan");' | $MYSQL_COM;
+  command => "echo 'delete ports, floatingips from ports INNER JOIN floatingips on floatingips.floating_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
+              echo 'delete ports, routers from ports INNER JOIN routers on routers.gw_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
+              echo 'delete from ports where network_id NOT in (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
+              echo 'delete from subnets where network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
+              echo 'delete from networks where id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
               echo 'delete from ports where network_id NOT IN (select network_id from networks);' | $MYSQL_COM;
               echo 'delete from routers where gw_port_id NOT IN (select id from ports);' | $MYSQL_COM;
               echo 'delete from floatingips where floating_port_id NOT IN (select id from ports);' | $MYSQL_COM;
