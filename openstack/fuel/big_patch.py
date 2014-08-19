@@ -874,6 +874,14 @@ ini_setting {"tbridge":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"auto_failover":
+  path    => $neutron_conf_path,
+  section => 'DEFAULT',
+  setting => 'allow_automatic_l3agent_failover',
+  value   => 'True',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
 ini_setting {"neutron_id":
   path    => $neutron_conf_path,
   section => 'restproxy',
@@ -986,14 +994,6 @@ ini_setting {"ext_net_bridge":
   notify => Exec['restartneutronservices'],
 }
 
-ini_setting {"auto_failover":
-  path    => $neutron_l3_conf_path,
-  section => 'DEFAULT',
-  setting => 'allow_automatic_l3agent_failover',
-  value   => 'True',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
 ini_setting {"handle_internal_only":
   path    => $neutron_l3_conf_path,
   section => 'DEFAULT',
