@@ -614,14 +614,14 @@ if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
 }
 if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices']]
+      notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
   exec{"checkagent":
       refreshonly => true,
@@ -633,7 +633,7 @@ if $operatingsystem == 'RedHat' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
   exec{"neutronserverrestart":
       refreshonly => true,
@@ -686,6 +686,11 @@ $nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-
 exec{"restartnovaservices":
     refreshonly=> true,
     command => "bash -c 'for s in ${nova_services}; do sudo service \$s restart; echo \$s; done'",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+}
+exec{'ensurecoroclone':
+    refreshonly=> true,
+    command => 'bash -c \'crm configure clone clone_p_neutron-dhcp-agent p_neutron-dhcp-agent meta interleave="true" is-managed="true" target-role="Started"; crm configure clone clone_p_neutron-l3-agent p_neutron-l3-agent meta interleave="true" is-managed="true" target-role="Started"; echo 1\'',
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 
