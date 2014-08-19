@@ -891,7 +891,7 @@ ini_setting {"auto_failover":
   path    => $neutron_conf_path,
   section => 'DEFAULT',
   setting => 'allow_automatic_l3agent_failover',
-  value   => 'True',
+  value   => 'False',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
