@@ -614,14 +614,14 @@ if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices']]
   }
 }
 if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart']]
+      notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices']]
   }
   exec{"checkagent":
       refreshonly => true,
@@ -633,7 +633,7 @@ if $operatingsystem == 'RedHat' {
   exec{"restartneutronservices":
       refreshonly => true,
       command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart']]
+      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices']]
   }
   exec{"neutronserverrestart":
       refreshonly => true,
@@ -681,6 +681,14 @@ if $operatingsystem == 'RedHat' {
       onlyif => "ls /etc/init.d/neutron-dhcp-agent"
   }
 }
+
+$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute rabbitmq-server'
+exec{"restartnovaservices":
+    refreshonly=> true,
+    command => "bash -c 'for s in ${nova_services}; do sudo service \$s restart; echo \$s; done'",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+}
+
 # basic conf directories
 $conf_dirs = ["/etc/neutron/plugins/ml2"]
 file {$conf_dirs:
