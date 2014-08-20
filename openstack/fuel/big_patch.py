@@ -683,7 +683,7 @@ if $operatingsystem == 'RedHat' {
   }
 }
 
-$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute rabbitmq-server'
+$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute'
 exec{"restartnovaservices":
     refreshonly=> true,
     command => "bash -c 'for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done'",
