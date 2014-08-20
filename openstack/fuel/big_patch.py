@@ -520,7 +520,8 @@ class ConfigDeployer(object):
             raise Exception("error installing puppet prereqs on %s:\n%s"
                             % (node, errors))
         resp, errors = self.env.run_command_on_node(
-            node, "puppet apply %s" % remotefile, 60, 2)
+            node, ("puppet apply %s --debug -l ~/log_for_generated_manifest"
+                   % remotefile) + "-$(date '+%Y-%m-%d-%H-%M-%S').log", 60, 2)
         # ignore bug in facter
         actual_errors = []
         errors = errors.splitlines()
