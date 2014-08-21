@@ -521,7 +521,7 @@ class ConfigDeployer(object):
                             % (node, errors))
         resp, errors = self.env.run_command_on_node(
             node, ("puppet apply %s --debug -l ~/log_for_generated_manifest"
-                   % remotefile) + "-$(date '+%Y-%m-%d-%H-%M-%S').log", 60, 2)
+                   % remotefile) + "-$(date '+%Y-%m-%d-%H-%M-%S').log", 300, 2)
         # ignore bug in facter
         actual_errors = []
         errors = errors.splitlines()
