@@ -611,6 +611,12 @@ exec{'neutronfilespresent':
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     command => "echo",
 }
+# stop neutron server instances if there is no connection string configured
+exec{"neutronserverrestart":
+    refreshonly => true,
+    command => 'bash -c \'grep -R "connection\s*=" /etc/neutron/* | grep -v "#" && service neutron-server restart || service neutron-server stop ||:\'',
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+}
 if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
       refreshonly => true,
@@ -636,11 +642,6 @@ if $operatingsystem == 'RedHat' {
       command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
       notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
-  exec{"neutronserverrestart":
-      refreshonly => true,
-      command => "/usr/sbin/service neutron-server restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  }
   exec{"neutronl3restart":
       refreshonly => true,
       command => "/usr/sbin/service neutron-l3-agent restart ||:;",
@@ -657,12 +658,6 @@ if $operatingsystem == 'RedHat' {
       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
   }
 } else {
-  exec{"neutronserverrestart":
-      refreshonly => true,
-      command => "/etc/init.d/neutron-server restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-      onlyif => "ls /etc/init.d/neutron-server"
-  }
   exec{"neutronl3restart":
       refreshonly => true,
       command => "/etc/init.d/neutron-l3-agent restart ||:;",
