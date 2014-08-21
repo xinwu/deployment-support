@@ -846,7 +846,7 @@ ini_setting {"report_interval":
   path    => $neutron_conf_path,
   section => 'AGENT',
   setting => 'report_interval',
-  value => 15,
+  value => 25,
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
@@ -882,6 +882,22 @@ ini_setting {"tbridge":
   ensure  => absent,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
+}
+ini_setting {"dbpool":
+  path    => $neutron_conf_path,
+  section => 'DATABASE',
+  setting => 'max_pool_size',
+  value   => '80',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+ini_setting {"dbpool":
+  path    => $neutron_conf_path,
+  section => 'database',
+  setting => 'max_pool_size',
+  value   => '80',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
 }
 ini_setting {"auto_failover":
   path    => $neutron_conf_path,
