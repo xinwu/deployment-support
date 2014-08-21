@@ -883,7 +883,7 @@ ini_setting {"tbridge":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
-ini_setting {"dbpool":
+ini_setting {"Bdbpool":
   path    => $neutron_conf_path,
   section => 'DATABASE',
   setting => 'max_pool_size',
