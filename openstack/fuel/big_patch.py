@@ -900,6 +900,38 @@ ini_setting {"dbpoolover":
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
+ini_setting {"Brpcpoolc":
+  path    => $neutron_conf_path,
+  section => 'DEFAULT',
+  setting => 'rpc_conn_pool_size',
+  value   => '4',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+ini_setting {"rpcpoolc":
+  path    => $neutron_conf_path,
+  section => 'DEFAULT',
+  setting => 'rpc_conn_pool_size',
+  value   => '4',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+ini_setting {"Brpcpool":
+  path    => $neutron_conf_path,
+  section => 'DEFAULT',
+  setting => 'rpc_thread_pool_size',
+  value   => '4',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+ini_setting {"rpcpool":
+  path    => $neutron_conf_path,
+  section => 'DEFAULT',
+  setting => 'rpc_thread_pool_size',
+  value   => '4',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
 ini_setting {"Bdbpool":
   path    => $neutron_base_conf_path,
   section => 'DATABASE',
