@@ -883,6 +883,22 @@ ini_setting {"tbridge":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"Bdbpoolover":
+  path    => $neutron_conf_path,
+  section => 'DATABASE',
+  setting => 'max_overflow',
+  value   => '120',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+ini_setting {"dbpoolover":
+  path    => $neutron_conf_path,
+  section => 'database',
+  setting => 'max_overflow',
+  value   => '120',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
 ini_setting {"Bdbpool":
   path    => $neutron_conf_path,
   section => 'DATABASE',
