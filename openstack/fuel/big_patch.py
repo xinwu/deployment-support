@@ -888,7 +888,7 @@ ini_setting {"Bdbpoolover":
   path    => $neutron_base_conf_path,
   section => 'DATABASE',
   setting => 'max_overflow',
-  value   => '120',
+  value   => '30',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
@@ -896,7 +896,7 @@ ini_setting {"dbpoolover":
   path    => $neutron_base_conf_path,
   section => 'database',
   setting => 'max_overflow',
-  value   => '120',
+  value   => '30',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
@@ -936,7 +936,7 @@ ini_setting {"Bdbpool":
   path    => $neutron_base_conf_path,
   section => 'DATABASE',
   setting => 'max_pool_size',
-  value   => '80',
+  value   => '15',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
@@ -944,7 +944,7 @@ ini_setting {"dbpool":
   path    => $neutron_base_conf_path,
   section => 'database',
   setting => 'max_pool_size',
-  value   => '80',
+  value   => '15',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
