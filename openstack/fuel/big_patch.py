@@ -847,7 +847,7 @@ ini_setting {"report_interval":
   path    => $neutron_conf_path,
   section => 'AGENT',
   setting => 'report_interval',
-  value => 60,
+  value => 30,
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
@@ -888,7 +888,7 @@ ini_setting {"Bagentdown":
   path    => $neutron_base_conf_path,
   section => 'DEFAULT',
   setting => 'agent_down_time',
-  value   => '150',
+  value   => '75',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
@@ -896,7 +896,7 @@ ini_setting {"agentdown":
   path    => $neutron_base_conf_path,
   section => 'DEFAULT',
   setting => 'agent_down_time',
-  value   => '150',
+  value   => '75',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
