@@ -700,6 +700,15 @@ file {$conf_dirs:
     mode => 755,
 }
 
+# limit API workers for semaphore
+ini_setting {"apiworkers":
+  path    => $neutron_main_conf_path,
+  section => 'DEFAULT',
+  setting => 'api_workers',
+  value   => '0',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
 # make sure ml2 is core plugin
 ini_setting {"ml2core":
   path    => $neutron_main_conf_path,
