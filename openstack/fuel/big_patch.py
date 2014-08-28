@@ -682,7 +682,7 @@ if $operatingsystem == 'RedHat' {
 $nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute rabbitmq-server'
 exec{"restartnovaservices":
     refreshonly=> true,
-    command => "bash -c 'kill \$(ps -ef | grep rabbitmq-server | grep -v grep | awk \\'{ print \$2 }\\'); sleep 1; kill \$(ps -ef | grep rabbitmq_server | grep -v grep | awk \\'{ print \$2 }\\');for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done'",
+    command => 'bash -c "kill $(ps -ef | grep rabbitmq-server | grep -v grep | awk -F \' \' \'{ print $2 }\'); sleep 1; kill $(ps -ef | grep rabbitmq_server | grep -v grep | awk -F \' \' \'{ print $2 }\');for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done"',
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 exec{'ensurecoroclone':
@@ -1104,7 +1104,7 @@ ini_setting {"handle_internal_only":
 
 $MYSQL_USER='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F ":" \'{ print $1 }\''
 $MYSQL_PASS='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F ":" \'{ print $2 }\' | awk -F "@" \'{ print $1 }\''
-$MYSQL_HOST='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F "@" \'{ print $2 }\' | awk -F "/" \'{ print $1 }\''
+$MYSQL_HOST='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F "@" \'{ print $2 }\' | awk -F "/" \'{ print $1 }\' | awk -F ":" \'{ print $1 }\''
 $MYSQL_DB='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F "@" \'{ print $2 }\' | awk -F "/" \'{ print $2 }\''
 $MYSQL_COM="mysql -u `$MYSQL_USER` -p`$MYSQL_PASS` -h `$MYSQL_HOST` `$MYSQL_DB`"
 exec {"cleanup_neutron":
