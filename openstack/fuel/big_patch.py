@@ -679,10 +679,10 @@ if $operatingsystem == 'RedHat' {
   }
 }
 
-$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute'
+$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute rabbitmq-server'
 exec{"restartnovaservices":
     refreshonly=> true,
-    command => "bash -c 'for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done'",
+    command => "bash -c 'kill \$(ps -ef | grep rabbitmq-server | grep -v grep | awk \\'{ print \$2 }\\'); sleep 1; kill \$(ps -ef | grep rabbitmq_server | grep -v grep | awk \\'{ print \$2 }\\');for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done'",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 exec{'ensurecoroclone':
