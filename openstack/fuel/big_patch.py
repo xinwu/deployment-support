@@ -589,6 +589,10 @@ $bond_int1 = '%(bond_int1)s'
 $bond_name = 'ovs-bond0'
 $phy_bridge = '%(physical_bridge)s'
 $ovs_bridge_mappings = '%(bridge_mappings)s'
+# delay in milliseconds before bond interface is used after coming online
+$bond_updelay = '7000'
+# time in seconds between lldp transmissions
+$lldp_transmit_interval = '5'
 
 """  # noqa
     neutron_body = r'''
@@ -1175,6 +1179,7 @@ bond-master bond0
 auto bond0
     iface bond0 inet manual
     bond-mode 0
+    bond-updelay ${bond_updelay}
     bond-slaves none
     ",
     }
@@ -1238,13 +1243,13 @@ if $operatingsystem == 'RedHat' {
         ensure => file,
         mode => 0644,
         path => '/etc/sysconfig/network-scripts/ifcfg-bond0',
-        content => '
+        content => "
 DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
-BONDING_OPTS="mode=0 miimon=50"
-',
+BONDING_OPTS='mode=0 miimon=50 updelay=${bond_updelay}'
+",
     }
     file{'bond_int0config':
         require => File['bondmembers'],
@@ -1297,13 +1302,13 @@ if $operatingsystem == 'CentOS' {
         ensure => file,
         mode => 0644,
         path => '/etc/sysconfig/network-scripts/ifcfg-bond0',
-        content => '
+        content => "
 DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
-BONDING_OPTS="mode=0 miimon=50"
-',
+BONDING_OPTS='mode=0 miimon=50 updelay=${bond_updelay}'
+",
     }
     file{'bond_int0config':
         require => File['bondmembers'],
@@ -1346,7 +1351,13 @@ exec{'lldpdrestart':
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
 }
-
+file{'lldpclioptions':
+    ensure => file,
+    mode   => 0644,
+    path   => '/etc/lldpd.conf',
+    content => "configure lldp tx-interval ${lldp_transmit_interval}\n",
+    notify => Exec['lldpdrestart'],
+}
 '''  # noqa
 
 if __name__ == '__main__':
