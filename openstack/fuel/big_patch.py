@@ -1014,12 +1014,11 @@ ini_setting { "bigswitch_auth":
   require => File[$conf_dirs],
 }
 
-# temporarily disable sync until fixed
 ini_setting { "bigswitch_auto_sync":
   path    => $neutron_conf_path,
   section => 'restproxy',
   setting => 'auto_sync_on_failure',
-  value   => 'False',
+  value   => 'True',
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
@@ -1028,7 +1027,7 @@ ini_setting { "bigswitch_consistency_interval":
   path    => $neutron_conf_path,
   section => 'restproxy',
   setting => 'consistency_interval',
-  value   => '0',
+  value   => '60',
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
