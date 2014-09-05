@@ -512,6 +512,7 @@ class ConfigDeployer(object):
             "--no-ri --no-rdoc")
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         self.env.run_command_on_node(node, "yum -y install python-pip")
+        self.env.run_command_on_node(node, "yum -y install python-pbr")
         self.env.run_command_on_node(node, "apt-get install python-pip")
         self.env.run_command_on_node(node, "pip install pbr")
         resp, errors = self.env.run_command_on_node(
@@ -686,7 +687,7 @@ if $operatingsystem == 'RedHat' {
 $nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute rabbitmq-server'
 exec{"restartnovaservices":
     refreshonly=> true,
-    command => "bash -c 'pkill rabbitmq-server;sleep 1; pkill -U rabbitmq; for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done'",
+    command => "bash -c 'pkill rabbitmq-server;sleep 1; pkill -U rabbitmq; sleep 2; for s in ${nova_services}; do (sudo service \$s restart &); echo \$s; done'",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 exec{'ensurecoroclone':
@@ -1227,6 +1228,48 @@ deb mirror://mirrors.ubuntu.com/mirrors.txt precise-security universe",
     }
 }
 if $operatingsystem == 'RedHat' {
+    file{'selinux_allow_certs':
+       ensure => file,
+       mode => 0644,
+       path => '/root/neutroncerts.te',
+       content => '
+module neutroncerts 1.0;
+
+require {
+        type neutron_t;
+        type etc_t;
+        class dir create;
+        class file create;
+}
+
+#============= neutron_t ==============
+allow neutron_t etc_t:dir create;
+allow neutron_t etc_t:file create;
+',
+       notify => Exec["selinuxcompile"],
+    }
+    exec {"selinuxcompile":
+       refreshonly => true,
+       command => "semanage permissive -a neutron_t;
+                   checkmodule -M -m -o /root/neutroncerts.mod /root/neutroncerts.te;
+                   semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
+                   semodule -i /root/neutroncerts.pp",
+        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
+    ini_setting{"neutron_service":
+        path => "/usr/lib/systemd/system/neutron-server.service",
+        section => "Service",
+        setting => "Type",
+        value => "simple",
+        ensure => present,
+        notify => Exec['reloadservicedef']
+    }
+    exec{"reloadservicedef":
+        refreshonly => true,
+        command => "systemctl daemon-reload",
+        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+        notify => Exec['restartneutronservices']
+    }
     exec {"networkingrestart":
        refreshonly => true,
        command => '/etc/init.d/network restart',
