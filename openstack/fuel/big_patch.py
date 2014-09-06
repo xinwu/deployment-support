@@ -1250,10 +1250,10 @@ allow neutron_t etc_t:file create;
     }
     exec {"selinuxcompile":
        refreshonly => true,
-       command => "semanage permissive -a neutron_t;
+       command => "bash -c 'semanage permissive -a neutron_t;
                    checkmodule -M -m -o /root/neutroncerts.mod /root/neutroncerts.te;
                    semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
-                   semodule -i /root/neutroncerts.pp",
+                   semodule -i /root/neutroncerts.pp' ||:",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
     ini_setting{"neutron_service":
@@ -1269,6 +1269,12 @@ allow neutron_t etc_t:file create;
         command => "systemctl daemon-reload",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
         notify => Exec['restartneutronservices']
+    }
+    exec{"rabbitrestart":
+        refreshonly => true,
+        command => "sleep 5; service rabbitmq-server restart",
+        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+        subscribe => Exec['restartnovaservices'],
     }
     exec {"networkingrestart":
        refreshonly => true,
