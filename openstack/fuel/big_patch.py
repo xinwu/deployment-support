@@ -705,6 +705,16 @@ file {$conf_dirs:
     mode => 755,
 }
 
+# use two DHCP agents per network for redundancy
+ini_setting {"apiworkers":
+  path    => $neutron_main_conf_path,
+  section => 'DEFAULT',
+  setting => 'dhcp_agents_per_network',
+  value   => '2',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
+
 # limit API workers for semaphore
 ini_setting {"apiworkers":
   path    => $neutron_main_conf_path,
