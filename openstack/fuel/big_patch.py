@@ -33,6 +33,15 @@ PYTHON_FILES_TO_PATCH = [
 # path to neutron tar.gz for CentOS nodes
 NEUTRON_TGZ_URL = ('https://github.com/bigswitch/neutron/archive/'
                    'stable/icehouse.tar.gz')
+HORIZON_TGZ_URL = ('https://github.com/bigswitch/horizon/archive/'
+                   'stable/icehouse.tar.gz')
+# paths to extract from tgz to local horizon install. Don't include
+# slashes on folders because * copying is not used.
+HORIZON_PATHS_TO_COPY = (
+    'openstack_dashboard/dashboards/admin/dashboard.py',
+    'openstack_dashboard/dashboards/project/dashboard.py',
+    'openstack_dashboard/dashboards/admin/connections',
+    'openstack_dashboard/dashboards/project/connections')
 
 
 class TimedCommand(object):
@@ -380,7 +389,8 @@ class ConfigDeployer(object):
                             'and controller options')
         if self.patch_python_files:
             print 'Downloading patch files...'
-            for patch in PYTHON_FILES_TO_PATCH + [('', '', NEUTRON_TGZ_URL)]:
+            for patch in PYTHON_FILES_TO_PATCH + [('', '', NEUTRON_TGZ_URL),
+                                                  ('', '', HORIZON_TGZ_URL)]:
                 url = patch[2]
                 try:
                     body = urllib2.urlopen(url).read()
@@ -505,7 +515,38 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
-
+        # patch openstack_dashboard if available
+        resp, errors = self.env.run_command_on_node(
+            node,
+            "updatedb && locate openstack_dashboard/dashboards/admin/dashboard.py | grep -v pyc")
+        if (not errors and resp.splitlines()
+                and 'openstack_dashboard/dashboards/admin/' in resp.splitlines()[0]):
+            first = resp.splitlines()[0]
+            f = tempfile.NamedTemporaryFile(delete=True)
+            f.write(self.patch_file_cache[HORIZON_TGZ_URL])
+            f.flush()
+            nfile = '~/horizon.tar.gz'
+            resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
+            if errors:
+                raise Exception("error pushing horizon to %s:\n%s"
+                                % (node, errors))
+            base_dir = first.split('openstack_dashboard/dashboards/admin/')[0]
+            # temp dir to extract to
+            extract = "export TGT=$(mktemp -d);"
+            # extract with strip-components to remove the branch dir
+            extract += 'tar --strip-components=1 -xf '
+            extract += '~/horizon.tar.gz -C "$TGT";'
+            # move the extraced plugins to the neutron dir
+            for horizon_patch in HORIZON_PATHS_TO_COPY:
+                extract += 'yes | cp -rfp "$TGT/%s" "%s/%s";' % (
+                    horizon_patch, base_dir, horizon_patch)
+            # cleanup old pyc files
+            extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % base_dir
+            resp, errors = self.env.run_command_on_node(
+                node, "bash -c '%s'" % extract)
+            if errors:
+                raise Exception("error installing horizon to %s:\n%s"
+                                % (node, errors))
         self.env.run_command_on_node(
             node,
             "yum -y remove facter && gem install puppet facter "
