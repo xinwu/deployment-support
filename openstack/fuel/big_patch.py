@@ -530,6 +530,11 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error pushing horizon to %s:\n%s"
                                 % (node, errors))
+            # make sure horizon can read neutron conf
+            for cf in ['/etc/neutron/neutron.conf', '/etc/neutron/plugin.ini',
+                       '/etc/neutron/plugins/ml2/ml2_conf.ini',
+                       '/etc/neutron/plugins/bigswitch/restproxy.ini']:
+                self.env.run_command_on_node(node, 'chmod +r %s' % cf)
             base_dir = first.split('openstack_dashboard/dashboards/admin/')[0]
             # temp dir to extract to
             extract = "export TGT=$(mktemp -d);"
