@@ -544,7 +544,8 @@ class ConfigDeployer(object):
             # move the extraced plugins to the neutron dir
             for horizon_patch in HORIZON_PATHS_TO_COPY:
                 extract += 'yes | cp -rfp "$TGT/%s" "%s/%s";' % (
-                    horizon_patch, base_dir, horizon_patch)
+                    horizon_patch, base_dir,
+                    horizon_patch.rsplit('/', 1)[0] + '/')
             # cleanup old pyc files
             extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % base_dir
             resp, errors = self.env.run_command_on_node(
