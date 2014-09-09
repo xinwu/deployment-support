@@ -535,6 +535,8 @@ class ConfigDeployer(object):
                        '/etc/neutron/plugins/ml2/ml2_conf.ini',
                        '/etc/neutron/plugins/bigswitch/restproxy.ini']:
                 self.env.run_command_on_node(node, 'chmod +r %s' % cf)
+                self.env.run_command_on_node(
+                    node, 'chmod +x %s' % cf.rsplit('/', 1)[0])
             base_dir = first.split('openstack_dashboard/dashboards/admin/')[0]
             # temp dir to extract to
             extract = "export TGT=$(mktemp -d);"
