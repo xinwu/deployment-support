@@ -9,6 +9,7 @@ import netaddr
 import os
 import tempfile
 import subprocess
+import time
 import threading
 import urllib2
 try:
@@ -520,9 +521,15 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error installing puppet prereqs on %s:\n%s"
                             % (node, errors))
+        log_name = ("log_for_generated_manifest-%s.log" %
+                    time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime()))
         resp, errors = self.env.run_command_on_node(
-            node, ("puppet apply %s --debug -l ~/log_for_generated_manifest"
-                   % remotefile) + "-$(date '+%Y-%m-%d-%H-%M-%S').log", 300, 2)
+            node, ("puppet apply %s --debug -l ~/%s" % (remotefile, log_name)),
+            300, 2)
+        if not errors:
+            # with puppet, stderr goes to log
+            errors, caterror = self.env.run_command_on_node(
+                node, ("grep 'Puppet (err):' ~/%s" % log_name))
         # ignore bug in facter
         actual_errors = []
         errors = errors.splitlines()
