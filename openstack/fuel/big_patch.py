@@ -1081,7 +1081,7 @@ file { 'ssl_dir':
   purge => true,
   recurse => true,
   mode   => 0750,
-  notify => Exec['restartneutronservices'],
+  notify => Exec['neutronserverrestart'],
 }
 
 if $operatingsystem == 'Ubuntu'{
