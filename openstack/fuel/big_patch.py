@@ -740,10 +740,10 @@ if $operatingsystem == 'RedHat' {
   }
 }
 
-$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute rabbitmq-server'
+$nova_services = 'rabbitmq-server nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute'
 exec{"restartnovaservices":
     refreshonly=> true,
-    command => "bash -c 'pkill rabbitmq-server;sleep 1; pkill -U rabbitmq; sleep 2; for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done'",
+    command => "bash -c 'pkill rabbitmq-server;sleep 1; pkill -U rabbitmq; sleep 2; for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 exec{'ensurecoroclone':
