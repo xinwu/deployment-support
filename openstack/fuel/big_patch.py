@@ -73,6 +73,7 @@ class Environment(object):
     bigswitch_auth = None
     bigswitch_servers = None
     neutron_id = 'neutron'
+    extra_template_params = {}
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         raise NotImplementedError()
@@ -114,6 +115,9 @@ class Environment(object):
             raise Exception('Invalid credentials "%s".\n'
                             'Format should be user:pass' % auth)
         self.bigswitch_auth = auth
+
+    def set_extra_template_params(self, dictofparams):
+        self.extra_template_params = dictofparams
 
     def get_node_python_package_path(self, node, package):
         com = ('python -c "import %s;import os;print '
@@ -425,7 +429,11 @@ class ConfigDeployer(object):
             'neutron_id': self.env.neutron_id,
             'bigswitch_servers': self.env.bigswitch_servers,
             'bigswitch_serverauth': self.env.bigswitch_auth,
-            'network_vlan_ranges': self.env.network_vlan_ranges
+            'network_vlan_ranges': self.env.network_vlan_ranges,
+            'neutron_restart_refresh_only': str(
+                not self.env.extra_template_params.get('force_services_restart',
+                                                       False)
+            ).lower()
         }
         if bond_interfaces:
             for bondint in bond_interfaces:
@@ -552,7 +560,7 @@ class PuppetTemplate(object):
             'neutron_id': '', 'bigswitch_servers': '',
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
             'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
-            'neutron_path': ''}
+            'neutron_path': '', 'neutron_restart_refresh_only': ''}
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -597,6 +605,7 @@ $bond_int1 = '%(bond_int1)s'
 $bond_name = 'ovs-bond0'
 $phy_bridge = '%(physical_bridge)s'
 $ovs_bridge_mappings = '%(bridge_mappings)s'
+$neutron_restart_refresh_only = '%(neutron_restart_refresh_only)s'
 # delay in milliseconds before bond interface is used after coming online
 $bond_updelay = '7000'
 # time in seconds between lldp transmissions
@@ -632,14 +641,14 @@ exec{"neutronserverrestart":
 }
 if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
-      refreshonly => true,
+      refreshonly => $neutron_restart_refresh_only,
       command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
       notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
 }
 if $operatingsystem == 'CentOS' {
   exec{"restartneutronservices":
-      refreshonly => true,
+      refreshonly => $neutron_restart_refresh_only,
       command => "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;",
       notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
@@ -651,7 +660,7 @@ if $operatingsystem == 'CentOS' {
 }
 if $operatingsystem == 'RedHat' {
   exec{"restartneutronservices":
-      refreshonly => true,
+      refreshonly => $neutron_restart_refresh_only,
       command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
       notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
@@ -1449,6 +1458,9 @@ if __name__ == '__main__':
     parser.add_argument('--skip-file-patching', action='store_true',
                         help="Do not patch openstack packages with updated "
                              "versions.")
+    parser.add_argument('--force-services-restart', action='store_true',
+                        help="Restart the Neutron and Nova services even if "
+                             "no files or configuration options are changed.")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1512,6 +1524,8 @@ if __name__ == '__main__':
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     environment.set_neutron_id(neutron_id)
+    environment.set_extra_template_params(
+        {'force_services_restart': args.force_services_restart})
     deployer = ConfigDeployer(environment,
                               patch_python_files=not args.skip_file_patching)
     deployer.deploy_to_all()
