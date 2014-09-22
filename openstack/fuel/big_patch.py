@@ -932,6 +932,15 @@ ini_setting {"ovs_enable_tunneling":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"report_interval_main":
+  path    => $neutron_main_conf_path,
+  section => 'AGENT',
+  setting => 'report_interval',
+  value => 30,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 ini_setting {"report_interval":
   path    => $neutron_conf_path,
   section => 'AGENT',
