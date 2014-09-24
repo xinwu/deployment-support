@@ -550,7 +550,7 @@ class ConfigDeployer(object):
                 and 'openstack_dashboard/dashboards/admin/' in resp.splitlines()[0]):
             first = resp.splitlines()[0]
             f = tempfile.NamedTemporaryFile(delete=True)
-            f.write(self.patch_file_cache[HORIZON_TGZ_URL])
+            f.write(self.patch_file_cache[HORIZON_TGZ_PATH[0]])
             f.flush()
             nfile = '~/horizon.tar.gz'
             resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
@@ -612,6 +612,8 @@ class ConfigDeployer(object):
         errors = errors.splitlines()
         for e in errors:
             if "Device" in e and "does not exist." in e:
+                continue
+            if "Unable to add resolve nil for fact" in e:
                 continue
             actual_errors.append(e)
         errors = '\n'.join(actual_errors)
