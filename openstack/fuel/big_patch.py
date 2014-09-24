@@ -405,7 +405,7 @@ class ConfigDeployer(object):
                         raise Exception("Could not load offline archive of %s."
                                         "\nPlease download the archive and "
                                         "save it as %s.\nDetails: %s" %
-                                        patch + (str(e),))
+                                        (patch[0], patch[1], str(e)))
                     self.patch_file_cache[patch[0]] = contents
             else:
                 print 'Downloading patch files...'
