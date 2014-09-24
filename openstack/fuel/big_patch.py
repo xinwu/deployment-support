@@ -531,6 +531,7 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
+
         if not self.env.offline_mode:
             self.env.run_command_on_node(
                 node,
@@ -560,6 +561,8 @@ class ConfigDeployer(object):
         errors = errors.splitlines()
         for e in errors:
             if "Device" in e and "does not exist." in e:
+                continue
+            if "Unable to add resolve nil for fact" in e:
                 continue
             actual_errors.append(e)
         errors = '\n'.join(actual_errors)
