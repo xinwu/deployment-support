@@ -22,20 +22,17 @@ MAX_THREADS = 10
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
-PYTHON_FILES_TO_PATCH = [
-    ('neutron', 'plugins/bigswitch/plugin.py',
-     'https://raw.githubusercontent.com/bigswitch/neutron/'
-     'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
-    ('neutron', 'plugins/bigswitch/servermanager.py',
-     'https://raw.githubusercontent.com/bigswitch/neutron/'
-     'stable/icehouse/neutron/plugins/bigswitch/servermanager.py'),
-]
+# e.g.
+#  ('neutron', 'plugins/bigswitch/plugin.py',
+#   'https://raw.githubusercontent.com/bigswitch/neutron/'
+#   'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
+PYTHON_FILES_TO_PATCH = []
 
 # path to neutron tar.gz for CentOS nodes
-NEUTRON_TGZ_URL = ('https://github.com/bigswitch/neutron/archive/'
-                   'stable/icehouse.tar.gz')
-HORIZON_TGZ_URL = ('https://github.com/bigswitch/horizon/archive/'
-                   'stable/icehouse.tar.gz')
+HORIZON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
+                    'stable/icehouse.tar.gz', 'horizon_stable_icehouse.tar.gz')
+NEUTRON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
+                    'stable/icehouse.tar.gz', 'neutron_stable_icehouse.tar.gz')
 # paths to extract from tgz to local horizon install. Don't include
 # slashes on folders because * copying is not used.
 HORIZON_PATHS_TO_COPY = (
@@ -83,6 +80,7 @@ class Environment(object):
     bigswitch_servers = None
     neutron_id = 'neutron'
     extra_template_params = {}
+    offline_mode = False
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         raise NotImplementedError()
@@ -127,6 +125,9 @@ class Environment(object):
 
     def set_extra_template_params(self, dictofparams):
         self.extra_template_params = dictofparams
+
+    def set_offline_mode(self, offline_mode):
+        self.offline_mode = offline_mode
 
     def get_node_python_package_path(self, node, package):
         com = ('python -c "import %s;import os;print '
@@ -393,17 +394,32 @@ class ConfigDeployer(object):
             raise Exception('Environment must have at least 1 node '
                             'and controller options')
         if self.patch_python_files:
-            print 'Downloading patch files...'
-            for patch in PYTHON_FILES_TO_PATCH + [('', '', NEUTRON_TGZ_URL),
-                                                  ('', '', HORIZON_TGZ_URL)]:
-                url = patch[2]
-                try:
-                    body = urllib2.urlopen(url).read()
-                except Exception as e:
-                    raise Exception("Error encountered while trying to "
-                                    "download patch file at %s.\n%s"
-                                    % (url, e))
-                self.patch_file_cache[url] = body
+            if self.env.offline_mode:
+                print 'Loading offline files...'
+                for patch in (NEUTRON_TGZ_PATH, HORIZON_TGZ_PATH):
+                    try:
+                        with open(os.path.join(os.path.dirname(__file__),
+                                  patch[1]), 'r') as fh:
+                            contents = fh.read()
+                    except Exception as e:
+                        raise Exception("Could not load offline archive of %s."
+                                        "\nPlease download the archive and "
+                                        "save it as %s.\nDetails: %s" %
+                                        patch + (str(e),))
+                    self.patch_file_cache[patch[0]] = contents
+            else:
+                print 'Downloading patch files...'
+                for patch in PYTHON_FILES_TO_PATCH + [
+                        ('', '', NEUTRON_TGZ_PATH[0]),
+                        ('', '', HORIZON_TGZ_PATH[0])]:
+                    url = patch[2]
+                    try:
+                        body = urllib2.urlopen(url).read()
+                    except Exception as e:
+                        raise Exception("Error encountered while trying to "
+                                        "download patch file at %s.\n%s"
+                                        % (url, e))
+                    self.patch_file_cache[url] = body
 
     def deploy_to_all(self):
         thread_list = collections.deque()
@@ -443,7 +459,8 @@ class ConfigDeployer(object):
             'neutron_restart_refresh_only': str(
                 not self.env.extra_template_params.get('force_services_restart',
                                                        False)
-            ).lower()
+            ).lower(),
+            'offline_mode': str(self.env.offline_mode).lower()
         }
         if bond_interfaces:
             for bondint in bond_interfaces:
@@ -503,7 +520,7 @@ class ConfigDeployer(object):
             python_lib_dir = "/".join(netaddr_path.split("/")[:-1]) + "/"
             target_neutron_path = python_lib_dir + 'neutron'
             f = tempfile.NamedTemporaryFile(delete=True)
-            f.write(self.patch_file_cache[NEUTRON_TGZ_URL])
+            f.write(self.patch_file_cache[NEUTRON_TGZ_PATH[0]])
             f.flush()
             nfile = '~/neutron.tar.gz'
             resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
@@ -524,6 +541,7 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
+
         # patch openstack_dashboard if available
         resp, errors = self.env.run_command_on_node(
             node,
@@ -564,20 +582,22 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing horizon to %s:\n%s"
                                 % (node, errors))
-        self.env.run_command_on_node(
-            node,
-            "yum -y remove facter && gem install puppet facter "
-            "--no-ri --no-rdoc")
-        self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
-        self.env.run_command_on_node(node, "yum -y install python-pip")
-        self.env.run_command_on_node(node, "yum -y install python-pbr")
-        self.env.run_command_on_node(node, "apt-get install python-pip")
-        self.env.run_command_on_node(node, "pip install pbr")
-        resp, errors = self.env.run_command_on_node(
-            node, "puppet module install puppetlabs-inifile --force", 30, 2)
-        if errors:
-            raise Exception("error installing puppet prereqs on %s:\n%s"
-                            % (node, errors))
+
+        if not self.env.offline_mode:
+            self.env.run_command_on_node(
+                node,
+                "yum -y remove facter && gem install puppet facter "
+                "--no-ri --no-rdoc")
+            self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
+            self.env.run_command_on_node(node, "yum -y install python-pip")
+            self.env.run_command_on_node(node, "yum -y install python-pbr")
+            self.env.run_command_on_node(node, "apt-get install python-pip")
+            self.env.run_command_on_node(node, "pip install pbr")
+            resp, errors = self.env.run_command_on_node(
+                node, "puppet module install puppetlabs-inifile --force", 30, 2)
+            if errors:
+                raise Exception("error installing puppet prereqs on %s:\n%s"
+                                % (node, errors))
         log_name = ("log_for_generated_manifest-%s.log" %
                     time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime()))
         resp, errors = self.env.run_command_on_node(
@@ -609,7 +629,9 @@ class PuppetTemplate(object):
             'neutron_id': '', 'bigswitch_servers': '',
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
             'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
-            'neutron_path': '', 'neutron_restart_refresh_only': ''}
+            'neutron_path': '', 'neutron_restart_refresh_only': '',
+            'offline_mode': ''
+        }
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -659,7 +681,7 @@ $neutron_restart_refresh_only = '%(neutron_restart_refresh_only)s'
 $bond_updelay = '7000'
 # time in seconds between lldp transmissions
 $lldp_transmit_interval = '5'
-
+$offline_mode = '%(offline_mode)s'
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -1284,12 +1306,20 @@ deb mirror://mirrors.ubuntu.com/mirrors.txt precise-updates universe
 deb mirror://mirrors.ubuntu.com/mirrors.txt precise-backports main restricted universe multiverse
 deb mirror://mirrors.ubuntu.com/mirrors.txt precise-security universe",
         }
-
-    exec{"lldpdinstall":
-        onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-        command => "rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-        notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
+    if ! $offline_mode {
+        exec{"lldpdinstall":
+            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+            command => "rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
+            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+            notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
+        }
+    } else {
+        exec{"lldpdinstall":
+            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+            command => "echo noop",
+            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+            notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
+        }
     }
     exec{"triggerinstall":
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
@@ -1410,11 +1440,20 @@ BONDING_OPTS='mode=0 miimon=50 updelay=${bond_updelay}'
 
 }
 if $operatingsystem == 'CentOS' {
-    exec {'lldpdinstall':
-       onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
-       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-       notify => File['centoslldpdconfig'],
+    if ! $offline_mode {
+        exec {'lldpdinstall':
+           onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
+           command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
+           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           notify => File['centoslldpdconfig'],
+        }
+    } else {
+        exec {'lldpdinstall':
+           onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+           command => "echo noop",
+           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           notify => File['centoslldpdconfig'],
+        }
     }
     file{'centoslldpdconfig':
         ensure => file,
@@ -1518,6 +1557,10 @@ if __name__ == '__main__':
     parser.add_argument('--force-services-restart', action='store_true',
                         help="Restart the Neutron and Nova services even if "
                              "no files or configuration options are changed.")
+    parser.add_argument('--offline-mode', action='store_true',
+                        help="Disable fetching files from the Internet. This "
+                             "includes the neutron repo as well as the "
+                             "prerequisites on the individual nodes.")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1581,6 +1624,7 @@ if __name__ == '__main__':
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     environment.set_neutron_id(neutron_id)
+    environment.set_offline_mode(args.offline_mode)
     environment.set_extra_template_params(
         {'force_services_restart': args.force_services_restart})
     deployer = ConfigDeployer(environment,
