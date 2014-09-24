@@ -741,6 +741,14 @@ file {$conf_dirs:
     owner => "neutron",
     group => "neutron",
     mode => 755,
+    require => Exec['ensureovsagentconfig']
+}
+
+# ovs agent file may no be present, if so link to main conf so this script can
+# modify the same thing
+exec{'ensureovsagentconfig':
+    command => "bash -c 'mkdir -p /etc/neutron/plugins/openvswitch/; ln -s /etc/neutron/neutron.conf $neutron_ovs_conf_path; echo 0'",
+    path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 
 # use two DHCP agents per network for redundancy
@@ -917,6 +925,24 @@ ini_setting {"report_interval_main":
 ini_setting {"report_interval":
   path    => $neutron_conf_path,
   section => 'AGENT',
+  setting => 'report_interval',
+  value => 30,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"report_interval_main_lower":
+  path    => $neutron_main_conf_path,
+  section => 'agent',
+  setting => 'report_interval',
+  value => 30,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"report_interval_lower":
+  path    => $neutron_conf_path,
+  section => 'agent',
   setting => 'report_interval',
   value => 30,
   ensure  => present,
