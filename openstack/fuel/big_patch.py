@@ -560,9 +560,12 @@ class ConfigDeployer(object):
         actual_errors = []
         errors = errors.splitlines()
         for e in errors:
+            # ignore some warnings from facter that don't matter
             if "Device" in e and "does not exist." in e:
                 continue
             if "Unable to add resolve nil for fact" in e:
+                continue
+            if "ls: cannot access /dev/s" in e:
                 continue
             actual_errors.append(e)
         errors = '\n'.join(actual_errors)
