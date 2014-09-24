@@ -29,7 +29,7 @@ MAX_THREADS = 10
 PYTHON_FILES_TO_PATCH = []
 
 # path to neutron tar.gz for CentOS nodes
-HORIZON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
+HORIZON_TGZ_PATH = ('https://github.com/bigswitch/horizon/archive/'
                     'stable/icehouse.tar.gz', 'horizon_stable_icehouse.tar.gz')
 NEUTRON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
                     'stable/icehouse.tar.gz', 'neutron_stable_icehouse.tar.gz')
