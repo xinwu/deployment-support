@@ -683,7 +683,7 @@ $neutron_restart_refresh_only = '%(neutron_restart_refresh_only)s'
 $bond_updelay = '7000'
 # time in seconds between lldp transmissions
 $lldp_transmit_interval = '5'
-$offline_mode = '%(offline_mode)s'
+$offline_mode = %(offline_mode)s
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
