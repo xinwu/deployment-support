@@ -73,6 +73,7 @@ class Environment(object):
     neutron_id = 'neutron'
     extra_template_params = {}
     offline_mode = False
+    check_interface_errors = True
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         raise NotImplementedError()
@@ -469,14 +470,16 @@ class ConfigDeployer(object):
                 try:
                     tx = re.findall("TX packets:\d+ errors:(\d+) "
                                     "dropped:\d+ overruns:(\d+) "
-                                    "carrier:(\d+)", body)[0]
+                                    "carrier:(\d+)", resp)[0]
                     rx = re.findall("RX packets:\d+ errors:(\d+) "
                                     "dropped:\d+ overruns:(\d+) "
-                                    "frame:(\d+)", body)[0]
-                    if any(map(int, rx + tx)):
+                                    "frame:(\d+)", resp)[0]
+                    if (self.env.check_interface_errors
+                            and any(map(int, rx + tx))):
                         print ("[Node %s] Warning: errors detected on bond "
                                "interface %s. Verify cabling and check error "
-                               "rates using ifconfig." % (node, bondint))
+                               "rates using ifconfig.\n%s" %
+                               (node, bondint, resp))
                 except:
                     # ignore errors trying to parse
                     pass
@@ -1558,6 +1561,8 @@ if __name__ == '__main__':
                         help="Disable fetching files from the Internet. This "
                              "includes the neutron repo as well as the "
                              "prerequisites on the individual nodes.")
+    parser.add_argument('--ignore-interface-errors', action='store_true',
+                        help="Suppress warnings about interface errors.")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1624,6 +1629,8 @@ if __name__ == '__main__':
     environment.set_offline_mode(args.offline_mode)
     environment.set_extra_template_params(
         {'force_services_restart': args.force_services_restart})
+    if args.ignore_interface_errors:
+        environment.check_interface_errors = False
     deployer = ConfigDeployer(environment,
                               patch_python_files=not args.skip_file_patching)
     deployer.deploy_to_all()
