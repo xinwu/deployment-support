@@ -8,6 +8,7 @@ import json
 import netaddr
 import os
 import tempfile
+import re
 import subprocess
 import time
 import threading
@@ -474,6 +475,21 @@ class ConfigDeployer(object):
                                     "an IP address configured. Interfaces must"
                                     " not be in use.\nAddress: %s"
                                     % (bondint, node, resp))
+                # warn on interface errors
+                try:
+                    tx = re.findall("TX packets:\d+ errors:(\d+) "
+                                    "dropped:\d+ overruns:(\d+) "
+                                    "carrier:(\d+)", body)[0]
+                    rx = re.findall("RX packets:\d+ errors:(\d+) "
+                                    "dropped:\d+ overruns:(\d+) "
+                                    "frame:(\d+)", body)[0]
+                    if any(map(int, rx + tx)):
+                        print ("[Node %s] Warning: errors detected on bond "
+                               "interface %s. Verify cabling and check error "
+                               "rates using ifconfig." % (node, bondint))
+                except:
+                    # ignore errors trying to parse
+                    pass
             puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
                 node)
             physnets = self.env.network_vlan_ranges.split(',')
