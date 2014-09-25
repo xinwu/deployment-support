@@ -651,7 +651,7 @@ $phy_bridge = '%(physical_bridge)s'
 $ovs_bridge_mappings = '%(bridge_mappings)s'
 $neutron_restart_refresh_only = '%(neutron_restart_refresh_only)s'
 # delay in milliseconds before bond interface is used after coming online
-$bond_updelay = '7000'
+$bond_updelay = '15000'
 # time in seconds between lldp transmissions
 $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
