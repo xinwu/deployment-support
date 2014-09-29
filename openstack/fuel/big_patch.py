@@ -1285,6 +1285,7 @@ bond-master bond0
 auto bond0
     iface bond0 inet manual
     bond-mode 0
+    bond-miimon 50
     bond-updelay ${bond_updelay}
     bond-slaves none
     ",
