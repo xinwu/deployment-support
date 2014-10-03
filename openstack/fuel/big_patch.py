@@ -18,8 +18,12 @@ try:
 except:
     pass
 
+# Arbitrary identifier printed in output to make tracking easy
+BRANCH_ID = 'beta-2'
+SCRIPT_VERSION = '1.0.0'
+
 # Maximum number of threads to deploy to nodes concurrently
-MAX_THREADS = 10
+MAX_THREADS = 20
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
@@ -591,6 +595,15 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
+        # run a few last sanity checks
+        self.env.run_command_on_node(node, "service rabbitmq-server start")
+        resp, errors = self.env.run_command_on_node(
+            node, ("rabbitmqctl cluster_status | grep partitions | " +
+                   r"""grep -v '\[\]'"""))
+        if 'partitions' in resp:
+            print ("Warning: RabbitMQ partition detected on node %s: %s "
+                   "Restart rabbitmq-server on each node in the parition."
+                   % (node, resp))
         print "Configuration applied to %s." % node
 
 
@@ -1533,6 +1546,7 @@ file{'lldpclioptions':
 '''  # noqa
 
 if __name__ == '__main__':
+    print "Big Patch Version %s:%s" % (BRANCH_ID, SCRIPT_VERSION)
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-i", "--stand-alone", action='store_true',
