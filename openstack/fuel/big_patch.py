@@ -707,7 +707,7 @@ class ConfigDeployer(object):
                    "Neutron processes may not start." % node)
 
         # check bond interface speeds match
-        if bond_interfaces:
+        if bond_interfaces and self.env.check_interface_errors:
             speeds = {}
             for iface in bond_interfaces:
                 resp, errors = self.env.run_command_on_node(
