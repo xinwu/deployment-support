@@ -806,7 +806,7 @@ ini_setting {"apiworkers":
   notify => Exec['restartneutronservices'],
 }
 # limit RPC workers because they are experimental
-ini_setting {"apiworkers":
+ini_setting {"rpcworkers":
   path    => $neutron_main_conf_path,
   section => 'DEFAULT',
   setting => 'rpc_workers',
