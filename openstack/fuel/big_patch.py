@@ -37,7 +37,7 @@ PYTHON_FILES_TO_PATCH = [
 
 # path to neutron tar.gz for CentOS nodes
 NEUTRON_TGZ_URL = ('https://github.com/bigswitch/neutron/archive/'
-                   'stable/icehouse.tar.gz')
+                   'stable/icehouse-bcf-2.0.0.tar.gz')
 
 
 class TimedCommand(object):
@@ -511,6 +511,8 @@ class ConfigDeployer(object):
             extract += '~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
             extract += 'yes | cp -rfp "$TGT/neutron" "%s/../";' % target_neutron_path
+            # grab the commit marker
+            extract += 'yes | cp -rfp "$TGT/LAST_NON_MERGE_COMMIT" "%s/../neutron/";' % target_neutron_path
             # cleanup old pyc files
             extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
