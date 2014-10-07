@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'bcf-2'
-SCRIPT_VERSION = '1.0.2'
+SCRIPT_VERSION = '1.0.3'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -656,6 +656,8 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
+
+
         # run a few last sanity checks
         self.env.run_command_on_node(node, "service rabbitmq-server start")
         resp, errors = self.env.run_command_on_node(
@@ -665,6 +667,7 @@ class ConfigDeployer(object):
             print ("Warning: RabbitMQ partition detected on node %s: %s "
                    "Restart rabbitmq-server on each node in the parition."
                    % (node, resp))
+
         # check for certificates generated in the future (due to clock change)
         # or expired certs
         certs = []
@@ -689,6 +692,33 @@ class ConfigDeployer(object):
                        "'keystone-manage pki_setup' command.\n"
                        "Details: %s" % (cert, resp))
 
+        # check for lldpd
+        resp, errors = self.env.run_command_on_node(
+            node, ('ps -ef | grep lldpd | grep -v grep'))
+        if not resp.strip():
+            print ("Warning: lldpd process not running on node %s. "
+                   "Automatic port groups will not be formed." % node)
+
+        # check pbr prereq
+        resp, errors = self.env.run_command_on_node(
+            node, "python -c 'import pbr'")
+        if errors.strip():
+            print ("Warning: python pbr library missing on node %s. "
+                   "Neutron processes may not start." % node)
+
+        # check bond interface speeds match
+        if bond_interfaces:
+            speeds = {}
+            for iface in bond_interfaces:
+                resp, errors = self.env.run_command_on_node(
+                    node, "ethtool %s | grep Speed" % iface)
+                resp = resp.strip()
+                if resp:
+                    speeds[iface] = resp
+            if len(set(speeds.values())) > 1:
+                print ("Warning: bond interface speeds do not match on node "
+                       "%s. Were the correct interfaces chosen?\nSpeeds: %s"
+                       % (node, speeds))
         print "Configuration applied to %s." % node
 
 
