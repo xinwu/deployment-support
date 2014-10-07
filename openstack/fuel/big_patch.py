@@ -33,14 +33,18 @@ MAX_THREADS = 20
 #   'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
 PYTHON_FILES_TO_PATCH = []
 
-# path to neutron tar.gz for CentOS nodes
+# path to neutron tar.gz URL and local filename for offline use
 HORIZON_TGZ_PATH = ('https://github.com/bigswitch/horizon/archive/'
-                    'stable/icehouse.tar.gz', 'horizon_stable_icehouse.tar.gz')
+                    'stable/icehouse-bcf-2.0.0.tar.gz',
+                    'horizon_stable_icehouse.tar.gz')
 NEUTRON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
-                    'stable/icehouse.tar.gz', 'neutron_stable_icehouse.tar.gz')
+                    'stable/icehouse-bcf-2.0.0.tar.gz',
+                    'neutron_stable_icehouse.tar.gz')
+
 # paths to extract from tgz to local horizon install. Don't include
 # slashes on folders because * copying is not used.
 HORIZON_PATHS_TO_COPY = (
+    'LAST_NON_MERGE_COMMIT',
     'openstack_dashboard/dashboards/admin/dashboard.py',
     'openstack_dashboard/dashboards/project/dashboard.py',
     'openstack_dashboard/dashboards/admin/connections',
@@ -557,6 +561,8 @@ class ConfigDeployer(object):
             extract += '~/neutron.tar.gz -C "$TGT";'
             # move the extraced plugins to the neutron dir
             extract += 'yes | cp -rfp "$TGT/neutron" "%s/../";' % target_neutron_path
+            # grab the commit marker
+            extract += 'yes | cp -rfp "$TGT/LAST_NON_MERGE_COMMIT" "%s/../neutron/";' % target_neutron_path
             # cleanup old pyc files
             extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
