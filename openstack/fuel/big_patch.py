@@ -852,7 +852,7 @@ ini_setting {"apiworkers":
   path    => $neutron_main_conf_path,
   section => 'DEFAULT',
   setting => 'api_workers',
-  value   => '4',
+  value   => '0',
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
