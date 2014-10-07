@@ -665,6 +665,30 @@ class ConfigDeployer(object):
             print ("Warning: RabbitMQ partition detected on node %s: %s "
                    "Restart rabbitmq-server on each node in the parition."
                    % (node, resp))
+        # check for certificates generated in the future (due to clock change)
+        # or expired certs
+        certs = []
+        resp, errors = self.env.run_command_on_node(
+            node, ("cat /etc/keystone/keystone.conf | grep -e '^ca_certs' "
+                   "| awk -F '=' '{ print $2 }'"))
+        certs += resp.split(',') if resp else ['/etc/keystone/ssl/certs/ca.pem']
+        resp, errors = self.env.run_command_on_node(
+            node, ("cat /etc/keystone/keystone.conf | grep -e '^certfile' "
+                   "| awk -F '=' '{ print $2 }'"))
+        certs.append(
+            resp if resp else '/etc/keystone/ssl/certs/signing_cert.pem')
+        for cert in certs:
+            cert = cert.strip()
+            resp, errors = self.env.run_command_on_node(
+                node, ("openssl verify %s" % cert))
+            if 'expired' in resp or 'not yet valid' in resp:
+                print ("Warning: the certificate %s being used by keystone is "
+                       "not valid for the current time. If the clocks on the "
+                       "servers are correct, the certificates will need to be "
+                       "deleted and then regenerated using the "
+                       "'keystone-manage pki_setup' command.\n"
+                       "Details: %s" % (cert, resp))
+
         print "Configuration applied to %s." % node
 
 
