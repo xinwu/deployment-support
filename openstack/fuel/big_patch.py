@@ -599,11 +599,15 @@ class ConfigDeployer(object):
             # extract with strip-components to remove the branch dir
             extract += 'tar --strip-components=1 -xf '
             extract += '~/horizon.tar.gz -C "$TGT";'
-            # move the extraced plugins to the neutron dir
             for horizon_patch in HORIZON_PATHS_TO_COPY:
+                # remove filename
+                if '/' in horizon_patch:
+                    rel_target_dir = horizon_patch.rsplit('/', 1)[0] + '/'
+                else:
+                    # top level file
+                    rel_target_dir = '/'
                 extract += 'yes | cp -rfp "$TGT/%s" "%s/%s";' % (
-                    horizon_patch, base_dir,
-                    horizon_patch.rsplit('/', 1)[0] + '/')
+                    horizon_patch, base_dir, rel_target_dir)
             # cleanup old pyc files
             extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % base_dir
             resp, errors = self.env.run_command_on_node(
