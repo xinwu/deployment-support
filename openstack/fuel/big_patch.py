@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'bcf-2'
-SCRIPT_VERSION = '1.0.3'
+SCRIPT_VERSION = '1.0.4'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -434,9 +434,10 @@ class ConfigDeployer(object):
     def deploy_to_all(self):
         thread_list = collections.deque()
         errors = []
+        node_information = []
         for node in self.env.nodes:
             t = threading.Thread(target=self.deploy_to_node_catch_errors,
-                                 args=(node, errors))
+                                 args=(node, errors, node_information))
             thread_list.append(t)
             t.start()
             if len(thread_list) >= MAX_THREADS:
@@ -444,6 +445,14 @@ class ConfigDeployer(object):
                 top.join()
         for thread in thread_list:
             thread.join()
+        conn_strings = [info['neutron_connection']
+                        for (node, info) in node_information]
+        if len(set(conn_strings)) > 1:
+            strings_with_nodes = ["%s: %s" % (node, info['neutron_connection'])
+                                  for (node, info) in node_information]
+            print ("Warning: different neutron connection strings detected on "
+                   "neutron server nodes. They should all reference the same "
+                   "database.\nConnections:\n%s" % "\n".join(strings_with_nodes))
         if errors:
             print "Encountered errors while deploying patch to nodes."
             for node, error in errors:
@@ -451,13 +460,13 @@ class ConfigDeployer(object):
         else:
             print "Deployment Complete!"
 
-    def deploy_to_node_catch_errors(self, node, error_log):
+    def deploy_to_node_catch_errors(self, node, error_log, node_information):
         try:
-            self.deploy_to_node(node)
+            self.deploy_to_node(node, node_information)
         except Exception as e:
             error_log.append((node, str(e)))
 
-    def deploy_to_node(self, node):
+    def deploy_to_node(self, node, node_information):
         print "Applying configuration to %s..." % node
         bond_interfaces = self.env.get_node_bond_interfaces(node)
         puppet_settings = {
@@ -719,6 +728,15 @@ class ConfigDeployer(object):
                 print ("Warning: bond interface speeds do not match on node "
                        "%s. Were the correct interfaces chosen?\nSpeeds: %s"
                        % (node, speeds))
+
+        # collect connection string for comparison with other nodes
+        resp = self.env.run_command_on_node(
+            node, ("grep -R -e '^connection' /etc/neutron/neutron.conf")
+        )[0].strip()
+        if resp:
+            node_information.append(
+                (node, {'neutron_connection': resp.replace(' ', '')})
+            )
         print "Configuration applied to %s." % node
 
 
