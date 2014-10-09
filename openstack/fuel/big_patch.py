@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'bcf-2'
-SCRIPT_VERSION = '1.0.4'
+SCRIPT_VERSION = '1.0.5'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -730,13 +730,16 @@ class ConfigDeployer(object):
                        % (node, speeds))
 
         # collect connection string for comparison with other nodes
-        resp = self.env.run_command_on_node(
-            node, ("grep -R -e '^connection' /etc/neutron/neutron.conf")
-        )[0].strip()
-        if resp:
-            node_information.append(
-                (node, {'neutron_connection': resp.replace(' ', '')})
-            )
+        neutron_running = self.env.run_command_on_node(
+            node, 'ps -ef | grep neutron-server | grep -v grep')[0].strip()
+        if neutron_running:
+            resp = self.env.run_command_on_node(
+                node, ("grep -R -e '^connection' /etc/neutron/neutron.conf")
+            )[0].strip()
+            if resp:
+                node_information.append(
+                    (node, {'neutron_connection': resp.replace(' ', '')})
+                )
         print "Configuration applied to %s." % node
 
 
