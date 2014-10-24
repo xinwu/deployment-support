@@ -1,23 +1,21 @@
-cloud_db_pwd: bsn
 mysql_root_pwd: bsn
+cloud_db_pwd: bsn
+management_vlan: 6
+storage_vlan: 7
+public_vlan: null
+default_role: compute
+default_bond_interface:
+  interfaces:
+  - eth1
+  - eth2
+  name: bond0
 nodes:
-- bond_interface:
-    interfaces:
-    - eth1
-    - eth2
-    name: bond0
-  hostname: 172.16.54.130
-  management_vlan: 6
-  public_vlan: null
+- hostname: 172.16.54.130
   role: management
-  storage_vlan: 7
-- bond_interface:
+- hostname: 172.16.54.132
+- hostname: 172.16.54.134
+  bond_interface:
     interfaces:
-    - eth1
-    - eth2
-    name: bond0
-  hostname: 172.16.54.132
-  management_vlan: 6
-  public_vlan: null
-  role: management
-  storage_vlan: 7
+    - eth3
+    - eth4
+    name: bond1
