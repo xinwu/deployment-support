@@ -3,23 +3,33 @@ mysql_root_pwd: bsn
 nodes:
 - hostname: 172.16.54.130
   manage_bond:
-    interfaces: eth1,eth2
+    interfaces:
+    - eth1
+    - eth2
     vlan: 6
   public_bond:
-    interfaces: eth1,eth2
+    interfaces:
+    - eth1
+    - eth2
     vlan: null
   role: management
   storage_bond:
-    interfaces: eth1,eth2
+    interfaces:
+    - eth1
+    - eth2
     vlan: 7
 - hostname: 172.16.54.132
   manage_bond:
     interfaces: eth1,eth2
     vlan: 6
   public_bond:
-    interfaces: eth1,eth2
+    interfaces:
+    - eth1
+    - eth2
     vlan: null
   role: compute
   storage_bond:
-    interfaces: eth1,eth2
+    interfaces:
+    - eth1
+    - eth2
     vlan: 7
