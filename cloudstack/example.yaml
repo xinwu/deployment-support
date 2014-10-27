@@ -3,6 +3,9 @@ cloud_db_pwd: bsn
 management_vlan: 6
 storage_vlan: 7
 public_vlan: null
+default_pxe_interface: eth0
+default_node_username: bsn
+default_node_password: bsn
 default_role: compute
 default_bond_interface:
   interfaces:
@@ -14,6 +17,9 @@ nodes:
   role: management
 - hostname: 172.16.54.132
 - hostname: 172.16.54.134
+  node_username: username
+  node_password: password
+  pxe_interface: eth9
   bond_interface:
     interfaces:
     - eth3
