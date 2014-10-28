@@ -579,8 +579,8 @@ NODE_REMOTE_BASH = r'''
 #!/bin/bash
 cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
 apt-get install -fy puppet aptitude --force-yes
-wget://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
-dpkg -i /home/%(user)/bcf/spuppetlabs-release-precise.deb
+wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
+dpkg -i /home/%(user)s/bcf/spuppetlabs-release-precise.deb
 apt-get update
 puppet resource package puppet ensure=latest
 aptitude install -fy openssh-server virt-manager kvm qemu-system bridge-utils fail2ban
@@ -669,7 +669,7 @@ def generate_interface_config(node):
                '  iface lo inet loopback\n\n')
     config += ('auto %(pxe_intf)s\n'
                '  iface %(pxe_intf)s inet dhcp\n'
-               '  up route add default gw %(pxe_gw)s' %
+               '  up route add default gw %(pxe_gw)s\n\n' %
               {'pxe_intf' : node.pxe_interface,
                'pxe_gw'   : node.pxe_gw})
     for intf in node.bond_interfaces:
