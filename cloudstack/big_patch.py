@@ -1,11 +1,11 @@
 # Copyright 2014 Big Switch Networks, Inc.
 # All Rights Reserved.
 #
-# This script requires python-yaml, python-pip, python-dev and
-# concurrent.futures on the patch node. It also requires
-# ssh on all nodes, i.e.,
-# sudo apt-get install -y python-yaml python-pip python-dev (on patch node)
-# sudo pip install futures subprocess32
+# This script requires sshpass python-yaml, python-pip,
+# python-dev and concurrent.futures on the patch node.
+# It also requires ssh on all nodes, i.e.,
+# sudo apt-get install -y sshpass python-yaml python-pip python-dev (on patch node)
+# sudo pip install futures subprocess32 (on patch node)
 # sudo apt-get install -y ssh (on all nodes)
 
 '''
