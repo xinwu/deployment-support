@@ -138,6 +138,7 @@ exec {"update":
 
 
 package {[
+    'ethtool',
     'nfs-kernel-server',
     'mysql-server',
     'mysql-client',
@@ -363,6 +364,7 @@ exec {"update":
 }
 
 package {[
+    'ethtool',
     'openjdk-7-jre',
     'libcommons-daemon-java',
     'jsvc',
