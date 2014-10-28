@@ -325,6 +325,12 @@ exec {"run cloudstack":
     returns => [0],
 }
 
+service {"tomcat6":
+    require => Package['tomcat6'],
+    ensure  => running,
+    enable  => true,
+}
+
 service {"cloudstack-management":
     require => Exec['run cloudstack'],
     ensure  => running,
