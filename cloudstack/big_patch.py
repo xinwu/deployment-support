@@ -616,6 +616,9 @@ class Node(object):
         self.pxe_interface = node_config['pxe_interface']
         if type(self.pxe_interface) in (tuple, list):
             self.pxe_interface = self.pxe_interface[0]
+        self.pxe_gw = node_config['pxe_gw']
+        if type(self.pxe_gw) in (tuple, list):
+            self.pxe_gw = self.pxe_gw[0]
         self.node_username = node_config['node_username']
         if type(self.node_username) in (tuple, list):
             self.node_username = self.node_username[0]
@@ -665,8 +668,10 @@ def generate_interface_config(node):
     config =  ('auto lo\n'
                '  iface lo inet loopback\n\n')
     config += ('auto %(pxe_intf)s\n'
-               '  iface %(pxe_intf)s inet dhcp\n\n' %
-              {'pxe_intf' : node.pxe_interface})
+               '  iface %(pxe_intf)s inet dhcp\n'
+               '  up route add default gw %(pxe_gw)s' %
+              {'pxe_intf' : node.pxe_interface,
+               'pxe_gw'   : node.pxe_gw})
     for intf in node.bond_interfaces:
         config += ('auto %(intf)s\n'
                    '  iface %(intf)s inet manual\n'
@@ -881,12 +886,13 @@ def deploy_to_all(config):
              node_config['public_bridge'] = config['default_public_bridge']
         if 'guest_bridge' not in node_config:
              node_config['guest_bridge'] = config['default_guest_bridge']
+        node_config['pxe_gw'] = config['pxe_gw']
         node_config['mysql_root_pwd'] = config['mysql_root_pwd']
-        node_config['cloud_db_pwd'] = config['cloud_db_pwd'],
-        node_config['management_vlan'] = config['management_vlan'],
-        node_config['storage_vlan'] = config['storage_vlan'],
-        node_config['public_vlan'] = config['public_vlan'],
-        node_config['guest_vlan'] = config['guest_vlan'],
+        node_config['cloud_db_pwd'] = config['cloud_db_pwd']
+        node_config['management_vlan'] = config['management_vlan']
+        node_config['storage_vlan'] = config['storage_vlan']
+        node_config['public_vlan'] = config['public_vlan']
+        node_config['guest_vlan'] = config['guest_vlan']
 
         node = Node(node_config)
         generate_command_for_node(node)

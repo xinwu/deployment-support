@@ -11,6 +11,7 @@ default_guest_bridge: br-guest
 default_pxe_interface: eth0
 default_node_username: bsn
 default_node_password: bsn
+default_pxe_gw: 10.8.0.1
 default_role: compute
 default_bond_interface:
   interfaces:
