@@ -392,6 +392,7 @@ package {[
     'virt-manager',
     'nfs-common',
     'aptitude',
+    'genisoimage',
     ]:
     ensure  => 'installed',
     require => Exec['update'],
@@ -485,6 +486,7 @@ exec {"dpkg common":
                 Package['virt-manager'],
                 Package['nfs-common'],
                 Package['aptitude'],
+                Package['genisoimage'],
                 Service["libvirt-bin"]],
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
