@@ -732,7 +732,7 @@ def kill_on_timeout(command, event, timeout, proc):
 
 # queue to store all bash cmd
 cmd_q = Queue.Queue()
-def run_command_on_local(command, timeout=900):
+def run_command_on_local(command, timeout=1200):
     event = threading.Event()
     p = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE,
