@@ -584,7 +584,7 @@ NODE_REMOTE_BASH = r'''
 cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
 apt-get install -fy puppet aptitude --force-yes
 wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
-dpkg -i /home/%(user)s/bcf/spuppetlabs-release-precise.deb
+dpkg -i /home/%(user)s/bcf/puppetlabs-release-precise.deb
 apt-get update
 puppet resource package puppet ensure=latest
 aptitude install -fy openssh-server virt-manager kvm qemu-system bridge-utils fail2ban
