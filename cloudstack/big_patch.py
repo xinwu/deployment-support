@@ -386,14 +386,14 @@ file {'/etc/libvirt/qemu.conf':
 
 file_line {'config user':
     path    => '/etc/libvirt/qemu.conf',  
-    line    => 'user=root',
+    line    => "user=\"root\"",
     match   => "^user=.*$",
     require => File['/etc/libvirt/qemu.conf'],
 }
 
 file_line {'config group':
     path    => '/etc/libvirt/qemu.conf',
-    line    => 'group=root',
+    line    => "group=\"root\"",
     match   => "^group=.*$",
     require => File['/etc/libvirt/qemu.conf'],
 }
