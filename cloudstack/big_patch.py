@@ -239,15 +239,16 @@ file_line {'config secondary':
 
 
 service {'mysql':
-    ensure   => running,
+    ensure  => running,
     require => Package["mysql-server"],
 }
 
 exec {'export nfs':
+    require     => Package['nfs-kernel-server'],
     subscribe   => [File_Line["config primary"],
                     File_Line["config secondary"]],
     refreshonly => true,
-    path        => "/bin:/usr/bin:/usr/sbin",
+    path        => "/bin:/usr/bin:/usr/sbin:/sbin",
     command     => "exportfs -a",
 }
 
@@ -272,7 +273,10 @@ exec {"wget cloudstack management":
 
 exec {"dpkg common":
     require => [Exec['wget cloudstack common'],
-                Exec["install maven3"]],
+                Exec["install maven3"],
+                Exec['export nfs'],
+                Package['tomcat6'],
+                Package['jsvc']],
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_common",
@@ -471,6 +475,12 @@ exec {"install cloudstack":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "apt-get -fy install",
 }
+
+service {"cloudstack-agent":
+    require => Exec['install cloudstack'],
+    ensure  => "running",
+    enable  => "true",
+}
 '''
 
 LLDP_PUPPET = r'''
@@ -511,7 +521,7 @@ service {"lldpd":
     enable  => "true",
     require => [Package["lldpd"],
                 Exec['rm /var/run/lldpd.socket']],
-    }
+}
 
 apt::source {"puppetlabs_precise":
     location        => "http://apt.puppetlabs.com/",
@@ -559,7 +569,7 @@ apt-get -fy install --fix-missing
 puppet module install --force puppetlabs-apt
 puppet module install --force puppetlabs-stdlib
 puppet module install --force attachmentgenie-ufw
-puppet apply -d -v -l /tmp/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
+puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 apt-get -fy install --fix-missing
 reboot
 '''
@@ -825,7 +835,8 @@ def deploy_to_all(config):
     # install sshpass
     safe_print("Installing sshpass to local node...\n")
     run_command_on_local(
-        'sudo apt-get update;'
+        'sudo rm -rf ~/.ssh/known_hosts;'
+        ' sudo apt-get update;'
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
