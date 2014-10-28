@@ -576,13 +576,16 @@ apt::source {"ubuntu_archiv_precise-security":
 NODE_REMOTE_BASH = r'''
 #!/bin/bash
 cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
-apt-get update
 apt-get install -fy puppet aptitude --force-yes
+wget://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
+dpkg -i /home/%(user)/bcf/spuppetlabs-release-precise.deb
+apt-get update
+puppet resource package puppet ensure=latest
 aptitude install -fy openssh-server virt-manager kvm qemu-system bridge-utils fail2ban
 apt-get -fy install --fix-missing
-puppet module install --force puppetlabs-apt
-puppet module install --force puppetlabs-stdlib
-puppet module install --force attachmentgenie-ufw
+puppet module install puppetlabs-apt --force
+puppet module install puppetlabs-stdlib --force
+puppet module install attachmentgenie-ufw --force
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 apt-get -fy install --fix-missing
 reboot
