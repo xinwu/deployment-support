@@ -329,6 +329,12 @@ exec {"run cloudstack":
     returns => [0],
 }
 
+service {"cloudstack-management":
+    require => Exec['run cloudstack'],
+    ensure  => running,
+    enable  => true,
+}
+
 exec {"wget storage_vm_template":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $storage_vm_url/$storage_vm_template -O /home/$user/bcf/$storage_vm_template",
@@ -512,8 +518,8 @@ exec {"install cloudstack":
 
 service {"cloudstack-agent":
     require => Exec['install cloudstack'],
-    ensure  => "running",
-    enable  => "true",
+    ensure  => running,
+    enable  => true,
 }
 '''
 
@@ -564,11 +570,17 @@ exec {'rm /var/run/lldpd.socket':
     require => Package[lldpd],
 }
 
-service {"lldpd":
-    ensure  => "running",
-    enable  => "true",
-    require => [Package["lldpd"],
+exec {"start lldpd":
+    path    => "/bin:/usr/bin:/usr/sbin",
+    command => "/etc/init.d/lldpd start",
+    require => [Package['lldpd'],
                 Exec['rm /var/run/lldpd.socket']],
+}
+
+service {"lldpd":
+    ensure  => running,
+    enable  => true,
+    require => Exec['start lldpd'],
 }
 
 apt::source {"puppetlabs_precise":
