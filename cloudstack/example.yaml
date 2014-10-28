@@ -4,6 +4,10 @@ management_vlan: 6
 storage_vlan: 7
 public_vlan: 5
 guest_vlan: null
+default_management_bridge: br-mgmt
+default_storage_bridge: br-storage
+default_public_bridge: br-public
+default_guest_bridge: br-guest
 default_pxe_interface: eth0
 default_node_username: bsn
 default_node_password: bsn
@@ -21,6 +25,10 @@ nodes:
   node_username: username
   node_password: password
   pxe_interface: eth9
+  management_bridge: br-customized-mgmt
+  storage_bridge: br-customized-storage
+  public_bridge: br-customized-public
+  guest_bridge: br-customized-guest
   bond_interface:
     interfaces:
     - eth3

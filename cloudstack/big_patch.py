@@ -84,11 +84,12 @@ BR_PUBLIC  = 'br-public'
 BR_GUEST   = 'br-guest'
 
 # cloud stack packages
+CS_VERSION = '4.6.0'
 CS_URL    = ('http://jenkins.buildacloud.org/job/package-deb-master/'
              'lastSuccessfulBuild/artifact/dist/debian/')
-CS_COMMON = 'cloudstack-common_4.5.0-snapshot_all.deb'
-CS_MGMT   = 'cloudstack-management_4.5.0-snapshot_all.deb'
-CS_AGENT  = 'cloudstack-agent_4.5.0-snapshot_all.deb'
+CS_COMMON = ('cloudstack-common_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
+CS_MGMT   = ('cloudstack-management_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
+CS_AGENT  = ('cloudstack-agent_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 
 STORAGE_SCRIPT = '/usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt'
 STORAGE_VM_URL = ('http://jenkins.buildacloud.org/view/master/job/'
@@ -272,16 +273,18 @@ exec {"wget cloudstack management":
 exec {"dpkg common":
     require => [Exec['wget cloudstack common'],
                 Exec["install maven3"]],
-    path    => "/bin:/usr/bin:/usr/sbin",
+    user    => root,
+    path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_common",
-    returns => [0, 2],
+    returns => [0],
 }
 
 exec {"dpkg management":
     require => [Exec['wget cloudstack common'],
                 Exec['wget cloudstack management'],
                 Exec['dpkg common']],
-    path    => "/bin:/usr/bin:/usr/sbin",
+    user    => root,
+    path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_mgmt",
     returns => [0, 2],
 }
@@ -358,7 +361,6 @@ exec {"update":
 package {[
     'python-software-properties',
     'qemu',
-    'kvm',
     'libvirt-bin',
     'virtinst',
     'virt-manager',
@@ -444,7 +446,8 @@ exec {"wget cloudstack agent":
 exec {"dpkg common":
     require => [Exec['wget cloudstack common'],
                 Service["libvirt-bin"]],
-    path    => "/bin:/usr/bin:/usr/sbin",
+    user    => root,
+    path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_common",
     returns => [0, 2],
 }
@@ -453,7 +456,8 @@ exec {"dpkg agent":
     require => [Exec['wget cloudstack common'],
                 Exec['wget cloudstack agent'],
                 Exec['dpkg common']],
-    path    => "/bin:/usr/bin:/usr/sbin",
+    user    => root,
+    path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_agent",
     returns => [0, 2],
 }
@@ -546,11 +550,12 @@ NODE_REMOTE_BASH = r'''
 cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
 apt-get update
 apt-get -fy install --fix-missing
-apt-get install -fy puppet --force-yes
+apt-get install -fy puppet aptitude --force-yes
+aptitude install -fy openssh-server virt-manager kvm qemu-system bridge-utils fail2ban
 puppet module install --force puppetlabs-apt
 puppet module install --force puppetlabs-stdlib
 puppet module install --force attachmentgenie-ufw
-puppet apply -l /tmp/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
+puppet apply -d -v -l /tmp/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 reboot
 '''
 
@@ -608,6 +613,18 @@ class Node(object):
         self.guest_vlan = node_config['guest_vlan']
         if type(self.guest_vlan) in (tuple, list):
             self.guest_vlan = self.guest_vlan[0]
+        self.management_bridge = node_config['management_bridge']
+        if type(self.management_bridge) in (tuple, list):
+            self.management_bridge = self.management_bridge[0]
+        self.storage_bridge = node_config['storage_bridge']
+        if type(self.storage_bridge) in (tuple, list):
+            self.storage_bridge = self.storage_bridge[0]
+        self.public_bridge = node_config['public_bridge']
+        if type(self.public_bridge) in (tuple, list):
+            self.public_bridge = self.public_bridge[0]
+        self.guest_bridge = node_config['guest_bridge']
+        if type(self.guest_bridge) in (tuple, list):
+            self.guest_bridge = self.guest_bridge[0]
 
 
 def generate_interface_config(node):
@@ -633,33 +650,33 @@ def generate_interface_config(node):
     br_port_map = {}
     untagged_br = set()
     if node.management_vlan:
-        br_port_map[BR_MGMT] = ('%(bond)s.%(vlan)s' %
-                                {'bond' : node.bond_name,
-                                 'vlan' : node.management_vlan})
+        br_port_map[node.management_bridge] = ('%(bond)s.%(vlan)s' %
+                                               {'bond' : node.bond_name,
+                                                'vlan' : node.management_vlan})
     else:
-        untagged_br.add(BR_MGMT)
+        untagged_br.add(node.management_bridge)
 
     if node.role == ROLE_COMPUTE:
         if node.storage_vlan:
-            br_port_map[BR_STORAGE] = ('%(bond)s.%(vlan)s' %
-                                       {'bond' : node.bond_name,
-                                        'vlan' : node.storage_vlan})
+            br_port_map[node.storage_bridge] = ('%(bond)s.%(vlan)s' %
+                                                {'bond' : node.bond_name,
+                                                 'vlan' : node.storage_vlan})
         else:
-            untagged_br.add(BR_STORAGE)
+            untagged_br.add(node.management_bridge)
 
         if node.public_vlan:
-            br_port_map[BR_PUBLIC] = ('%(bond)s.%(vlan)s' %
-                                      {'bond' : node.bond_name,
-                                       'vlan' : node.public_vlan})
+            br_port_map[node.public_bridge] = ('%(bond)s.%(vlan)s' %
+                                               {'bond' : node.bond_name,
+                                                'vlan' : node.public_vlan})
         else:
-            untagged_br.add(BR_PUBLIC)
+            untagged_br.add(node.public_bridge)
 
         if node.guest_vlan:
-            br_port_map[BR_GUEST] = ('%(bond)s.%(vlan)s' %
-                                     {'bond' : node.bond_name,
-                                      'vlan' : node.guest_vlan})
+            br_port_map[node.guest_bridge] = ('%(bond)s.%(vlan)s' %
+                                              {'bond' : node.bond_name,
+                                               'vlan' : node.guest_vlan})
         else:
-            untagged_br.add(BR_GUEST)
+            untagged_br.add(node.guest_bridge)
 
     for br, port in br_port_map.iteritems():
         config += ('auto %(br_port)s\n'
@@ -819,6 +836,14 @@ def deploy_to_all(config):
             node_config['role'] = config['default_role']
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
+        if 'management_bridge' not in node_config:
+             node_config['management_bridge'] = config['default_management_bridge']
+        if 'storage_bridge' not in node_config:
+             node_config['storage_bridge'] = config['default_storage_bridge']
+        if 'public_bridge' not in node_config:
+             node_config['public_bridge'] = config['default_public_bridge']
+        if 'guest_bridge' not in node_config:
+             node_config['guest_bridge'] = config['default_guest_bridge']
         node_config['mysql_root_pwd'] = config['mysql_root_pwd']
         node_config['cloud_db_pwd'] = config['cloud_db_pwd'],
         node_config['management_vlan'] = config['management_vlan'],
