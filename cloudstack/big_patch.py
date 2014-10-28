@@ -286,7 +286,7 @@ exec {"dpkg management":
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_mgmt",
-    returns => [0, 2],
+    returns => [0],
 }
 
 exec {"install cloudstack":
@@ -305,7 +305,7 @@ exec {"run cloudstack":
     require => Exec['cloudstack-setup-databases'],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-management",
-    returns => [0, 2],
+    returns => [0],
 }
 
 exec {"wget storage_vm_template":
@@ -359,6 +359,10 @@ exec {"update":
 }
 
 package {[
+    'openjdk-7-jre',
+    'libcommons-daemon-java',
+    'jsvc',
+    'ipset',
     'python-software-properties',
     'qemu',
     'libvirt-bin',
@@ -449,7 +453,7 @@ exec {"dpkg common":
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_common",
-    returns => [0, 2],
+    returns => [0],
 }
 
 exec {"dpkg agent":
@@ -459,7 +463,7 @@ exec {"dpkg agent":
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_agent",
-    returns => [0, 2],
+    returns => [0],
 }
 
 exec {"install cloudstack":
@@ -549,13 +553,14 @@ NODE_REMOTE_BASH = r'''
 #!/bin/bash
 cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
 apt-get update
-apt-get -fy install --fix-missing
 apt-get install -fy puppet aptitude --force-yes
 aptitude install -fy openssh-server virt-manager kvm qemu-system bridge-utils fail2ban
+apt-get -fy install --fix-missing
 puppet module install --force puppetlabs-apt
 puppet module install --force puppetlabs-stdlib
 puppet module install --force attachmentgenie-ufw
 puppet apply -d -v -l /tmp/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
+apt-get -fy install --fix-missing
 reboot
 '''
 
@@ -732,7 +737,7 @@ def kill_on_timeout(command, event, timeout, proc):
 
 # queue to store all bash cmd
 cmd_q = Queue.Queue()
-def run_command_on_local(command, timeout=1200):
+def run_command_on_local(command, timeout=1800):
     event = threading.Event()
     p = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE,
