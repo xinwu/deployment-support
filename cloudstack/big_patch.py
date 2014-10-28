@@ -629,7 +629,17 @@ wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/
 dpkg -i /home/%(user)s/bcf/puppetlabs-release-precise.deb
 apt-get update
 puppet resource package puppet ensure=latest
-aptitude install -fy openssh-server virt-manager kvm qemu-system bridge-utils fail2ban
+aptitude install -fy openssh-server libvirt-bin virt-manager kvm qemu-system bridge-utils fail2ban
+version="$(virsh --version)"
+requirement="1.0.2"
+if [[ "$version" < "$requirement" ]]; then
+    apt-get install -fy python-software-properties
+    add-apt-repository ppa:pfak/backports -y
+    apt-get update -fy
+    aptitude update -fy
+    aptitude -fy safe-upgrade
+    service libvirt-bin restart
+fi
 apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
@@ -714,6 +724,9 @@ def generate_interface_config(node):
         vlan = bridge['vlan']
         if type(vlan) in (tuple, list):
             vlan = vlan[0]
+        inet = bridge['inet']
+        if type(inet) in (tuple, list):
+            inet = inet[0]
 
         port_name = node.bond_name
         if vlan:
@@ -728,11 +741,13 @@ def generate_interface_config(node):
  
         if node.role == ROLE_COMPUTE:
             config += ('auto %(name)s\n'
-                       '  iface %(name)s inet dhcp\n'
+                       '  iface %(name)s inet %(inet)s\n'
                        '  bridge_ports %(port_name)s\n'
                        '  bridge_stp off\n'
                        '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
-                       {'name' : name, 'port_name' : port_name})
+                       {'name'      : name,
+                        'port_name' : port_name,
+                        'inet'      : inet})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
         config_file.write(config)

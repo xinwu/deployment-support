@@ -12,12 +12,16 @@ default_bond_interface:
   name: bond0
 default_bridges:
 - name: cs-mgmt
+  inet: dhcp
   vlan: 6
 - name: cs-storage
+  inet: dhcp
   vlan: 7
 - name: brbond0-52
+  inet: manual
   vlan: 52
 - name: cs-guest
+  inet: manual
   vlan: null
 nodes:
 - hostname: 172.16.54.130
@@ -32,10 +36,13 @@ nodes:
   pxe_interface: eth9
   bridges:
   - name: cs-mgmt
+    inet: dhcp
     vlan: 6
   - name: brbond1-52
+    inet: manual
     vlan: 52
   - name: cs-guest
+    inet: manual
     vlan: null
   bond_interface:
     interfaces:
