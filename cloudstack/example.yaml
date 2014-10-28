@@ -2,7 +2,8 @@ mysql_root_pwd: bsn
 cloud_db_pwd: bsn
 management_vlan: 6
 storage_vlan: 7
-public_vlan: null
+public_vlan: 5
+guest_vlan: null
 default_pxe_interface: eth0
 default_node_username: bsn
 default_node_password: bsn
