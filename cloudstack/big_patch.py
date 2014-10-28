@@ -506,7 +506,21 @@ file_line {'config bonding':
     require => File['/etc/modules'],
 }
 
-package {["lldpd", "vlan"]:
+file_line {'config vlan':
+    path    => '/etc/modules',
+    line    => "8021q",
+    match   => "^8021q$",
+    require => File['/etc/modules'],
+}
+
+file_line {'config loop':
+    path    => '/etc/modules',
+    line    => "loop",
+    match   => "^loop$",
+    require => File['/etc/modules'],
+}
+
+package {["lldpd", "vlan", "ifenslave"]:
     ensure => installed,
 }
 
@@ -655,8 +669,6 @@ def generate_interface_config(node):
                    {'intf' : intf, 'bond' : node.bond_name})
     config += ('auto %(bond)s\n'
                '  iface %(bond)s inet manual\n'
-               '  pre-up ifconfig $IFACE up\n'
-               '  post-down ifconfig $IFACE down\n'
                '  bond-mode 0\n'
                '  bond-slaves none\n'
                '  bond-miimon 50\n\n' %
@@ -696,21 +708,25 @@ def generate_interface_config(node):
     for br, port in br_port_map.iteritems():
         config += ('auto %(br_port)s\n'
                    '  iface %(br_port)s inet manual\n'
-                   '  post-up ifconfig $IFACE up\n'
-                   '  pre-down ifconfig $IFACE down\n\n' %
-                   {'br_port' : port})
+                   '  vlan-raw-device %(bond)s\n\n' %
+                   {'br_port' : port,
+                    'bond'    : node.bond_name})
 
     if node.role == ROLE_COMPUTE:
         for br, port in br_port_map.iteritems():
             config += ('auto %(br)s\n'
                        '  iface %(br)s inet dhcp\n'
-                       '  bridge_ports %(port)s\n\n' %
+                       '  bridge_ports %(port)s\n'
+                       '  bridge_stp off\n'
+                       '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
                        {'br' : br, 'port' : port})
 
         for br in untagged_br:
             config += ('auto %(br)s\n'
                        '  iface %(br)s inet dhcp\n'
-                       '  bridge_ports %(port)s\n\n' %
+                       '  bridge_ports %(port)s\n'
+                       '  bridge_stp off\n'
+                       '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
                        {'br' : br, 'port' : node.bond_name})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
