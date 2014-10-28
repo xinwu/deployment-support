@@ -77,16 +77,12 @@ ROLE_COMPUTE = 'compute'
 # Maximum number of workers to deploy to nodes concurrently
 MAX_WORKERS = 10
 
-# constant bridge names
-BR_MGMT    = 'br-mgmt'
-BR_STORAGE = 'br-storage'
-BR_PUBLIC  = 'br-public'
-BR_GUEST   = 'br-guest'
+# undef string for puppet
+UNDEF = ''
 
 # cloud stack packages
-CS_VERSION = '4.6.0'
-CS_URL    = ('http://jenkins.buildacloud.org/job/package-deb-master/'
-             'lastSuccessfulBuild/artifact/dist/debian/')
+CS_VERSION = '4.5.0'
+CS_URL    = ('http://jenkins.bigswitch.com/job/cloudstack_ihplus_4.5/lastSuccessfulBuild/artifact')
 CS_COMMON = ('cloudstack-common_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 CS_MGMT   = ('cloudstack-management_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 CS_AGENT  = ('cloudstack-agent_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
@@ -682,30 +678,7 @@ class Node(object):
         self.cloud_db_pwd = node_config['cloud_db_pwd']
         if type(self.cloud_db_pwd) in (tuple, list):
             self.cloud_db_pwd = self.cloud_db_pwd[0]
-        self.management_vlan = node_config['management_vlan']
-        if type(self.management_vlan) in (tuple, list):
-            self.management_vlan = self.management_vlan[0]
-        self.storage_vlan = node_config['storage_vlan']
-        if type(self.storage_vlan) in (tuple, list):
-            self.storage_vlan = self.storage_vlan[0]
-        self.public_vlan = node_config['public_vlan']
-        if type(self.public_vlan) in (tuple, list):
-            self.public_vlan = self.public_vlan[0]
-        self.guest_vlan = node_config['guest_vlan']
-        if type(self.guest_vlan) in (tuple, list):
-            self.guest_vlan = self.guest_vlan[0]
-        self.management_bridge = node_config['management_bridge']
-        if type(self.management_bridge) in (tuple, list):
-            self.management_bridge = self.management_bridge[0]
-        self.storage_bridge = node_config['storage_bridge']
-        if type(self.storage_bridge) in (tuple, list):
-            self.storage_bridge = self.storage_bridge[0]
-        self.public_bridge = node_config['public_bridge']
-        if type(self.public_bridge) in (tuple, list):
-            self.public_bridge = self.public_bridge[0]
-        self.guest_bridge = node_config['guest_bridge']
-        if type(self.guest_bridge) in (tuple, list):
-            self.guest_bridge = self.guest_bridge[0]
+        self.bridges = node_config['bridges']
 
 
 def generate_interface_config(node):
@@ -728,60 +701,32 @@ def generate_interface_config(node):
                '  bond-miimon 50\n\n' %
                {'bond' : node.bond_name})
 
-    br_port_map = {}
-    untagged_br = set()
-    if node.management_vlan:
-        br_port_map[node.management_bridge] = ('%(bond)s.%(vlan)s' %
-                                               {'bond' : node.bond_name,
-                                                'vlan' : node.management_vlan})
-    else:
-        untagged_br.add(node.management_bridge)
+    for bridge in node.bridges:
+        name = bridge['name']
+        if type(name) in (tuple, list):
+            name = name[0]
+        vlan = bridge['vlan']
+        if type(vlan) in (tuple, list):
+            vlan = vlan[0]
 
-    if node.role == ROLE_COMPUTE:
-        if node.storage_vlan:
-            br_port_map[node.storage_bridge] = ('%(bond)s.%(vlan)s' %
-                                                {'bond' : node.bond_name,
-                                                 'vlan' : node.storage_vlan})
-        else:
-            untagged_br.add(node.management_bridge)
-
-        if node.public_vlan:
-            br_port_map[node.public_bridge] = ('%(bond)s.%(vlan)s' %
-                                               {'bond' : node.bond_name,
-                                                'vlan' : node.public_vlan})
-        else:
-            untagged_br.add(node.public_bridge)
-
-        if node.guest_vlan:
-            br_port_map[node.guest_bridge] = ('%(bond)s.%(vlan)s' %
-                                              {'bond' : node.bond_name,
-                                               'vlan' : node.guest_vlan})
-        else:
-            untagged_br.add(node.guest_bridge)
-
-    for br, port in br_port_map.iteritems():
-        config += ('auto %(br_port)s\n'
-                   '  iface %(br_port)s inet manual\n'
-                   '  vlan-raw-device %(bond)s\n\n' %
-                   {'br_port' : port,
-                    'bond'    : node.bond_name})
-
-    if node.role == ROLE_COMPUTE:
-        for br, port in br_port_map.iteritems():
-            config += ('auto %(br)s\n'
-                       '  iface %(br)s inet dhcp\n'
-                       '  bridge_ports %(port)s\n'
+        port_name = node.bond_name
+        if vlan:
+            port_name = ('%(bond)s.%(vlan)s' % 
+                        {'vlan' : vlan,
+                         'bond' : node.bond_name})
+            config += ('auto %(port_name)s\n'
+                       '  iface %(port_name)s inet manual\n'
+                       '  vlan-raw-device %(bond)s\n\n' %
+                       {'port_name' : port_name,
+                        'bond'      : node.bond_name})
+ 
+        if node.role == ROLE_COMPUTE:
+            config += ('auto %(name)s\n'
+                       '  iface %(name)s inet dhcp\n'
+                       '  bridge_ports %(port_name)s\n'
                        '  bridge_stp off\n'
                        '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
-                       {'br' : br, 'port' : port})
-
-        for br in untagged_br:
-            config += ('auto %(br)s\n'
-                       '  iface %(br)s inet dhcp\n'
-                       '  bridge_ports %(port)s\n'
-                       '  bridge_stp off\n'
-                       '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
-                       {'br' : br, 'port' : node.bond_name})
+                       {'name' : name, 'port_name' : port_name})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
         config_file.write(config)
@@ -910,7 +855,7 @@ def deploy_to_all(config):
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
-    nodes = set()
+
     for node_config in config['nodes']:
         if 'pxe_interface' not in node_config:
             node_config['pxe_interface'] = config['default_pxe_interface']
@@ -922,21 +867,15 @@ def deploy_to_all(config):
             node_config['role'] = config['default_role']
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
-        if 'management_bridge' not in node_config:
-             node_config['management_bridge'] = config['default_management_bridge']
-        if 'storage_bridge' not in node_config:
-             node_config['storage_bridge'] = config['default_storage_bridge']
-        if 'public_bridge' not in node_config:
-             node_config['public_bridge'] = config['default_public_bridge']
-        if 'guest_bridge' not in node_config:
-             node_config['guest_bridge'] = config['default_guest_bridge']
+        if 'bridges' not in node_config:
+             node_config['bridges'] = config['default_bridges']
         node_config['pxe_gw'] = config['pxe_gw']
         node_config['mysql_root_pwd'] = config['mysql_root_pwd']
+        if not node_config['mysql_root_pwd']:
+            node_config['mysql_root_pwd'] = UNDEF
         node_config['cloud_db_pwd'] = config['cloud_db_pwd']
-        node_config['management_vlan'] = config['management_vlan']
-        node_config['storage_vlan'] = config['storage_vlan']
-        node_config['public_vlan'] = config['public_vlan']
-        node_config['guest_vlan'] = config['guest_vlan']
+        if not node_config['cloud_db_pwd']:
+            node_config['cloud_db_pwd'] = UNDEF
 
         node = Node(node_config)
         generate_command_for_node(node)
