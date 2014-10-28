@@ -264,12 +264,14 @@ exec {"wget cloudstack common":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $cs_url/$cs_common -O /home/$user/bcf/$cs_common",
     creates => "/home/$user/bcf/$cs_common",
+    timeout => 1200,
 }
 
 exec {"wget cloudstack management":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $cs_url/$cs_mgmt -O /home/$user/bcf/$cs_mgmt",
     creates => "/home/$user/bcf/$cs_mgmt",
+    timeout => 1200,
 }
 
 exec {"dpkg common":
@@ -317,7 +319,7 @@ exec {"wget storage_vm_template":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $storage_vm_url/$storage_vm_template -O /home/$user/bcf/$storage_vm_template",
     creates => "/home/$user/bcf/$storage_vm_template",
-    timeout => 900,
+    timeout => 1200,
 }
 
 exec {"install storage_vm_template":
@@ -445,12 +447,14 @@ exec {"wget cloudstack common":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $cs_url/$cs_common -O /home/$user/bcf/$cs_common",
     creates => "/home/$user/bcf/$cs_common",
+    timeout => 1200,
 }
 
 exec {"wget cloudstack agent":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $cs_url/$cs_agent -O /home/$user/bcf/$cs_agent",
     creates => "/home/$user/bcf/$cs_agent",
+    timeout => 1200,
 }
 
 exec {"dpkg common":
