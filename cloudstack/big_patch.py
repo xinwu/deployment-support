@@ -459,6 +459,18 @@ exec {"wget cloudstack agent":
 
 exec {"dpkg common":
     require => [Exec['wget cloudstack common'],
+                Package['ethtool'],
+                Package['openjdk-7-jre'],
+                Package['libcommons-daemon-java'],
+                Package['jsvc'],
+                Package['ipset'],
+                Package['python-software-properties'],
+                Package['qemu'],
+                Package['libvirt-bin'],
+                Package['virtinst'],
+                Package['virt-manager'],
+                Package['nfs-common'],
+                Package['aptitude'],
                 Service["libvirt-bin"]],
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
