@@ -98,7 +98,6 @@ MGMT_PUPPET = r'''
 $user           = "%(user)s"
 $mysql_root_pwd = "%(mysql_root_pwd)s"
 $cloud_db_pwd   = "%(cloud_db_pwd)s"
-$hostip         = "%(hostname)s"
 $distro         = 'precise'
 $cs_url         = "%(cs_url)s"
 $cs_common      = "%(cs_common)s"
@@ -323,16 +322,15 @@ service {"dbus":
     enable  => true,
 }
 
-exec {"cloudstack-setup-databases":
+exec {"setup-databases":
     require => [Exec['install cloudstack'],
-                Package['mysql-server']],
-    notify  => Service["mysql"],
+                Service['mysql']],
     path    => "/bin:/usr/bin:/usr/sbin",
-    command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
+    command => "bash /home/%(user)s/bcf/db.sh >>/home/%(user)s/bcf/management.log 2>&1",
 }
 
 exec {"run cloudstack":
-    require => [Service['mysql'],
+    require => [Exec['setup-databases'],
                 Service['dbus']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-management",
@@ -651,6 +649,14 @@ apt::source {"ubuntu_archiv_precise-security":
 }
 '''
 
+DB_BASH = r'''
+#!/bin/bash
+cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
+mysql -uroot -p%(mysql_root_pwd)s -e \"DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost; FLUSH PRIVILEGES;\"
+cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
+service mysql restart
+'''
+
 NODE_REMOTE_BASH = r'''
 #!/bin/bash
 cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
@@ -689,6 +695,10 @@ echo -e "Copy /etc/network/interfaces to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(hostname)s.intf %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.intf >> %(log)s 2>&1
 echo -e "Copy %(role)s.pp to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(hostname)s.pp %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.pp >> %(log)s 2>&1
+if [ -f /tmp/%(hostname)s.db.sh ]; then
+    echo -e "Copy db.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
+fi
 echo -e "Copy %(role)s.sh to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
 echo -e "Run %(role)s.sh on node %(hostname)s\n"
@@ -864,7 +874,6 @@ def generate_command_for_node(node):
                         'cs_common'           : CS_COMMON,
                         'cs_mgmt'             : CS_MGMT,
                         'cloud_db_pwd'        : node.cloud_db_pwd,
-                        'hostname'            : node.hostname,
                         'storage_script'      : STORAGE_SCRIPT,
                         'storage_vm_url'      : STORAGE_VM_URL,
                         'storage_vm_template' : STORAGE_VM_TEMPLATE})
@@ -879,6 +888,17 @@ def generate_command_for_node(node):
                           {'node_config' : node_config,
                            'lldp_config' : lldp_config})
         node_puppet.close()
+
+    # generate db shell script
+    if node.role == ROLE_MGMT:
+        with open('/tmp/%s.db.sh' % node.hostname, "w") as node_db_bash:
+            node_db_bash.write(DB_BASH %
+                               {'user'           : node.node_username,
+                                'role'           : node.role,
+                                'cloud_db_pwd'   : node.cloud_db_pwd,
+                                'mysql_root_pwd' : node.mysql_root_pwd,
+                                'hostname'       : node.hostname})
+            node_db_bash.close()
 
     # generate shell script
     with open('/tmp/%s.remote.sh' % node.hostname, "w") as node_remote_bash:
