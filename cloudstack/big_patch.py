@@ -317,20 +317,26 @@ exec {"install cloudstack":
     command => "apt-get -fy install",
 }
 
-exec {"cloudstack-setup-databases":
-    require => Exec['install cloudstack'],
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
-}
-
 service {"dbus":
     require => Package['dbus'],
     ensure  => running,
     enable  => true,
 }
 
+exec {"cloudstack-setup-databases":
+    require => Exec['install cloudstack'],
+    path    => "/bin:/usr/bin:/usr/sbin",
+    command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
+}
+
+exec {"restart mysql":
+    require => Exec['cloudstack-setup-databases'],
+    path    => "/bin:/usr/bin:/usr/sbin:/etc:/usr/lib",
+    command => "service mysql restart",
+}
+
 exec {"run cloudstack":
-    require => [Exec['cloudstack-setup-databases'],
+    require => [Exec['restart mysql'],
                 Service['dbus']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-management",
@@ -343,8 +349,14 @@ service {"tomcat6":
     enable  => true,
 }
 
-service {"cloudstack-management":
+exec {"restart cloudstack-management":
     require => Exec['run cloudstack'],
+    path    => "/bin:/usr/bin:/usr/sbin:/usr/share",
+    command => "service cloudstack-management restart",
+}
+
+service {"cloudstack-management":
+    require => Exec['restart cloudstack-management'],
     ensure  => running,
     enable  => true,
 }
@@ -353,11 +365,13 @@ exec {"wget storage_vm_template":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "wget $storage_vm_url/$storage_vm_template -O /home/$user/bcf/$storage_vm_template",
     creates => "/home/$user/bcf/$storage_vm_template",
-    timeout => 1200,
+    timeout => 1800,
 }
 
 exec {"install storage_vm_template":
-    require => [Exec['wget storage_vm_template'], Exec['run cloudstack']],
+    require => [Exec['wget storage_vm_template'],
+                Exec['run cloudstack'],
+                Service["cloudstack-management"]],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "bash /usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt -m /export/secondary -f /home/$user/bcf/$storage_vm_template -h kvm -F",
 }
