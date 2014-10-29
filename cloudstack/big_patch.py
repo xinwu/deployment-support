@@ -325,7 +325,7 @@ service {"dbus":
 
 exec {"cloudstack-setup-databases":
     require => [Exec['install cloudstack'],
-                Service['mysql']],
+                Package['mysql-server']],
     notify  => Service["mysql"],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
