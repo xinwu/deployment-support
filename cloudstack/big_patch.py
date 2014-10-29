@@ -177,6 +177,45 @@ exec {"config ufw":
     command => "ufw allow mysql",
 }
 
+exec {"allow tcp 22":
+    path => "/bin:/usr/bin:/usr/sbin",
+    command => "ufw allow proto tcp from any to any port 22",
+}
+
+exec {"allow tcp 1798":
+    path => "/bin:/usr/bin:/usr/sbin",
+    command => "ufw allow proto tcp from any to any port 1798",
+}
+
+exec {"allow tcp 16509":
+    path => "/bin:/usr/bin:/usr/sbin",
+    command => "ufw allow proto tcp from any to any port 16509",
+}
+
+exec {"allow tcp 5900:6100":
+    path => "/bin:/usr/bin:/usr/sbin",
+    command => "ufw allow proto tcp from any to any port 5900:6100",
+}
+
+exec {"allow tcp 49152:49216":
+    path => "/bin:/usr/bin:/usr/sbin",
+    command => "ufw allow proto tcp from any to any port 49152:49216",
+}
+
+exec {"accept iptables input":
+    path => "/sbin:/usr/share",
+    command => "iptables --policy INPUT ACCEPT",
+}
+
+exec {"accept iptables output":
+    path => "/sbin:/usr/share",
+    command => "iptables --policy OUTPUT ACCEPT",
+}
+
+exec {"accept iptables forward":
+    path => "/sbin:/usr/share",
+    command => "iptables --policy FORWARD ACCEPT",
+}
 
 file {"/etc/mysql/conf.d/cloudstack.cnf":
     ensure  => present,
@@ -369,7 +408,6 @@ exec {"install storage_vm_template":
 
 # compute node puppet template
 COMPUTE_PUPPET = r'''
-include ufw
 
 $user       = "%(user)s"
 $distro     = 'precise'
@@ -444,41 +482,6 @@ service {"libvirt-bin":
     ensure  => running,
     require => [File_Line['config user'],
                 File_Line['config group']],
-}
-
-ufw::allow { "allow tcp 22":
-  port  => 22,
-  proto => 'tcp',
-  from  => 'any',
-  ip    => 'any',
-}
-
-ufw::allow { "allow tcp 1798":
-  port => 1798,
-  proto => 'tcp',
-  from  => 'any',
-  ip    => 'any',
-}
-
-ufw::allow { "allow tcp 16509":
-  port => 16509,
-  proto => 'tcp',
-  from  => 'any',
-  ip    => 'any',
-}
-
-ufw::allow { "allow tcp 5900:6100":
-  port => '5900:6100',
-  proto => 'tcp',
-  from  => 'any',
-  ip    => 'any',
-}
-
-ufw::allow { "allow tcp 49152:49216":
-  port => '49152:49216',
-  proto => 'tcp',
-  from  => 'any',
-  ip    => 'any',
 }
 
 exec {"wget cloudstack common":
@@ -670,7 +673,6 @@ fi
 apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
-puppet module install attachmentgenie-ufw --force
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 apt-get -fy install --fix-missing
 reboot
