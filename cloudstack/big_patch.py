@@ -413,10 +413,6 @@ package {[
     'jsvc',
     'ipset',
     'python-software-properties',
-    'qemu',
-    'libvirt-bin',
-    'virtinst',
-    'virt-manager',
     'nfs-common',
     'aptitude',
     'genisoimage',
@@ -664,7 +660,7 @@ wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/
 dpkg -i /home/%(user)s/bcf/puppetlabs-release-precise.deb
 apt-get update
 puppet resource package puppet ensure=latest
-aptitude install -fy openssh-server libvirt-bin virt-manager kvm qemu-system bridge-utils fail2ban qemu-kvm ubuntu-vm-builder
+apt-get install -fy qemu-kvm libvirt-bin ubuntu-vm-builder bridge-utils
 adduser `id -un` libvirtd
 version="$(virsh --version)"
 requirement="1.0.2"
