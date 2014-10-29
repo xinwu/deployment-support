@@ -333,7 +333,7 @@ exec {"cloudstack-setup-databases":
 exec {"restart mysql":
     require => [Exec['cloudstack-setup-databases'],
                 Service['mysql']],
-    path    => "/bin:/usr/bin:/usr/sbin",
+    path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "service mysql restart",
 }
 
@@ -353,7 +353,7 @@ service {"tomcat6":
 
 exec {"restart cloudstack-management":
     require => Exec['run cloudstack'],
-    path    => "/bin:/usr/bin:/usr/sbin:/usr/share",
+    path    => "/bin:/usr/bin:/usr/sbin:/usr/share:/sbin",
     command => "service cloudstack-management restart",
 }
 
@@ -686,6 +686,7 @@ apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
 puppet module install attachmentgenie-ufw --force
+puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 apt-get -fy install --fix-missing
 reboot
