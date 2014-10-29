@@ -921,7 +921,7 @@ def generate_command_for_node(node):
                                 'role'           : node.role,
                                 'cloud_db_pwd'   : node.cloud_db_pwd,
                                 'mysql_root_pwd' : node.mysql_root_pwd,
-                                'hostname'       : node.hostnam})
+                                'hostname'       : node.hostname})
         node_remote_bash.close()
 
     # generate script for node
