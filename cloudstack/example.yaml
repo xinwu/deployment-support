@@ -28,6 +28,7 @@ nodes:
   role: management
   bridges:
   - name: cs-mgmt
+    inet: dhcp
     vlan: 6
 - hostname: 172.16.54.132
 - hostname: 172.16.54.134

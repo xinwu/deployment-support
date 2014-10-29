@@ -759,11 +759,19 @@ def generate_interface_config(node):
             port_name = ('%(bond)s.%(vlan)s' % 
                         {'vlan' : vlan,
                          'bond' : node.bond_name})
-            config += ('auto %(port_name)s\n'
-                       '  iface %(port_name)s inet manual\n'
-                       '  vlan-raw-device %(bond)s\n\n' %
-                       {'port_name' : port_name,
-                        'bond'      : node.bond_name})
+            if node.role == ROLE_MGMT:
+                config += ('auto %(port_name)s\n'
+                           '  iface %(port_name)s inet %(inet)s\n'
+                           '  vlan-raw-device %(bond)s\n\n' %
+                          {'port_name' : port_name,
+                           'bond'      : node.bond_name,
+                           'inet'      : inet})
+            else:
+                config += ('auto %(port_name)s\n'
+                           '  iface %(port_name)s inet manual\n'
+                           '  vlan-raw-device %(bond)s\n\n' %
+                          {'port_name' : port_name,
+                           'bond'      : node.bond_name})
  
         if node.role == ROLE_COMPUTE:
             config += ('auto %(name)s\n'
