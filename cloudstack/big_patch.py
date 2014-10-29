@@ -340,7 +340,7 @@ service {"dbus":
 exec {"setup-databases":
     require => [Exec['install cloudstack'],
                 Package['mysql-server']],
-    notify  => Service['mysql'],
+    notify  => [Service['mysql'], Exec['run cloudstack'], Service['cloudstack-management']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "bash /home/%(user)s/bcf/db.sh >>/home/%(user)s/bcf/management.log 2>&1",
 }
@@ -350,7 +350,6 @@ exec {"run cloudstack":
                 Service['dbus']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-management",
-    notify  => Service["cloudstack-management"],
     returns => [0],
 }
 
@@ -361,7 +360,6 @@ service {"tomcat6":
 }
 
 service {"cloudstack-management":
-    require => Exec['run cloudstack'],
     ensure  => running,
     enable  => true,
 }
@@ -662,7 +660,9 @@ apt::source {"ubuntu_archiv_precise-security":
 
 DB_BASH = r'''
 #!/bin/bash
-mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost; FLUSH PRIVILEGES;"
+mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
+cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
+mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
 cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
 '''
 
@@ -689,6 +689,7 @@ fi
 apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
+puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 DEBIAN_FRONTEND=noninteractive aptitude install -y -q iptables-persistent
 apt-get -fy install --fix-missing
