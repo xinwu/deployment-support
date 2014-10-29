@@ -135,6 +135,9 @@ exec {"update":
 
 package {[
     'ethtool',
+    'dbus',
+    'qemu-kvm',
+    'ubuntu-vm-builder',
     'nfs-kernel-server',
     'mysql-server',
     'mysql-client',
@@ -276,6 +279,8 @@ exec {"dpkg common":
                 Exec['export nfs'],
                 Package['tomcat6'],
                 Package['jsvc'],
+                Package['qemu-kvm'],
+                Package['ubuntu-vm-builder'],
                 Package['mysql-server'],
                 Package['ethtool'],
                 Package['mysql-client'],
@@ -318,8 +323,15 @@ exec {"cloudstack-setup-databases":
     command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
 }
 
+service {"dbus":
+    require => Package['dbus'],
+    ensure  => running,
+    enable  => true,
+}
+
 exec {"run cloudstack":
-    require => Exec['cloudstack-setup-databases'],
+    require => [Exec['cloudstack-setup-databases'],
+                Service['dbus']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-management",
     returns => [0],
@@ -389,6 +401,9 @@ exec {"update":
 
 package {[
     'ethtool',
+    'dbus',
+    'qemu-kvm',
+    'ubuntu-vm-builder',
     'openjdk-7-jre',
     'libcommons-daemon-java',
     'jsvc',
@@ -483,6 +498,8 @@ exec {"wget cloudstack agent":
 exec {"dpkg common":
     require => [Exec['wget cloudstack common'],
                 Package['ethtool'],
+                Package['qemu-kvm'],
+                Package['ubuntu-vm-builder'],
                 Package['openjdk-7-jre'],
                 Package['libcommons-daemon-java'],
                 Package['jsvc'],
@@ -518,8 +535,15 @@ exec {"install cloudstack":
     command => "apt-get -fy install",
 }
 
+service {"dbus":
+    require => Package['dbus'],
+    ensure  => running,
+    enable  => true,
+}
+
 service {"cloudstack-agent":
-    require => Exec['install cloudstack'],
+    require => [Exec['install cloudstack'],
+                Service['dbus']],
     ensure  => running,
     enable  => true,
 }
@@ -529,12 +553,13 @@ LLDP_PUPPET = r'''
 $bond_interfaces = '%(bond_interfaces)s'
 
 file {"/etc/default/lldpd" :
-    ensure => present,
-    owner => root,
-    group => root,
-    mode => 0644,
+    require => Exec['rm /var/run/lldpd.socket'],
+    ensure  => present,
+    owner   => root,
+    group   => root,
+    mode    => 0644,
     content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
-    notify => Service['lldpd'],
+    notify  => Service['lldpd'],
 }
 
 file {'/etc/modules':
@@ -576,7 +601,7 @@ exec {"start lldpd":
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "/etc/init.d/lldpd start",
     require => [Package['lldpd'],
-                Exec['rm /var/run/lldpd.socket']],
+                File['/etc/default/lldpd']],
 }
 
 service {"lldpd":
@@ -629,7 +654,8 @@ wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/
 dpkg -i /home/%(user)s/bcf/puppetlabs-release-precise.deb
 apt-get update
 puppet resource package puppet ensure=latest
-aptitude install -fy openssh-server libvirt-bin virt-manager kvm qemu-system bridge-utils fail2ban
+aptitude install -fy openssh-server libvirt-bin virt-manager kvm qemu-system bridge-utils fail2ban qemu-kvm ubuntu-vm-builder
+adduser `id -un` libvirtd
 version="$(virsh --version)"
 requirement="1.0.2"
 if [[ "$version" < "$requirement" ]]; then
