@@ -540,7 +540,6 @@ service {"dbus":
 service {"cloudstack-agent":
     require => [Exec['install cloudstack'],
                 Service['dbus']],
-    ensure  => running,
     enable  => true,
 }
 '''
