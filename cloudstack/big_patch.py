@@ -917,8 +917,11 @@ def generate_command_for_node(node):
     # generate shell script
     with open('/tmp/%s.remote.sh' % node.hostname, "w") as node_remote_bash:
         node_remote_bash.write(NODE_REMOTE_BASH %
-                               {'user' : node.node_username,
-                                'role' : node.role})
+                               {'user'           : node.node_username,
+                                'role'           : node.role,
+                                'cloud_db_pwd'   : node.cloud_db_pwd,
+                                'mysql_root_pwd' : node.mysql_root_pwd,
+                                'hostname'       : node.hostnam})
         node_remote_bash.close()
 
     # generate script for node
