@@ -652,7 +652,7 @@ apt::source {"ubuntu_archiv_precise-security":
 DB_BASH = r'''
 #!/bin/bash
 cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
-mysql -uroot -p%(mysql_root_pwd)s -e \"DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost; FLUSH PRIVILEGES;\"
+mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost; FLUSH PRIVILEGES;"
 cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
 service mysql restart
 '''
