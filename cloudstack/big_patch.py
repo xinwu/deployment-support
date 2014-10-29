@@ -324,14 +324,16 @@ service {"dbus":
 }
 
 exec {"cloudstack-setup-databases":
-    require => Exec['install cloudstack'],
+    require => [Exec['install cloudstack'],
+                Service['mysql']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
 }
 
 exec {"restart mysql":
-    require => Exec['cloudstack-setup-databases'],
-    path    => "/bin:/usr/bin:/usr/sbin:/etc:/usr/lib",
+    require => [Exec['cloudstack-setup-databases'],
+                Service['mysql']],
+    path    => "/bin:/usr/bin:/usr/sbin",
     command => "service mysql restart",
 }
 
