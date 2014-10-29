@@ -326,22 +326,17 @@ service {"dbus":
 exec {"cloudstack-setup-databases":
     require => [Exec['install cloudstack'],
                 Service['mysql']],
+    notify  => Service["mysql"],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-databases cloud:$cloud_db_pwd@localhost --deploy-as=root:$mysql_root_pwd -i $hostip",
 }
 
-exec {"restart mysql":
-    require => [Exec['cloudstack-setup-databases'],
-                Service['mysql']],
-    path    => "/bin:/usr/bin:/usr/sbin:/sbin",
-    command => "service mysql restart",
-}
-
 exec {"run cloudstack":
-    require => [Exec['restart mysql'],
+    require => [Service['mysql'],
                 Service['dbus']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "cloudstack-setup-management",
+    notify  => Service["cloudstack-management"],
     returns => [0],
 }
 
@@ -351,14 +346,8 @@ service {"tomcat6":
     enable  => true,
 }
 
-exec {"restart cloudstack-management":
-    require => Exec['run cloudstack'],
-    path    => "/bin:/usr/bin:/usr/sbin:/usr/share:/sbin",
-    command => "service cloudstack-management restart",
-}
-
 service {"cloudstack-management":
-    require => Exec['restart cloudstack-management'],
+    require => Exec['run cloudstack'],
     ensure  => running,
     enable  => true,
 }
