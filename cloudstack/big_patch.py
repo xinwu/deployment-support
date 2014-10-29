@@ -690,6 +690,7 @@ apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
+DEBIAN_FRONTEND=noninteractive aptitude install -y -q iptables-persistent
 apt-get -fy install --fix-missing
 reboot
 '''
