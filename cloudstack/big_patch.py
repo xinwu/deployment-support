@@ -324,7 +324,8 @@ service {"dbus":
 
 exec {"setup-databases":
     require => [Exec['install cloudstack'],
-                Service['mysql']],
+                Package['mysql-server']],
+    notify  => Service['mysql'],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "bash /home/%(user)s/bcf/db.sh >>/home/%(user)s/bcf/management.log 2>&1",
 }
@@ -651,10 +652,8 @@ apt::source {"ubuntu_archiv_precise-security":
 
 DB_BASH = r'''
 #!/bin/bash
-cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
 mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost; FLUSH PRIVILEGES;"
 cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
-service mysql restart
 '''
 
 NODE_REMOTE_BASH = r'''
@@ -681,7 +680,6 @@ apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
 puppet module install attachmentgenie-ufw --force
-puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 apt-get -fy install --fix-missing
 reboot
