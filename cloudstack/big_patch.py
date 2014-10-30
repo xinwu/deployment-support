@@ -350,7 +350,6 @@ service {"dbus":
     require => Package['dbus'],
     ensure  => running,
     enable  => true,
-    notify  => Service['libvirt-bin'],
 }
 
 exec {"setup-databases":
@@ -449,7 +448,7 @@ package {[
     ]:
     ensure  => 'installed',
     require => Exec['update'],
-    notify  => Service['libvirt-bin']
+    notify  => Service['dbus'],
 }->
 
 file {'/etc/libvirt/qemu.conf':
@@ -480,6 +479,8 @@ file {"/etc/rc.local":
 /etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 service dbus stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
 service dbus start >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service libvirt-bin stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service libvirt-bin start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 service cloudstack-agent stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
 service cloudstack-agent start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 exit 0
@@ -587,6 +588,7 @@ service {"dbus":
     require => Package['dbus'],
     ensure  => running,
     enable  => true,
+    notify  => Service['libvirt-bin'],
 }
 
 service {"cloudstack-agent":
