@@ -708,7 +708,7 @@ reboot
 NODE_LOCAL_BASH = r'''
 #!/bin/bash
 echo -e "Start to deploy %(role)s node %(hostname)s...\n"
-sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -p '' -S mkdir -m 0777 -p /home/%(user)s/bcf"
+sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S mkdir -m 0777 -p /home/%(user)s/bcf"
 echo -e "Copy /etc/network/interfaces to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(hostname)s.intf %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.intf >> %(log)s 2>&1
 echo -e "Copy %(role)s.pp to node %(hostname)s\n"
@@ -720,7 +720,7 @@ fi
 echo -e "Copy %(role)s.sh to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
 echo -e "Run %(role)s.sh on node %(hostname)s\n"
-sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -p '' -S bash /home/%(user)s/bcf/%(role)s.sh"
+sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
 echo -e "Finish deploying %(role)s on %(hostname)s\n"
 '''
 
