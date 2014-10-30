@@ -826,14 +826,17 @@ def generate_interface_config(node):
 print_lock = Lock()
 def safe_print(message):
     with print_lock:
-        message = ''.join(filter(lambda x: x in string.printable, message))
-        sys.stdout.write(message)
-        sys.stdout.flush()
+        msg = ''.join(filter(lambda x: 32 <= ord(x) <= 126, message.strip()))
+        if len(msg):
+            sys.stdout.write(msg + '\n')
+            sys.stdout.flush()
 
 def read_output(pipe, func):
     for lines in iter(pipe.readline, ''):
         for line in lines.splitlines(True):
-            func(line.lstrip())
+            l = ''.join(filter(lambda x: 32 <= ord(x) <= 126, line.strip()))
+            if len(l):
+                func(l)
     pipe.close()
 
 # queue to store all stdout and stderr
