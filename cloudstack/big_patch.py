@@ -916,6 +916,7 @@ def generate_command_for_node(node):
     if node.role == ROLE_MGMT:
         node_config = (MGMT_PUPPET %
                        {'user'                : node.node_username,
+                        'role'                : node.role,
                         'mysql_root_pwd'      : node.mysql_root_pwd,
                         'cs_url'              : CS_URL,
                         'cs_common'           : CS_COMMON,
@@ -927,6 +928,7 @@ def generate_command_for_node(node):
     elif node.role == ROLE_COMPUTE:
         node_config = (COMPUTE_PUPPET %
                        {'user'      : node.node_username,
+                        'role'      : node.role,
                         'cs_url'    : CS_URL,
                         'cs_common' : CS_COMMON,
                         'cs_agent'  : CS_AGENT})
