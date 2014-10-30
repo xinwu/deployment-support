@@ -992,7 +992,7 @@ def deploy_to_all(config):
 
     cmd_q.join()
     msg_q.join()
-    safe_print('CloudStack deployment finished')
+    safe_print("CloudStack deployment finished\n")
 
 
 if __name__ == '__main__':
