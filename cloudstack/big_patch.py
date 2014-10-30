@@ -865,6 +865,7 @@ def safe_print(message):
         run_command_on_local('stty sane')
         sys.stdout.write(message)
         sys.stdout.flush()
+        run_command_on_local('stty sane')
 
 def read_output(pipe, func):
     for lines in iter(pipe.readline, ''):
