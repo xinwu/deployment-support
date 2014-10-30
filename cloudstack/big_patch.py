@@ -336,6 +336,7 @@ service {"dbus":
     require => Package['dbus'],
     ensure  => running,
     enable  => true,
+    notify  => Service['libvirt-bin'],
 }
 
 exec {"setup-databases":
@@ -498,7 +499,8 @@ exec {"accept iptables forward":
 service {"libvirt-bin":
     ensure  => running,
     require => [File_Line['config user'],
-                File_Line['config group']],
+                File_Line['config group'],
+                Service['dbus']],
 }
 
 exec {"wget cloudstack common":
@@ -684,8 +686,11 @@ if [[ "$version" < "1.0.2" ]]; then
     apt-get update -fy
     aptitude update -fy
     aptitude -fy safe-upgrade
-    service libvirt-bin restart
 fi
+service dbus stop
+service dbus start
+service libvirt-bin stop
+service libvirt-bin start
 apt-get -fy install --fix-missing
 puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
