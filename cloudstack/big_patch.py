@@ -129,6 +129,7 @@ exec {"update":
     command => "apt-get update",
     require => [File_Line['mvn3_deb'],
                 File_line['mvn3_src_deb']],
+    returns => [0, 100],
 }
 
 
@@ -430,6 +431,7 @@ exec {"update":
     command => "apt-get update",
     require => [File_Line['backports_deb'],
                 File_line['backports_src_deb']],
+    returns => [0, 100],
 }
 
 package {[
@@ -657,41 +659,6 @@ service {"lldpd":
     ensure  => running,
     enable  => true,
     require => Exec['start lldpd'],
-}
-
-apt::source {"puppetlabs_precise":
-    location        => "http://apt.puppetlabs.com/",
-    release         => "precise",
-    repos           => "main",
-    include_src     => false
-}
-
-apt::source {"ubuntu_archiv_precise":
-    location        => "http://us.archive.ubuntu.com/ubuntu",
-    release         => "precise",
-    repos           => "main restricted universe multiverse",
-    include_src     => true
-}
-
-apt::source {"ubuntu_archiv_precise-update":
-    location        => "http://us.archive.ubuntu.com/ubuntu",
-    release         => "precise-updates",
-    repos           => "main restricted universe multiverse",
-    include_src     => true
-}
-
-apt::source {"ubuntu_archiv_precise-backports":
-    location        => "http://us.archive.ubuntu.com/ubuntu",
-    release         => "precise-backports",
-    repos           => "main restricted universe multiverse",
-    include_src     => true
-}
-
-apt::source {"ubuntu_archiv_precise-security":
-    location        => "http://us.archive.ubuntu.com/ubuntu",
-    release         => "precise-security",
-    repos           => "main restricted universe multiverse",
-    include_src     => true
 }
 '''
 
