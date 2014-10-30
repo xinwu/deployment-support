@@ -90,8 +90,7 @@ CS_AGENT  = ('cloudstack-agent_%(cs_version)s-snapshot_all.deb' % {'cs_version' 
 
 STORAGE_SCRIPT = '/usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt'
 STORAGE_VM_URL = ('http://jenkins.buildacloud.org/view/master/job/'
-                  'build-systemvm-master/lastSuccessfulBuild/artifact/'
-                  'tools/appliance/dist')
+                  'build-systemvm-master/lastStableBuild/artifact/tools/appliance/dist')
 STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 
 # management node puppet template
@@ -193,6 +192,21 @@ exec {"accept iptables forward":
     command => "iptables --policy FORWARD ACCEPT",
 }
 
+file {"/etc/rc.local":
+    ensure  => present,
+    owner   => root,
+    group   => root,
+    mode    => 755,
+    content => "
+/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role).log 2>&1
+/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role).log 2>&1
+service mysql stop >> /home/%(user)s/bcf/%(role).log 2>&1
+service mysql start >> /home/%(user)s/bcf/%(role).log 2>&1
+service cloudstack-management stop >> /home/%(user)s/bcf/%(role).log 2>&1
+service cloudstack-management start >> /home/%(user)s/bcf/%(role).log 2>&1
+exit 0
+",
+}
 
 file {"/etc/mysql/conf.d/cloudstack.cnf":
     ensure  => present,
@@ -454,6 +468,22 @@ file_line {'config group':
     line    => "group=\"root\"",
     match   => "^group=.*$",
     require => File['/etc/libvirt/qemu.conf'],
+}
+
+file {"/etc/rc.local":
+    ensure  => present,
+    owner   => root,
+    group   => root,
+    mode    => 755,
+    content => "
+/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role).log 2>&1
+/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role).log 2>&1
+service dbus stop >> /home/%(user)s/bcf/%(role).log 2>&1
+service dbus start >> /home/%(user)s/bcf/%(role).log 2>&1
+service cloudstack-agent stop >> /home/%(user)s/bcf/%(role).log 2>&1
+service cloudstack-agent start >> /home/%(user)s/bcf/%(role).log 2>&1
+exit 0
+",
 }
 
 exec {"allow tcp 22":
