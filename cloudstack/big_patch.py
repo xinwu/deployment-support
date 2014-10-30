@@ -353,22 +353,22 @@ service {"dbus":
     enable  => true,
 }
 
-exec {"setup-databases":
-    require => [Exec['install cloudstack'],
-                Package['mysql-server']],
-    notify  => [Service['mysql'], Exec['run cloudstack']],
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "bash /home/%(user)s/bcf/db.sh >>/home/%(user)s/bcf/management.log 2>&1",
-}
+#exec {"setup-databases":
+#    require => [Exec['install cloudstack'],
+#                Package['mysql-server']],
+#    notify  => [Service['mysql'], Exec['run cloudstack']],
+#    path    => "/bin:/usr/bin:/usr/sbin",
+#    command => "bash /home/%(user)s/bcf/db.sh >>/home/%(user)s/bcf/management.log 2>&1",
+#}
 
-exec {"run cloudstack":
-    notify  => Service['cloudstack-management'],
-    require => [Exec['setup-databases'],
-                Service['dbus']],
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "cloudstack-setup-management",
-    returns => [0],
-}
+#exec {"run cloudstack":
+#    notify  => Service['cloudstack-management'],
+#    require => [Exec['setup-databases'],
+#                Service['dbus']],
+#    path    => "/bin:/usr/bin:/usr/sbin",
+#    command => "cloudstack-setup-management",
+#    returns => [0],
+#}
 
 service {"tomcat6":
     require => Package['tomcat6'],
@@ -376,26 +376,26 @@ service {"tomcat6":
     enable  => true,
 }
 
-service {"cloudstack-management":
-    require => Exec['install cloudstack'],
-    ensure  => running,
-    enable  => true,
-}
+#service {"cloudstack-management":
+#    require => Exec['install cloudstack'],
+#    ensure  => running,
+#    enable  => true,
+#}
 
-exec {"wget storage_vm_template":
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "wget $storage_vm_url/$storage_vm_template -O /home/$user/bcf/$storage_vm_template",
-    creates => "/home/$user/bcf/$storage_vm_template",
-    timeout => 1800,
-}
+#exec {"wget storage_vm_template":
+#    path    => "/bin:/usr/bin:/usr/sbin",
+#    command => "wget $storage_vm_url/$storage_vm_template -O /home/$user/bcf/$storage_vm_template",
+#    creates => "/home/$user/bcf/$storage_vm_template",
+#    timeout => 1800,
+#}
 
-exec {"install storage_vm_template":
-    require => [Exec['wget storage_vm_template'],
-                Exec['run cloudstack'],
-                Service["cloudstack-management"]],
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "bash /usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt -m /export/secondary -f /home/$user/bcf/$storage_vm_template -h kvm -F",
-}
+#exec {"install storage_vm_template":
+#    require => [Exec['wget storage_vm_template'],
+#                Exec['run cloudstack'],
+#                Service["cloudstack-management"]],
+#    path    => "/bin:/usr/bin:/usr/sbin",
+#    command => "bash /usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt -m /export/secondary -f /home/$user/bcf/$storage_vm_template -h kvm -F",
+#}
 '''
 
 # compute node puppet template
@@ -699,11 +699,13 @@ apt-get -fy install --fix-missing
 role="%(role)s"
 if [[ "$role" == "management" ]]; then
     service cloudstack-management stop
-    mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
+    #mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
     cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
     service mysql stop
     service mysql start
+    cloudstack-setup-management   
     service cloudstack-management start
+    sleep 300
 fi
 reboot
 '''
