@@ -198,12 +198,12 @@ file {"/etc/rc.local":
     group   => root,
     mode    => 755,
     content => "
-/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role).log 2>&1
-/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role).log 2>&1
-service mysql stop >> /home/%(user)s/bcf/%(role).log 2>&1
-service mysql start >> /home/%(user)s/bcf/%(role).log 2>&1
-service cloudstack-management stop >> /home/%(user)s/bcf/%(role).log 2>&1
-service cloudstack-management start >> /home/%(user)s/bcf/%(role).log 2>&1
+/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service mysql stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service mysql start >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service cloudstack-management stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service cloudstack-management start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 exit 0
 ",
 }
@@ -476,12 +476,12 @@ file {"/etc/rc.local":
     group   => root,
     mode    => 755,
     content => "
-/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role).log 2>&1
-/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role).log 2>&1
-service dbus stop >> /home/%(user)s/bcf/%(role).log 2>&1
-service dbus start >> /home/%(user)s/bcf/%(role).log 2>&1
-service cloudstack-agent stop >> /home/%(user)s/bcf/%(role).log 2>&1
-service cloudstack-agent start >> /home/%(user)s/bcf/%(role).log 2>&1
+/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service dbus stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service dbus start >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service cloudstack-agent stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
+service cloudstack-agent start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 exit 0
 ",
 }
