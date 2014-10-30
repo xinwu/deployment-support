@@ -675,8 +675,7 @@ puppet resource package puppet ensure=latest
 apt-get install -fy qemu-kvm libvirt-bin ubuntu-vm-builder bridge-utils
 adduser `id -un` libvirtd
 version="$(virsh --version)"
-requirement="1.0.2"
-if [[ "$version" < "$requirement" ]]; then
+if [[ "$version" < "1.0.2" ]]; then
     apt-get install -fy python-software-properties
     add-apt-repository ppa:pfak/backports -y
     apt-get update -fy
@@ -689,8 +688,7 @@ puppet module install puppetlabs-apt --force
 puppet module install puppetlabs-stdlib --force
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 role="%(role)s"
-mgmt_role="management"
-if [[ "$role" == "$mgmt_role" ]]; then
+if [[ "$role" == "management" ]]; then
     mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
     cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
     service mysql restart
