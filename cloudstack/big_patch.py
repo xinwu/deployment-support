@@ -340,12 +340,13 @@ service {"dbus":
 exec {"setup-databases":
     require => [Exec['install cloudstack'],
                 Package['mysql-server']],
-    notify  => [Service['mysql'], Exec['run cloudstack'], Service['cloudstack-management']],
+    notify  => [Service['mysql'], Exec['run cloudstack']],
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "bash /home/%(user)s/bcf/db.sh >>/home/%(user)s/bcf/management.log 2>&1",
 }
 
 exec {"run cloudstack":
+    notify  => Service['cloudstack-management'],
     require => [Exec['setup-databases'],
                 Service['dbus']],
     path    => "/bin:/usr/bin:/usr/sbin",
@@ -360,6 +361,7 @@ service {"tomcat6":
 }
 
 service {"cloudstack-management":
+    require => Exec['install cloudstack'],
     ensure  => running,
     enable  => true,
 }
@@ -689,10 +691,13 @@ puppet module install puppetlabs-stdlib --force
 puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
 role="%(role)s"
 if [[ "$role" == "management" ]]; then
+    service cloudstack-management stop
     mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
     cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
-    service mysql restart
-    service cloudstack-management restart
+    service mysql stop
+    service mysql start
+    cloudstack-setup-management   
+    service cloudstack-management start
 fi
 DEBIAN_FRONTEND=noninteractive aptitude install -y -q iptables-persistent
 apt-get -fy install --fix-missing
