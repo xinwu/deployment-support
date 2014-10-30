@@ -826,26 +826,17 @@ def generate_interface_config(node):
 print_lock = Lock()
 def safe_print(message):
     with print_lock:
-        msg = ''.join(filter(lambda x: 32 <= ord(x) <= 126, message.strip()))
-        if len(msg):
-            sys.stdout.write(msg + '\n')
-            sys.stdout.flush()
+        run_command_on_local('stty sane')
+        sys.stdout.write(message)
+        sys.stdout.flush()
 
 def read_output(pipe, func):
     for lines in iter(pipe.readline, ''):
         for line in lines.splitlines(True):
             l = ''.join(filter(lambda x: 32 <= ord(x) <= 126, line.strip()))
             if len(l):
-                func(l)
+                func(l + '\n')
     pipe.close()
-
-# queue to store all stdout and stderr
-msg_q = Queue.Queue()
-def write_output():
-    while True:
-        line = msg_q.get()
-        safe_print(line)
-        msg_q.task_done()
 
 # function to kill expired bash script
 def kill_on_timeout(command, event, timeout, proc):
@@ -854,7 +845,7 @@ def kill_on_timeout(command, event, timeout, proc):
         proc.kill()
 
 # queue to store all bash cmd
-cmd_q = Queue.Queue()
+node_q = Queue.Queue()
 def run_command_on_local(command, timeout=1800):
     event = threading.Event()
     p = subprocess.Popen(
@@ -862,9 +853,9 @@ def run_command_on_local(command, timeout=1800):
         stderr=subprocess.PIPE, close_fds=True, bufsize=1)
 
     tout = threading.Thread(
-        target=read_output, args=(p.stdout, msg_q.put))
+        target=read_output, args=(p.stdout, safe_print))
     terr = threading.Thread(
-        target=read_output, args=(p.stderr, msg_q.put))
+        target=read_output, args=(p.stderr, safe_print))
     for t in (tout, terr):
         t.daemon = True
         t.start()
@@ -942,15 +933,15 @@ def generate_command_for_node(node):
                                 'log'      : LOG_FILENAME})
         node_local_bash.close()
 
-    cmd_q.put('bash /tmp/%s.local.sh' % node.hostname)
+    node_q.put(node)
     
-
 
 def worker():
     while True:
-        cmd = cmd_q.get()
+        node = node_q.get()
+        cmd = 'bash /tmp/%s.local.sh' % node.hostname
         run_command_on_local(cmd)
-        cmd_q.task_done()
+        node_q.task_done()
 
 def deploy_to_all(config):
     # install sshpass
@@ -991,12 +982,7 @@ def deploy_to_all(config):
         t.daemon = True
         t.start()
 
-    twrite = threading.Thread(target=write_output)
-    twrite.daemon = True
-    twrite.start()
-
-    cmd_q.join()
-    msg_q.join()
+    node_q.join()
     safe_print("CloudStack deployment finished\n")
 
 
