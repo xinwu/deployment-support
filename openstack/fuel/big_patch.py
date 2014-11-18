@@ -8,6 +8,7 @@ import json
 import netaddr
 import os
 import tempfile
+import re
 import subprocess
 import time
 import threading
@@ -19,25 +20,35 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.0.1'
+SCRIPT_VERSION = '1.0.5'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
 
 # each entry is a 3-tuple naming the python package,
 # the relative path inside the package, and the source URL
-PYTHON_FILES_TO_PATCH = [
-    ('neutron', 'plugins/bigswitch/plugin.py',
-     'https://raw.githubusercontent.com/bigswitch/neutron/'
-     'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
-    ('neutron', 'plugins/bigswitch/servermanager.py',
-     'https://raw.githubusercontent.com/bigswitch/neutron/'
-     'stable/icehouse/neutron/plugins/bigswitch/servermanager.py'),
-]
+# e.g.
+#  ('neutron', 'plugins/bigswitch/plugin.py',
+#   'https://raw.githubusercontent.com/bigswitch/neutron/'
+#   'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
+PYTHON_FILES_TO_PATCH = []
 
-# path to neutron tar.gz for CentOS nodes
-NEUTRON_TGZ_URL = ('https://github.com/bigswitch/neutron/archive/'
-                   'stable/icehouse-bcf-2.0.0.tar.gz')
+# path to neutron tar.gz URL and local filename for offline use
+HORIZON_TGZ_PATH = ('https://github.com/bigswitch/horizon/archive/'
+                    'stable/icehouse-bcf-2.0.0.tar.gz',
+                    'horizon_stable_icehouse.tar.gz')
+NEUTRON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
+                    'stable/icehouse-bcf-2.0.0.tar.gz',
+                    'neutron_stable_icehouse.tar.gz')
+
+# paths to extract from tgz to local horizon install. Don't include
+# slashes on folders because * copying is not used.
+HORIZON_PATHS_TO_COPY = (
+    'LAST_NON_MERGE_COMMIT',
+    'openstack_dashboard/dashboards/admin/dashboard.py',
+    'openstack_dashboard/dashboards/project/dashboard.py',
+    'openstack_dashboard/dashboards/admin/connections',
+    'openstack_dashboard/dashboards/project/connections')
 
 
 class TimedCommand(object):
@@ -78,6 +89,8 @@ class Environment(object):
     bigswitch_servers = None
     neutron_id = 'neutron'
     extra_template_params = {}
+    offline_mode = False
+    check_interface_errors = True
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         raise NotImplementedError()
@@ -122,6 +135,9 @@ class Environment(object):
 
     def set_extra_template_params(self, dictofparams):
         self.extra_template_params = dictofparams
+
+    def set_offline_mode(self, offline_mode):
+        self.offline_mode = offline_mode
 
     def get_node_python_package_path(self, node, package):
         com = ('python -c "import %s;import os;print '
@@ -388,23 +404,40 @@ class ConfigDeployer(object):
             raise Exception('Environment must have at least 1 node '
                             'and controller options')
         if self.patch_python_files:
-            print 'Downloading patch files...'
-            for patch in PYTHON_FILES_TO_PATCH + [('', '', NEUTRON_TGZ_URL)]:
-                url = patch[2]
-                try:
-                    body = urllib2.urlopen(url).read()
-                except Exception as e:
-                    raise Exception("Error encountered while trying to "
-                                    "download patch file at %s.\n%s"
-                                    % (url, e))
-                self.patch_file_cache[url] = body
+            if self.env.offline_mode:
+                print 'Loading offline files...'
+                for patch in (NEUTRON_TGZ_PATH, HORIZON_TGZ_PATH):
+                    try:
+                        with open(os.path.join(os.path.dirname(__file__),
+                                  patch[1]), 'r') as fh:
+                            contents = fh.read()
+                    except Exception as e:
+                        raise Exception("Could not load offline archive of %s."
+                                        "\nPlease download the archive and "
+                                        "save it as %s.\nDetails: %s" %
+                                        (patch[0], patch[1], str(e)))
+                    self.patch_file_cache[patch[0]] = contents
+            else:
+                print 'Downloading patch files...'
+                for patch in PYTHON_FILES_TO_PATCH + [
+                        ('', '', NEUTRON_TGZ_PATH[0]),
+                        ('', '', HORIZON_TGZ_PATH[0])]:
+                    url = patch[2]
+                    try:
+                        body = urllib2.urlopen(url).read()
+                    except Exception as e:
+                        raise Exception("Error encountered while trying to "
+                                        "download patch file at %s.\n%s"
+                                        % (url, e))
+                    self.patch_file_cache[url] = body
 
     def deploy_to_all(self):
         thread_list = collections.deque()
         errors = []
+        node_information = []
         for node in self.env.nodes:
             t = threading.Thread(target=self.deploy_to_node_catch_errors,
-                                 args=(node, errors))
+                                 args=(node, errors, node_information))
             thread_list.append(t)
             t.start()
             if len(thread_list) >= MAX_THREADS:
@@ -412,6 +445,14 @@ class ConfigDeployer(object):
                 top.join()
         for thread in thread_list:
             thread.join()
+        conn_strings = [info['neutron_connection']
+                        for (node, info) in node_information]
+        if len(set(conn_strings)) > 1:
+            strings_with_nodes = ["%s: %s" % (node, info['neutron_connection'])
+                                  for (node, info) in node_information]
+            print ("Warning: different neutron connection strings detected on "
+                   "neutron server nodes. They should all reference the same "
+                   "database.\nConnections:\n%s" % "\n".join(strings_with_nodes))
         if errors:
             print "Encountered errors while deploying patch to nodes."
             for node, error in errors:
@@ -419,13 +460,13 @@ class ConfigDeployer(object):
         else:
             print "Deployment Complete!"
 
-    def deploy_to_node_catch_errors(self, node, error_log):
+    def deploy_to_node_catch_errors(self, node, error_log, node_information):
         try:
-            self.deploy_to_node(node)
+            self.deploy_to_node(node, node_information)
         except Exception as e:
             error_log.append((node, str(e)))
 
-    def deploy_to_node(self, node):
+    def deploy_to_node(self, node, node_information):
         print "Applying configuration to %s..." % node
         bond_interfaces = self.env.get_node_bond_interfaces(node)
         puppet_settings = {
@@ -437,7 +478,8 @@ class ConfigDeployer(object):
             'neutron_restart_refresh_only': str(
                 not self.env.extra_template_params.get('force_services_restart',
                                                        False)
-            ).lower()
+            ).lower(),
+            'offline_mode': str(self.env.offline_mode).lower()
         }
         if bond_interfaces:
             for bondint in bond_interfaces:
@@ -451,6 +493,23 @@ class ConfigDeployer(object):
                                     "an IP address configured. Interfaces must"
                                     " not be in use.\nAddress: %s"
                                     % (bondint, node, resp))
+                # warn on interface errors
+                try:
+                    tx = re.findall("TX packets:\d+ errors:(\d+) "
+                                    "dropped:\d+ overruns:(\d+) "
+                                    "carrier:(\d+)", resp)[0]
+                    rx = re.findall("RX packets:\d+ errors:(\d+) "
+                                    "dropped:\d+ overruns:(\d+) "
+                                    "frame:(\d+)", resp)[0]
+                    if (self.env.check_interface_errors
+                            and any(map(int, rx + tx))):
+                        print ("[Node %s] Warning: errors detected on bond "
+                               "interface %s. Verify cabling and check error "
+                               "rates using ifconfig.\n%s" %
+                               (node, bondint, resp))
+                except:
+                    # ignore errors trying to parse
+                    pass
             puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
                 node)
             physnets = self.env.network_vlan_ranges.split(',')
@@ -497,7 +556,7 @@ class ConfigDeployer(object):
             python_lib_dir = "/".join(netaddr_path.split("/")[:-1]) + "/"
             target_neutron_path = python_lib_dir + 'neutron'
             f = tempfile.NamedTemporaryFile(delete=True)
-            f.write(self.patch_file_cache[NEUTRON_TGZ_URL])
+            f.write(self.patch_file_cache[NEUTRON_TGZ_PATH[0]])
             f.flush()
             nfile = '~/neutron.tar.gz'
             resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
@@ -521,20 +580,66 @@ class ConfigDeployer(object):
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
 
-        self.env.run_command_on_node(
-            node,
-            "yum -y remove facter && gem install puppet facter "
-            "--no-ri --no-rdoc")
-        self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
-        self.env.run_command_on_node(node, "yum -y install python-pip")
-        self.env.run_command_on_node(node, "yum -y install python-pbr")
-        self.env.run_command_on_node(node, "apt-get install python-pip")
-        self.env.run_command_on_node(node, "pip install pbr")
+        # patch openstack_dashboard if available
         resp, errors = self.env.run_command_on_node(
-            node, "puppet module install puppetlabs-inifile --force", 30, 2)
-        if errors:
-            raise Exception("error installing puppet prereqs on %s:\n%s"
-                            % (node, errors))
+            node,
+            "updatedb && locate openstack_dashboard/dashboards/admin/dashboard.py | grep -v pyc")
+        if (not errors and resp.splitlines()
+                and 'openstack_dashboard/dashboards/admin/' in resp.splitlines()[0]):
+            first = resp.splitlines()[0]
+            f = tempfile.NamedTemporaryFile(delete=True)
+            f.write(self.patch_file_cache[HORIZON_TGZ_PATH[0]])
+            f.flush()
+            nfile = '~/horizon.tar.gz'
+            resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
+            if errors:
+                raise Exception("error pushing horizon to %s:\n%s"
+                                % (node, errors))
+            # make sure horizon can read neutron conf
+            for cf in ['/etc/neutron/neutron.conf', '/etc/neutron/plugin.ini',
+                       '/etc/neutron/plugins/ml2/ml2_conf.ini',
+                       '/etc/neutron/plugins/bigswitch/restproxy.ini']:
+                self.env.run_command_on_node(node, 'chmod +r %s' % cf)
+                self.env.run_command_on_node(
+                    node, 'chmod +x %s' % cf.rsplit('/', 1)[0])
+            base_dir = first.split('openstack_dashboard/dashboards/admin/')[0]
+            # temp dir to extract to
+            extract = "export TGT=$(mktemp -d);"
+            # extract with strip-components to remove the branch dir
+            extract += 'tar --strip-components=1 -xf '
+            extract += '~/horizon.tar.gz -C "$TGT";'
+            for horizon_patch in HORIZON_PATHS_TO_COPY:
+                # remove filename
+                if '/' in horizon_patch:
+                    rel_target_dir = horizon_patch.rsplit('/', 1)[0] + '/'
+                else:
+                    # top level file
+                    rel_target_dir = '/'
+                extract += 'yes | cp -rfp "$TGT/%s" "%s/%s";' % (
+                    horizon_patch, base_dir, rel_target_dir)
+            # cleanup old pyc files
+            extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % base_dir
+            resp, errors = self.env.run_command_on_node(
+                node, "bash -c '%s'" % extract)
+            if errors:
+                raise Exception("error installing horizon to %s:\n%s"
+                                % (node, errors))
+
+        if not self.env.offline_mode:
+            self.env.run_command_on_node(
+                node,
+                "yum -y remove facter && gem install puppet facter "
+                "--no-ri --no-rdoc")
+            self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
+            self.env.run_command_on_node(node, "yum -y install python-pip")
+            self.env.run_command_on_node(node, "yum -y install python-pbr")
+            self.env.run_command_on_node(node, "apt-get install python-pip")
+            self.env.run_command_on_node(node, "pip install pbr")
+            resp, errors = self.env.run_command_on_node(
+                node, "puppet module install puppetlabs-inifile --force", 30, 2)
+            if errors:
+                raise Exception("error installing puppet prereqs on %s:\n%s"
+                                % (node, errors))
         log_name = ("log_for_generated_manifest-%s.log" %
                     time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime()))
         resp, errors = self.env.run_command_on_node(
@@ -548,13 +653,20 @@ class ConfigDeployer(object):
         actual_errors = []
         errors = errors.splitlines()
         for e in errors:
+            # ignore some warnings from facter that don't matter
             if "Device" in e and "does not exist." in e:
+                continue
+            if "Unable to add resolve nil for fact" in e:
+                continue
+            if "ls: cannot access /dev/s" in e:
                 continue
             actual_errors.append(e)
         errors = '\n'.join(actual_errors)
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
+
+
         # run a few last sanity checks
         self.env.run_command_on_node(node, "service rabbitmq-server start")
         resp, errors = self.env.run_command_on_node(
@@ -564,6 +676,70 @@ class ConfigDeployer(object):
             print ("Warning: RabbitMQ partition detected on node %s: %s "
                    "Restart rabbitmq-server on each node in the parition."
                    % (node, resp))
+
+        # check for certificates generated in the future (due to clock change)
+        # or expired certs
+        certs = []
+        resp, errors = self.env.run_command_on_node(
+            node, ("cat /etc/keystone/keystone.conf | grep -e '^ca_certs' "
+                   "| awk -F '=' '{ print $2 }'"))
+        certs += resp.split(',') if resp else ['/etc/keystone/ssl/certs/ca.pem']
+        resp, errors = self.env.run_command_on_node(
+            node, ("cat /etc/keystone/keystone.conf | grep -e '^certfile' "
+                   "| awk -F '=' '{ print $2 }'"))
+        certs.append(
+            resp if resp else '/etc/keystone/ssl/certs/signing_cert.pem')
+        for cert in certs:
+            cert = cert.strip()
+            resp, errors = self.env.run_command_on_node(
+                node, ("openssl verify %s" % cert))
+            if 'expired' in resp or 'not yet valid' in resp:
+                print ("Warning: the certificate %s being used by keystone is "
+                       "not valid for the current time. If the clocks on the "
+                       "servers are correct, the certificates will need to be "
+                       "deleted and then regenerated using the "
+                       "'keystone-manage pki_setup' command.\n"
+                       "Details: %s" % (cert, resp))
+
+        # check for lldpd
+        resp, errors = self.env.run_command_on_node(
+            node, ('ps -ef | grep lldpd | grep -v grep'))
+        if not resp.strip():
+            print ("Warning: lldpd process not running on node %s. "
+                   "Automatic port groups will not be formed." % node)
+
+        # check pbr prereq
+        resp, errors = self.env.run_command_on_node(
+            node, "python -c 'import pbr'")
+        if errors.strip():
+            print ("Warning: python pbr library missing on node %s. "
+                   "Neutron processes may not start." % node)
+
+        # check bond interface speeds match
+        if bond_interfaces and self.env.check_interface_errors:
+            speeds = {}
+            for iface in bond_interfaces:
+                resp, errors = self.env.run_command_on_node(
+                    node, "ethtool %s | grep Speed" % iface)
+                resp = resp.strip()
+                if resp:
+                    speeds[iface] = resp
+            if len(set(speeds.values())) > 1:
+                print ("Warning: bond interface speeds do not match on node "
+                       "%s. Were the correct interfaces chosen?\nSpeeds: %s"
+                       % (node, speeds))
+
+        # collect connection string for comparison with other nodes
+        neutron_running = self.env.run_command_on_node(
+            node, 'ps -ef | grep neutron-server | grep -v grep')[0].strip()
+        if neutron_running:
+            resp = self.env.run_command_on_node(
+                node, ("grep -R -e '^connection' /etc/neutron/neutron.conf")
+            )[0].strip()
+            if resp:
+                node_information.append(
+                    (node, {'neutron_connection': resp.replace(' ', '')})
+                )
         print "Configuration applied to %s." % node
 
 
@@ -575,7 +751,9 @@ class PuppetTemplate(object):
             'neutron_id': '', 'bigswitch_servers': '',
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
             'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
-            'neutron_path': '', 'neutron_restart_refresh_only': ''}
+            'neutron_path': '', 'neutron_restart_refresh_only': '',
+            'offline_mode': ''
+        }
         self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
@@ -622,10 +800,10 @@ $phy_bridge = '%(physical_bridge)s'
 $ovs_bridge_mappings = '%(bridge_mappings)s'
 $neutron_restart_refresh_only = '%(neutron_restart_refresh_only)s'
 # delay in milliseconds before bond interface is used after coming online
-$bond_updelay = '7000'
+$bond_updelay = '15000'
 # time in seconds between lldp transmissions
 $lldp_transmit_interval = '5'
-
+$offline_mode = %(offline_mode)s
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -715,7 +893,7 @@ if $operatingsystem == 'RedHat' {
   }
 }
 
-$nova_services = 'rabbitmq-server nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute'
+$nova_services = 'rabbitmq-server nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute apache2 httpd'
 exec{"restartnovaservices":
     refreshonly=> true,
     command => "bash -c 'pkill rabbitmq-server;sleep 1; pkill -U rabbitmq; sleep 2; for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
@@ -734,6 +912,14 @@ file {$conf_dirs:
     owner => "neutron",
     group => "neutron",
     mode => 755,
+    require => Exec['ensureovsagentconfig']
+}
+
+# ovs agent file may no be present, if so link to main conf so this script can
+# modify the same thing
+exec{'ensureovsagentconfig':
+    command => "bash -c 'mkdir -p /etc/neutron/plugins/openvswitch/; ln -s /etc/neutron/neutron.conf $neutron_ovs_conf_path; echo 0'",
+    path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 
 # use two DHCP agents per network for redundancy
@@ -925,6 +1111,24 @@ ini_setting {"report_interval":
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
 }
+ini_setting {"report_interval_main_lower":
+  path    => $neutron_main_conf_path,
+  section => 'agent',
+  setting => 'report_interval',
+  value => 30,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"report_interval_lower":
+  path    => $neutron_conf_path,
+  section => 'agent',
+  setting => 'report_interval',
+  value => 30,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
 ini_setting {"ovs_big_tunnel_types":
   path    => $neutron_ovs_conf_path,
   section => 'AGENT',
@@ -1074,22 +1278,11 @@ ini_setting { "bigswitch_auth":
   require => File[$conf_dirs],
 }
 
-ini_setting { "bigswitch_ssl":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'ssl_cert_directory',
-  value   => $bigswitch_ssl_cert_directory,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-# temporarily disable sync until beta-2
 ini_setting { "bigswitch_auto_sync":
   path    => $neutron_conf_path,
   section => 'restproxy',
   setting => 'auto_sync_on_failure',
-  value   => 'False',
+  value   => 'True',
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
@@ -1098,7 +1291,17 @@ ini_setting { "bigswitch_consistency_interval":
   path    => $neutron_conf_path,
   section => 'restproxy',
   setting => 'consistency_interval',
-  value   => '0',
+  value   => '60',
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+
+ini_setting { "bigswitch_ssl":
+  path    => $neutron_conf_path,
+  section => 'restproxy',
+  setting => 'ssl_cert_directory',
+  value   => $bigswitch_ssl_cert_directory,
   ensure  => present,
   notify => Exec['restartneutronservices'],
   require => File[$conf_dirs],
@@ -1239,6 +1442,7 @@ bond-master bond0
 auto bond0
     iface bond0 inet manual
     bond-mode 0
+    bond-miimon 50
     bond-updelay ${bond_updelay}
     bond-slaves none
     ",
@@ -1260,12 +1464,20 @@ deb mirror://mirrors.ubuntu.com/mirrors.txt precise-updates universe
 deb mirror://mirrors.ubuntu.com/mirrors.txt precise-backports main restricted universe multiverse
 deb mirror://mirrors.ubuntu.com/mirrors.txt precise-security universe",
         }
-
-    exec{"lldpdinstall":
-        onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-        command => "rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-        notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
+    if ! $offline_mode {
+        exec{"lldpdinstall":
+            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+            command => "rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
+            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+            notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
+        }
+    } else {
+        exec{"lldpdinstall":
+            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+            command => "echo noop",
+            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+            notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
+        }
     }
     exec{"triggerinstall":
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
@@ -1386,11 +1598,20 @@ BONDING_OPTS='mode=0 miimon=50 updelay=${bond_updelay}'
 
 }
 if $operatingsystem == 'CentOS' {
-    exec {'lldpdinstall':
-       onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
-       command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-       notify => File['centoslldpdconfig'],
+    if ! $offline_mode {
+        exec {'lldpdinstall':
+           onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
+           command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
+           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           notify => File['centoslldpdconfig'],
+        }
+    } else {
+        exec {'lldpdinstall':
+           onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+           command => "echo noop",
+           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           notify => File['centoslldpdconfig'],
+        }
     }
     file{'centoslldpdconfig':
         ensure => file,
@@ -1495,6 +1716,12 @@ if __name__ == '__main__':
     parser.add_argument('--force-services-restart', action='store_true',
                         help="Restart the Neutron and Nova services even if "
                              "no files or configuration options are changed.")
+    parser.add_argument('--offline-mode', action='store_true',
+                        help="Disable fetching files from the Internet. This "
+                             "includes the neutron repo as well as the "
+                             "prerequisites on the individual nodes.")
+    parser.add_argument('--ignore-interface-errors', action='store_true',
+                        help="Suppress warnings about interface errors.")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1558,8 +1785,11 @@ if __name__ == '__main__':
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     environment.set_neutron_id(neutron_id)
+    environment.set_offline_mode(args.offline_mode)
     environment.set_extra_template_params(
         {'force_services_restart': args.force_services_restart})
+    if args.ignore_interface_errors:
+        environment.check_interface_errors = False
     deployer = ConfigDeployer(environment,
                               patch_python_files=not args.skip_file_patching)
     deployer.deploy_to_all()
