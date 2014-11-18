@@ -1459,10 +1459,10 @@ auto bond0
           mode    => 0644,
           notify => Exec['lldpdinstall'],
           content => "
-deb mirror://mirrors.ubuntu.com/mirrors.txt precise universe
-deb mirror://mirrors.ubuntu.com/mirrors.txt precise-updates universe
-deb mirror://mirrors.ubuntu.com/mirrors.txt precise-backports main restricted universe multiverse
-deb mirror://mirrors.ubuntu.com/mirrors.txt precise-security universe",
+deb http://mirrors.us.kernel.org/ubuntu/ precise universe
+deb http://mirrors.us.kernel.org/ubuntu/ precise-updates universe
+deb http://mirrors.us.kernel.org/ubuntu/ precise-backports main restricted universe multiverse
+deb http://mirrors.us.kernel.org/ubuntu/ precise-security universe",
         }
     if ! $offline_mode {
         exec{"lldpdinstall":
