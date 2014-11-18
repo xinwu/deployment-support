@@ -1,19 +1,50 @@
 mysql_root_pwd: bsn
-cloud_db_pwd: bsn
-management_vlan: 6
-storage_vlan: 7
-public_vlan: null
+cloud_db_pwd: null
+default_pxe_interface: eth0
+default_node_username: root
+default_node_password: bsn
+pxe_gw: 10.8.0.1
 default_role: compute
 default_bond_interface:
   interfaces:
-  - eth1
   - eth2
+  - eth3
   name: bond0
+default_bridges:
+- name: cs-mgmt
+  inet: dhcp
+  vlan: 6
+- name: cs-storage
+  inet: dhcp
+  vlan: 7
+- name: brbond0-52
+  inet: manual
+  vlan: 52
+- name: cs-guest
+  inet: manual
+  vlan: null
 nodes:
 - hostname: 172.16.54.130
   role: management
+  bridges:
+  - name: cs-mgmt
+    inet: dhcp
+    vlan: 6
 - hostname: 172.16.54.132
 - hostname: 172.16.54.134
+  node_username: username
+  node_password: password
+  pxe_interface: eth9
+  bridges:
+  - name: cs-mgmt
+    inet: dhcp
+    vlan: 6
+  - name: brbond1-52
+    inet: manual
+    vlan: 52
+  - name: cs-guest
+    inet: manual
+    vlan: null
   bond_interface:
     interfaces:
     - eth3
