@@ -822,6 +822,7 @@ fi
     echo -e "Copy %(role)s.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
     echo -e "Run %(role)s.sh on node %(hostname)s\n"
+    echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
     sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
 echo -e "Finish deploying %(role)s on %(hostname)s\n"
 '''
