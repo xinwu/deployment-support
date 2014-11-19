@@ -753,11 +753,11 @@ else
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
         if [[ ${vlan_tag} == '' ]]; then
-            network_name_labels=(${network_name_labels[@]/${network_name_label}})
-            vlan_tags=(${vlan_tags[@]/${vlan_tag}})
-            bond_inets=(${bond_inets[@]/${bond_inet}})
-            bond_ips=(${bond_ips[@]/${bond_ip}})
-            bond_masks=(${bond_masks[@]/${bond_mask}})
+            unset network_name_labels[$i]
+            unset vlan_tags[$i]
+            unset bond_inets[$i]
+            unset bond_ips[$i]
+            unset bond_masks[$i]
 
             network_uuid="$(xe network-list params=all | grep -w ${network_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
             if [[ -z $network_uuid ]]; then
