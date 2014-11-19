@@ -34,6 +34,7 @@ nodes:
     inet: static
     address: 172.16.54.130
     netmask: 255.255.255.0
+    dns-nameservers: 172.16.54.2
   management_bond:
     inet: dhcp
     vlan: 6
@@ -46,6 +47,7 @@ nodes:
     inet: static
     address: 172.16.54.134
     netmask: 255.255.255.0
+    dns-nameservers: 172.16.54.2
   bridges:
   - name: cs-mgmt
     inet: static
