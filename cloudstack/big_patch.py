@@ -724,6 +724,9 @@ else
     # disable iptables
     service iptables stop
 
+    # use linux bridge instead of ovs
+    xe-switch-network-backend bridge
+
     # configure bond
     host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
     bond_intf_uuids=()
