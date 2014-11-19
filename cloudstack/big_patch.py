@@ -675,14 +675,20 @@ if [[ ("$hypervisor" == "kvm") || ("%(role)s" == "management") ]]; then
         sleep 300
     fi
 else
-    host_name_label=%(host_name_label)s
+    host_name_label="%(host_name_label)s"
     network_name_labels=%(network_name_labels)s
     vlan_tags=%(vlan_tags)s
     bond_intfs=%(bond_intfs)s
     bond_inets=%(bond_inets)s
     bond_ips=%(bond_ips)s
     bond_masks=%(bond_masks)s
-    user_name=%(user)s
+    user_name="%(user)s"
+    pxe_intf="%(pxe_intf)s"
+    pxe_inet="%(pxe_inet)s"
+    pxe_address="%(pxe_address)s"
+    pxe_netmask="%(pxe_netmask)s"
+    pxe_gw="%(pxe_gw)s"
+    pxe_dns="%(pxe_dns)s"
 
     # wget vhd-util
     mkdir -p /home/${user_name}/bcf
@@ -700,7 +706,7 @@ else
     wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
     yum install -y lldpd
     sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
-    bond_intf_names=$(IFS=, eval 'echo "${bond_intfs[@]}"')
+    bond_intf_names=$(IFS=, ; echo "${bond_intf_uuids[*]}")
     echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
     /sbin/chkconfig --add lldpd
     /sbin/chkconfig lldpd on
@@ -765,7 +771,7 @@ else
             fi
 
             if [[ ${bond_inet} == 'static' ]]; then
-                pif_uuid=$(xe pif-list params=all | grep -w ${bond_uuid} -B7 | grep -w uuid | awk '{print $NF}')
+                pif_uuid=$(xe pif-list params=all | grep -w ${bond_uuid} -B7 | grep -w uuid | grep -v network | awk '{print $NF}')
                 xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
             fi
             break
@@ -813,6 +819,13 @@ else
         bridge=$(xe network-list | grep -w ${network_uuid} -A3 | grep -w bridge | awk '{print $NF}')
         echo "host name: ${host_name_label}, vlan: ${vlan_tag}, bridge: ${bridge}"
     done
+
+    # configure pxe interface
+    if [[ ${pxe_inet} == 'static' ]]; then
+        pif_uuid=$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${pxe_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
+        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${pxe_inet} IP=${pxe_address} netmask=${pxe_netmask} gateway=${pxe_gw} DNS=${pxe_dns}
+    fi
+
 fi
 reboot -f
 '''
@@ -861,6 +874,7 @@ class Node(object):
 
         if self.role == ROLE_MGMT:
             self.management_bond = get_raw_value(node_config, 'management_bond')
+            self.bridges = None
         else:
             self.bridges = node_config['bridges']
 
@@ -1089,26 +1103,40 @@ def generate_command_for_node(node):
     bond_inets = '('
     bond_ips   = '('
     bond_masks = '('
-    for bridge in node.bridges:
-        name = get_raw_value(bridge, 'name')
-        vlan = get_raw_value(bridge, 'vlan')
-        inet = get_raw_value(bridge, 'inet')
-        address = ""
-        if 'address' in bridge.keys():
-            address = get_raw_value(bridge, 'address')
-        netmask = ""
-        if 'netmask' in bridge.keys():
-            netmask = get_raw_value(bridge, 'netmask')
-        network_name_labels += r'''"%s" ''' % name
-        vlan_tags  += r'''"%s" ''' % vlan
-        bond_inets += r'''"%s" ''' % inet
-        bond_ips   += r'''"%s" ''' % address
-        bond_masks += r'''"%s" ''' % netmask
+    if node.bridges:
+        for bridge in node.bridges:
+            name = get_raw_value(bridge, 'name')
+            vlan = get_raw_value(bridge, 'vlan')
+            if not vlan:
+                vlan = ""
+            inet = get_raw_value(bridge, 'inet')
+            address = ""
+            if 'address' in bridge.keys():
+                address = get_raw_value(bridge, 'address')
+            netmask = ""
+            if 'netmask' in bridge.keys():
+                netmask = get_raw_value(bridge, 'netmask')
+            network_name_labels += r'''"%s" ''' % name
+            vlan_tags  += r'''"%s" ''' % vlan
+            bond_inets += r'''"%s" ''' % inet
+            bond_ips   += r'''"%s" ''' % address
+            bond_masks += r'''"%s" ''' % netmask
     network_name_labels += ')'
     vlan_tags  += ')'
     bond_inets += ')'
     bond_ips   += ')'
     bond_masks += ')'
+
+    pxe_intf = get_raw_value(node.pxe_interface, 'interface')
+    pxe_inet = get_raw_value(node.pxe_interface, 'inet')
+    pxe_address = ""
+    pxe_netmask = ""
+    pxe_dns     = ""
+    if pxe_inet == 'static':
+        pxe_address = get_raw_value(node.pxe_interface, 'address')
+        pxe_netmask = get_raw_value(node.pxe_interface, 'netmask')
+        pxe_dns     = get_raw_value(node.pxe_interface, 'dns-nameservers')
+
     with open('/tmp/%s.remote.sh' % node.hostname, "w") as node_remote_bash:
         node_remote_bash.write(NODE_REMOTE_BASH %
                                {'user'                : node.node_username,
@@ -1123,7 +1151,13 @@ def generate_command_for_node(node):
                                 'bond_intfs'          : bond_intfs,
                                 'bond_inets'          : bond_inets,
                                 'bond_ips'            : bond_ips,
-                                'bond_masks'          : bond_masks})
+                                'bond_masks'          : bond_masks,
+                                'pxe_intf'            : pxe_intf,
+                                'pxe_inet'            : pxe_inet,
+                                'pxe_address'         : pxe_address,
+                                'pxe_netmask'         : pxe_netmask,
+                                'pxe_gw'              : node.pxe_gw,
+                                'pxe_dns'             : pxe_dns})
         node_remote_bash.close()
 
     # generate script for node
