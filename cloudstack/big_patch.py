@@ -93,6 +93,9 @@ STORAGE_VM_URL = ('http://jenkins.buildacloud.org/view/master/job/'
                   'build-systemvm-master/lastStableBuild/artifact/tools/appliance/dist')
 STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 
+# hypervisor, can be either kvm or xen
+HYPERVISOR = 'kvm'
+
 # management node puppet template
 MGMT_PUPPET = r'''
 $user           = "%(user)s"
@@ -492,6 +495,7 @@ exec {"accept iptables forward":
 }
 
 service {"libvirt-bin":
+    enable  => true,
     ensure  => running,
     require => [File_Line['config user'],
                 File_Line['config group'],
@@ -632,43 +636,48 @@ cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(m
 
 NODE_REMOTE_BASH = r'''
 #!/bin/bash
-cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
-apt-get install -fy puppet aptitude --force-yes
-wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
-dpkg -i /home/%(user)s/bcf/puppetlabs-release-precise.deb
-apt-get update
-puppet resource package puppet ensure=latest
-apt-get install -fy qemu-kvm libvirt-bin ubuntu-vm-builder bridge-utils
-adduser `id -un` libvirtd
-version="$(virsh --version)"
-if [[ "$version" < "1.0.2" ]]; then
-    apt-get install -fy python-software-properties
-    add-apt-repository ppa:pfak/backports -y
-    apt-get update -fy
-    aptitude update -fy
-    aptitude -fy safe-upgrade
+hypervisor="%(hypervisor)s"
+if [[  "$hypervisor" == "kvm" ]]; then
+    cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
+    apt-get install -fy puppet aptitude --force-yes
+    wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
+    dpkg -i /home/%(user)s/bcf/puppetlabs-release-precise.deb
+    apt-get update
+    puppet resource package puppet ensure=latest
+    apt-get install -fy qemu-kvm libvirt-bin ubuntu-vm-builder bridge-utils
+    adduser `id -un` libvirtd
+    version="$(virsh --version)"
+    if [[ "$version" < "1.0.2" ]]; then
+        apt-get install -fy python-software-properties
+        add-apt-repository ppa:pfak/backports -y
+        apt-get update -fy
+        aptitude update -fy
+        aptitude -fy safe-upgrade
+    fi
+    service dbus stop
+    service dbus start
+    service libvirt-bin stop
+    service libvirt-bin start
+    apt-get -fy install --fix-missing
+    puppet module install puppetlabs-apt --force
+    puppet module install puppetlabs-stdlib --force
+    puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
+    DEBIAN_FRONTEND=noninteractive aptitude install -y -q iptables-persistent
+    apt-get -fy install --fix-missing
+    role="%(role)s"
+    if [[ "$role" == "management" ]]; then
+        service cloudstack-management stop
+        cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
+        service mysql stop
+        service mysql start
+        cloudstack-setup-management   
+        service cloudstack-management start
+        sleep 300
+    fi
+    reboot
+else
+    echo "TODO!!!"
 fi
-service dbus stop
-service dbus start
-service libvirt-bin stop
-service libvirt-bin start
-apt-get -fy install --fix-missing
-puppet module install puppetlabs-apt --force
-puppet module install puppetlabs-stdlib --force
-puppet apply -d -v -l /home/%(user)s/bcf/%(role)s.log /home/%(user)s/bcf/%(role)s.pp
-DEBIAN_FRONTEND=noninteractive aptitude install -y -q iptables-persistent
-apt-get -fy install --fix-missing
-role="%(role)s"
-if [[ "$role" == "management" ]]; then
-    service cloudstack-management stop
-    cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
-    service mysql stop
-    service mysql start
-    cloudstack-setup-management   
-    service cloudstack-management start
-    sleep 300
-fi
-reboot
 '''
 
 NODE_LOCAL_BASH = r'''
@@ -690,119 +699,142 @@ sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@
 echo -e "Finish deploying %(role)s on %(hostname)s\n"
 '''
 
+def get_raw_value(dic, key):
+    value = dic[key]
+    if type(value) in (tuple, list):
+        value = value[0]
+    return value
+
 class Node(object):
     def __init__(self, node_config):
-        self.hostname = node_config['hostname']
-        if type(self.hostname) in (tuple, list):
-            self.hostname = self.hostname[0]
-        self.pxe_interface = node_config['pxe_interface']
-        if type(self.pxe_interface) in (tuple, list):
-            self.pxe_interface = self.pxe_interface[0]
-        self.pxe_gw = node_config['pxe_gw']
-        if type(self.pxe_gw) in (tuple, list):
-            self.pxe_gw = self.pxe_gw[0]
-        self.node_username = node_config['node_username']
-        if type(self.node_username) in (tuple, list):
-            self.node_username = self.node_username[0]
-        self.node_password = node_config['node_password']
-        if type(self.node_password) in (tuple, list):
-            self.node_password = self.node_password[0]
-        self.role = node_config['role']
-        if type(self.role) in (tuple, list):
-            self.role = self.role[0]
-        self.bond_interfaces = node_config['bond_interface']['interfaces']
-        self.bond_name = node_config['bond_interface']['name']
-        if type(self.bond_name) in (tuple, list):
-            self.bond_name = self.bond_name[0]
-        self.mysql_root_pwd = node_config['mysql_root_pwd']
-        if type(self.mysql_root_pwd) in (tuple, list):
-            self.mysql_root_pwd = self.mysql_root_pwd[0]
-        self.cloud_db_pwd = node_config['cloud_db_pwd']
-        if type(self.cloud_db_pwd) in (tuple, list):
-            self.cloud_db_pwd = self.cloud_db_pwd[0]
-        self.bridges = node_config['bridges']
+        self.hostname        = get_raw_value(node_config, 'hostname')
+        self.pxe_gw          = get_raw_value(node_config, 'pxe_gw')
+        self.node_username   = get_raw_value(node_config, 'node_username')
+        self.node_password   = get_raw_value(node_config, 'node_password')
+        self.role            = get_raw_value(node_config, 'role')
+        self.mysql_root_pwd  = get_raw_value(node_config, 'mysql_root_pwd')
+        self.cloud_db_pwd    = get_raw_value(node_config, 'cloud_db_pwd')
 
+        self.bond_name       = get_raw_value(node_config['bond_interface'], 'name')
+        self.bond_interfaces = node_config['bond_interface']['interfaces']
+        self.pxe_interface   = node_config['pxe_interface']
+
+        if self.role == ROLE_MGMT:
+            self.management_bond = get_raw_value(node_config, 'management_bond')
+        else:
+            self.bridges = node_config['bridges']
 
 def generate_interface_config(node):
     config =  ('auto lo\n'
                '  iface lo inet loopback\n\n')
-    config += ('auto %(pxe_intf)s\n'
-               '  iface %(pxe_intf)s inet dhcp\n'
-               '  up route add default gw %(pxe_gw)s\n\n' %
-              {'pxe_intf' : node.pxe_interface,
-               'pxe_gw'   : node.pxe_gw})
+
+    pxe_intf = get_raw_value(node.pxe_interface, 'interface')
+    pxe_inet = get_raw_value(node.pxe_interface, 'inet')
+    if pxe_inet != 'static':
+        config += ('auto %(pxe_intf)s\n'
+                   '  iface %(pxe_intf)s inet %(inet)s\n'
+                   '  up route add default gw %(pxe_gw)s\n\n' %
+                  {'pxe_intf' : pxe_intf,
+                   'pxe_gw'   : node.pxe_gw,
+                   'inet'     : pxe_inet})
+    elif pxe_inet == 'static':
+        address = get_raw_value(node.pxe_interface, 'address')
+        netmask = get_raw_value(node.pxe_interface, 'netmask')
+        config += ('auto %(pxe_intf)s\n'
+                   '  iface %(pxe_intf)s inet %(inet)s\n'
+                   '  address %(address)s\n'
+                   '  netmask %(netmask)s\n'
+                   '  up route add default gw %(pxe_gw)s\n\n' %
+                  {'pxe_intf' : pxe_intf,
+                   'pxe_gw'   : node.pxe_gw,
+                   'inet'     : pxe_inet,
+                   'address'  : address,
+                   'netmask'  : netmask})
+        
+
     for intf in node.bond_interfaces:
         config += ('auto %(intf)s\n'
                    '  iface %(intf)s inet manual\n'
                    '  bond-master %(bond)s\n\n' %
-                   {'intf' : intf, 'bond' : node.bond_name})
+                  {'intf' : intf, 'bond' : node.bond_name})
+
     config += ('auto %(bond)s\n'
                '  iface %(bond)s inet manual\n'
                '  bond-mode 0\n'
                '  bond-slaves none\n'
                '  bond-miimon 50\n\n' %
-               {'bond' : node.bond_name})
+              {'bond' : node.bond_name})
 
-    for bridge in node.bridges:
-        name = bridge['name']
-        if type(name) in (tuple, list):
-            name = name[0]
-        vlan = bridge['vlan']
-        if type(vlan) in (tuple, list):
-            vlan = vlan[0]
-        inet = bridge['inet']
-        if type(inet) in (tuple, list):
-            inet = inet[0]
-        if 'address' in bridge.keys():
-            address = bridge['address']
-            if type(address) in (tuple, list):
-                address = address[0]
-        if 'netmask' in bridge.keys():
-            netmask = bridge['netmask']
-            if type(netmask) in (tuple, list):
-                netmask = netmask[0]
+    if node.role == ROLE_MGMT:
+         mgmt_bond = node.management_bond
+         vlan = get_raw_value(mgmt_bond, 'vlan')
+         inet = get_raw_value(mgmt_bond, 'inet')
+         mgmt_bond_name = ('%(bond_name)s.%(vlan)s' %
+                          {'bond_name' : node.bond_name,
+                           'vlan'      : vlan})
+         if inet != 'static':
+             config += ('auto %(mgmt_bond_name)s\n'
+                        '  iface %(mgmt_bond_name)s inet %(inet)s\n'
+                        '  vlan-raw-device %(bond)s\n\n' %
+                       {'mgmt_bond_name' : mgmt_bond_name,
+                        'bond'           : node.bond_name,
+                        'inet'           : inet})
+         elif inet == 'static':
+             address = get_raw_value(mgmt_bond, 'address')
+             netmask = get_raw_value(mgmt_bond, 'netmask')
+             config += ('auto %(mgmt_bond_name)s\n'
+                        '  iface %(mgmt_bond_name)s inet %(inet)s\n'
+                        '  vlan-raw-device %(bond)s\n'
+                        '  address %(address)s\n'
+                        '  netmask %(netmask)s\n\n' %
+                       {'mgmt_bond_name' : mgmt_bond_name,
+                        'bond'           : node.bond_name,
+                        'inet'           : inet,
+                        'address'        : address,
+                        'netmask'        : netmask})
+    else:
+        for bridge in node.bridges:
+            name = get_raw_value(bridge, 'name')
+            vlan = get_raw_value(bridge, 'vlan')
+            inet = get_raw_value(bridge, 'inet')
+            if 'address' in bridge.keys():
+                address = get_raw_value(bridge, 'address')
+            if 'netmask' in bridge.keys():
+                netmask = get_raw_value(bridge, 'netmask')
 
-        port_name = node.bond_name
-        if vlan:
-            port_name = ('%(bond)s.%(vlan)s' % 
-                        {'vlan' : vlan,
-                         'bond' : node.bond_name})
-            if node.role == ROLE_MGMT:
-                config += ('auto %(port_name)s\n'
-                           '  iface %(port_name)s inet %(inet)s\n'
-                           '  vlan-raw-device %(bond)s\n\n' %
-                          {'port_name' : port_name,
-                           'bond'      : node.bond_name,
-                           'inet'      : inet})
-            else:
+            port_name = node.bond_name
+            if vlan:
+                port_name = ('%(bond)s.%(vlan)s' % 
+                            {'vlan' : vlan,
+                             'bond' : node.bond_name})
                 config += ('auto %(port_name)s\n'
                            '  iface %(port_name)s inet manual\n'
                            '  vlan-raw-device %(bond)s\n\n' %
                           {'port_name' : port_name,
                            'bond'      : node.bond_name})
  
-        if node.role == ROLE_COMPUTE and inet != 'static':
-            config += ('auto %(name)s\n'
-                       '  iface %(name)s inet %(inet)s\n'
-                       '  bridge_ports %(port_name)s\n'
-                       '  bridge_stp off\n'
-                       '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
-                       {'name'      : name,
-                        'port_name' : port_name,
-                        'inet'      : inet})
-        elif node.role == ROLE_COMPUTE and inet == 'static':
-            config += ('auto %(name)s\n'
-                       '  iface %(name)s inet %(inet)s\n'
-                       '  address %(address)s\n'
-                       '  netmask %(netmask)s\n'
-                       '  bridge_ports %(port_name)s\n'
-                       '  bridge_stp off\n'
-                       '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
-                       {'name'      : name,
-                        'port_name' : port_name,
-                        'inet'      : inet,
-                        'address'   : address,
-                        'netmask'   : netmask})
+            if node.role == ROLE_COMPUTE and inet != 'static':
+                config += ('auto %(name)s\n'
+                           '  iface %(name)s inet %(inet)s\n'
+                           '  bridge_ports %(port_name)s\n'
+                           '  bridge_stp off\n'
+                           '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
+                          {'name'      : name,
+                           'port_name' : port_name,
+                           'inet'      : inet})
+            elif node.role == ROLE_COMPUTE and inet == 'static':
+                config += ('auto %(name)s\n'
+                           '  iface %(name)s inet %(inet)s\n'
+                           '  address %(address)s\n'
+                           '  netmask %(netmask)s\n'
+                           '  bridge_ports %(port_name)s\n'
+                           '  bridge_stp off\n'
+                           '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
+                          {'name'      : name,
+                           'port_name' : port_name,
+                           'inet'      : inet,
+                           'address'   : address,
+                           'netmask'   : netmask})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
         config_file.write(config)
@@ -910,7 +942,8 @@ def generate_command_for_node(node):
                                 'role'           : node.role,
                                 'cloud_db_pwd'   : node.cloud_db_pwd,
                                 'mysql_root_pwd' : node.mysql_root_pwd,
-                                'hostname'       : node.hostname})
+                                'hostname'       : node.hostname,
+                                'hypervisor'     : HYPERVISOR})
         node_remote_bash.close()
 
     # generate script for node
@@ -943,6 +976,8 @@ def deploy_to_all(config):
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
 
+    global HYPERVISOR
+    HYPERVISOR = config['hypervisor']
     for node_config in config['nodes']:
         if 'pxe_interface' not in node_config:
             node_config['pxe_interface'] = config['default_pxe_interface']
@@ -955,7 +990,7 @@ def deploy_to_all(config):
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
         if 'bridges' not in node_config:
-             node_config['bridges'] = config['default_bridges']
+            node_config['bridges'] = config['default_bridges']
         node_config['pxe_gw'] = config['pxe_gw']
         node_config['mysql_root_pwd'] = config['mysql_root_pwd']
         if not node_config['mysql_root_pwd']:
@@ -974,7 +1009,6 @@ def deploy_to_all(config):
 
     node_q.join()
     safe_print("CloudStack deployment finished\n")
-
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "

@@ -1,6 +1,9 @@
+hypervisor: kvm
 mysql_root_pwd: bsn
 cloud_db_pwd: null
-default_pxe_interface: eth0
+default_pxe_interface:
+  interface: eth0
+  inet: dhcp
 default_node_username: root
 default_node_password: bsn
 pxe_gw: 10.8.0.1
@@ -26,15 +29,23 @@ default_bridges:
 nodes:
 - hostname: 172.16.54.130
   role: management
-  bridges:
-  - name: cs-mgmt
+  pxe_interface: 
+    interface: eth0
+    inet: static
+    address: 172.16.54.130
+    netmask: 255.255.255.0
+  management_bond:
     inet: dhcp
     vlan: 6
 - hostname: 172.16.54.132
 - hostname: 172.16.54.134
   node_username: username
   node_password: password
-  pxe_interface: eth9
+  pxe_interface:
+    interface: eth0
+    inet: static
+    address: 172.16.54.134
+    netmask: 255.255.255.0
   bridges:
   - name: cs-mgmt
     inet: static
