@@ -827,7 +827,7 @@ else
     fi
 
 fi
-reboot -f
+reboot
 '''
 
 NODE_LOCAL_BASH = r'''
@@ -926,9 +926,14 @@ def generate_interface_config(node):
          mgmt_bond = node.management_bond
          vlan = get_raw_value(mgmt_bond, 'vlan')
          inet = get_raw_value(mgmt_bond, 'inet')
-         mgmt_bond_name = ('%(bond_name)s.%(vlan)s' %
-                          {'bond_name' : node.bond_name,
-                           'vlan'      : vlan})
+         mgmt_bond_name = None
+         if vlan:
+             mgmt_bond_name = ('%(bond_name)s.%(vlan)s' %
+                              {'bond_name' : node.bond_name,
+                               'vlan'      : vlan})
+         else:
+             mgmt_bond_name = ('%(bond_name)s' %
+                              {'bond_name' : node.bond_name})
          if inet != 'static':
              config += ('auto %(mgmt_bond_name)s\n'
                         '  iface %(mgmt_bond_name)s inet %(inet)s\n'
