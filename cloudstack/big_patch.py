@@ -637,7 +637,7 @@ cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(m
 NODE_REMOTE_BASH = r'''
 #!/bin/bash
 hypervisor="%(hypervisor)s"
-if [[  "$hypervisor" == "kvm" ]]; then
+if [[ ("$hypervisor" == "kvm") || ("%(role)s" == "management") ]]; then
     cp /home/%(user)s/bcf/%(role)s.intf /etc/network/interfaces
     apt-get install -fy puppet aptitude --force-yes
     wget http://apt.puppetlabs.com/puppetlabs-release-precise.deb -O /home/%(user)s/bcf/puppetlabs-release-precise.deb
@@ -674,28 +674,167 @@ if [[  "$hypervisor" == "kvm" ]]; then
         service cloudstack-management start
         sleep 300
     fi
-    reboot
 else
-    echo "TODO!!!"
+    host_name_label=%(host_name_label)s
+    network_name_labels=%(network_name_labels)s
+    vlan_tags=%(vlan_tags)s
+    bond_intfs=%(bond_intfs)s
+    bond_inets=%(bond_inets)s
+    bond_ips=%(bond_ips)s
+    bond_masks=%(bond_masks)s
+    user_name=%(user)s
+
+    # wget vhd-util
+    mkdir -p /home/${user_name}/bcf
+    wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_name}/bcf/
+    chmod 777 /home/${user_name}/bcf/vhd-util
+    mkdir -p /opt/cloud/bin
+    cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
+    mkdir -p /opt/xensource/bin
+    cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
+
+    # configure lldp
+    wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
+    yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
+    cd /etc/yum.repos.d/
+    wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
+    yum install -y lldpd
+    sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
+    bond_intf_names=$(IFS=, eval 'echo "${bond_intfs[@]}"')
+    echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
+    /sbin/chkconfig --add lldpd
+    /sbin/chkconfig lldpd on
+    service lldpd start
+
+    # configure NTP
+    yum install -y ntp
+    sed -i '/xenserver.pool.ntp.org/d' /etc/ntp.conf
+    sed -i '/0.bigswitch.pool.ntp.org/d' /etc/ntp.conf
+    echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
+    service ntpd restart
+    /sbin/chkconfig --add ntpd
+    /sbin/chkconfig ntpd on
+
+    # disable ovs, use linux bridge
+    xe-switch-network-backend bridge
+    service iptables stop
+    sed -i '/^net.bridge.bridge-nf-call-iptables =/s/=.*/= 1/' /etc/sysctl.conf
+    sed -i '/^net.bridge.bridge-nf-call-ip6tables =/s/=.*/= 0/' /etc/sysctl.conf
+    sed -i '/^net.bridge.bridge-nf-call-arptables =/s/=.*/= 1/' /etc/sysctl.conf
+    sysctl -p /etc/sysctl.conf
+
+    # configure bond
+    host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
+    bond_intf_uuids=()
+    for bond_intf in ${bond_intfs[@]}; do
+        bond_intf_uuid="$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${bond_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')"
+        bond_intf_uuids=("${bond_intf_uuids[@]}" "$bond_intf_uuid")
+    done
+
+    bond_uuid="$(xe bond-list)"
+    for bond_intf_uuid in ${bond_intf_uuids[@]}; do
+        bond_uuid="$(echo -e "${bond_uuid}" | grep ${bond_intf_uuid} -B3)"
+    done
+    bond_uuid="$(echo -e "${bond_uuid}" | grep -w uuid | awk '{print $NF}')"
+
+    # configure management network
+    mgmt_bridge=''
+    count=${#vlan_tags[@]}
+    for (( i=0; i<${count}; i++ )); do
+        network_name_label=${network_name_labels[$i]}
+        vlan_tag=${vlan_tags[$i]}
+        bond_inet=${bond_inets[$i]}
+        bond_ip=${bond_ips[$i]}
+        bond_mask=${bond_masks[$i]}
+        if [[ ${vlan_tag} == '' ]]; then
+            network_name_labels=(${network_name_labels[@]/${network_name_label}})
+            vlan_tags=(${vlan_tags[@]/${vlan_tag}})
+            bond_inets=(${bond_inets[@]/${bond_inet}})
+            bond_ips=(${bond_ips[@]/${bond_ip}})
+            bond_masks=(${bond_masks[@]/${bond_mask}})
+
+            network_uuid="$(xe network-list params=all | grep -w ${network_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
+            if [[ -z $network_uuid ]]; then
+                network_uuid="$(xe network-create name-label=${network_name_label})"
+            fi
+            mgmt_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
+
+            if [[ -z ${bond_uuid} ]]; then
+                pif_uuids=$(IFS=, eval 'echo "${bond_intf_uuids[@]}"')
+                bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
+            fi
+
+            if [[ ${bond_inet} == 'static' ]]; then
+                pif_uuid=$(xe pif-list params=all | grep -w ${bond_uuid} -B7 | grep -w uuid | awk '{print $NF}')
+                xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+            fi
+            break
+        fi
+    done
+
+    if [[ ${mgmt_bridge} == '' ]]; then
+        echo 'Error: management network must be untagged'
+        exit 1
+    fi
+
+    if [[ ${bond_uuid} == '' ]]; then
+        echo 'Error: fails to create bond'
+        exit 1
+    fi
+
+    # change management interface to management bond
+    sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
+    bond_name=$(xe pif-list params=all | grep -w ${host_name_label} -B14 | grep -w ${bond_uuid} -B6 | grep -w device | awk '{print $NF}')
+    echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
+
+    # configure vlan
+    count=${#network_name_labels[@]}
+    for (( i=0; i<${count}; i++ )); do
+        network_name_label=${network_name_labels[$i]}
+        vlan_tag=${vlan_tags[$i]}
+        bond_inet=${bond_inets[$i]}
+        bond_ip=${bond_ips[$i]}
+        bond_mask=${bond_masks[$i]}
+
+        network_uuid="$(xe network-list params=all | grep -w ${network_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
+        if [[ -z $network_uuid ]]; then
+            network_uuid="$(xe network-create name-label=${network_name_label})"
+        fi
+
+        vlan_uuid=$(xe vlan-list | grep ${vlan_tag} -B3 | grep -w uuid | awk '{print $NF}')
+        pif_uuid=$(xe pif-list params=all | grep -w ${bond_uuid} -B7 | grep -w uuid | awk '{print $NF}')
+        if [[ -z $vlan_uuid ]]; then
+            vlan_uuid=$(xe vlan-create network-uuid=${network_uuid} pif-uuid=${pif_uuid} vlan=${vlan_tag})
+        fi
+        if [[ ${bond_inet} == 'static' ]]; then
+            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+        fi
+
+        bridge=$(xe network-list | grep -w ${network_uuid} -A3 | grep -w bridge | awk '{print $NF}')
+        echo "host name: ${host_name_label}, vlan: ${vlan_tag}, bridge: ${bridge}"
+    done
 fi
+reboot -f
 '''
 
 NODE_LOCAL_BASH = r'''
 #!/bin/bash
 echo -e "Start to deploy %(role)s node %(hostname)s...\n"
 sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S mkdir -m 0777 -p /home/%(user)s/bcf"
-echo -e "Copy /etc/network/interfaces to node %(hostname)s\n"
-sshpass -p %(pwd)s scp /tmp/%(hostname)s.intf %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.intf >> %(log)s 2>&1
-echo -e "Copy %(role)s.pp to node %(hostname)s\n"
-sshpass -p %(pwd)s scp /tmp/%(hostname)s.pp %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.pp >> %(log)s 2>&1
-if [ -f /tmp/%(hostname)s.db.sh ]; then
-    echo -e "Copy db.sh to node %(hostname)s\n"
-    sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
+if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
+    echo -e "Copy /etc/network/interfaces to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.intf %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.intf >> %(log)s 2>&1
+    echo -e "Copy %(role)s.pp to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.pp %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.pp >> %(log)s 2>&1
+    if [ -f /tmp/%(hostname)s.db.sh ]; then
+        echo -e "Copy db.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
+    fi
 fi
-echo -e "Copy %(role)s.sh to node %(hostname)s\n"
-sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
-echo -e "Run %(role)s.sh on node %(hostname)s\n"
-sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
+    echo -e "Copy %(role)s.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
+    echo -e "Run %(role)s.sh on node %(hostname)s\n"
+    sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
 echo -e "Finish deploying %(role)s on %(hostname)s\n"
 '''
 
@@ -708,6 +847,7 @@ def get_raw_value(dic, key):
 class Node(object):
     def __init__(self, node_config):
         self.hostname        = get_raw_value(node_config, 'hostname')
+        self.host_name_label = get_raw_value(node_config, 'host_name_label')
         self.pxe_gw          = get_raw_value(node_config, 'pxe_gw')
         self.node_username   = get_raw_value(node_config, 'node_username')
         self.node_password   = get_raw_value(node_config, 'node_password')
@@ -939,24 +1079,62 @@ def generate_command_for_node(node):
             node_db_bash.close()
 
     # generate shell script
+    bond_intfs = '('
+    for bond_interface in node.bond_interfaces:
+        bond_intfs += r'''"%s" ''' % bond_interface
+    bond_intfs += ')'
+
+    network_name_labels = '('
+    vlan_tags  = '('
+    bond_inets = '('
+    bond_ips   = '('
+    bond_masks = '('
+    for bridge in node.bridges:
+        name = get_raw_value(bridge, 'name')
+        vlan = get_raw_value(bridge, 'vlan')
+        inet = get_raw_value(bridge, 'inet')
+        address = ""
+        if 'address' in bridge.keys():
+            address = get_raw_value(bridge, 'address')
+        netmask = ""
+        if 'netmask' in bridge.keys():
+            netmask = get_raw_value(bridge, 'netmask')
+        network_name_labels += r'''"%s" ''' % name
+        vlan_tags  += r'''"%s" ''' % vlan
+        bond_inets += r'''"%s" ''' % inet
+        bond_ips   += r'''"%s" ''' % address
+        bond_masks += r'''"%s" ''' % netmask
+    network_name_labels += ')'
+    vlan_tags  += ')'
+    bond_inets += ')'
+    bond_ips   += ')'
+    bond_masks += ')'
     with open('/tmp/%s.remote.sh' % node.hostname, "w") as node_remote_bash:
         node_remote_bash.write(NODE_REMOTE_BASH %
-                               {'user'           : node.node_username,
-                                'role'           : node.role,
-                                'cloud_db_pwd'   : node.cloud_db_pwd,
-                                'mysql_root_pwd' : node.mysql_root_pwd,
-                                'hostname'       : node.hostname,
-                                'hypervisor'     : HYPERVISOR})
+                               {'user'                : node.node_username,
+                                'role'                : node.role,
+                                'cloud_db_pwd'        : node.cloud_db_pwd,
+                                'mysql_root_pwd'      : node.mysql_root_pwd,
+                                'hostname'            : node.hostname,
+                                'hypervisor'          : HYPERVISOR,
+                                'host_name_label'     : node.host_name_label,
+                                'network_name_labels' : network_name_labels,
+                                'vlan_tags'           : vlan_tags,
+                                'bond_intfs'          : bond_intfs,
+                                'bond_inets'          : bond_inets,
+                                'bond_ips'            : bond_ips,
+                                'bond_masks'          : bond_masks})
         node_remote_bash.close()
 
     # generate script for node
     with open('/tmp/%s.local.sh' % node.hostname, "w") as node_local_bash:
         node_local_bash.write(NODE_LOCAL_BASH %
-                               {'pwd'      : node.node_password,
-                                'hostname' : node.hostname,
-                                'user'     : node.node_username,
-                                'role'     : node.role,
-                                'log'      : LOG_FILENAME})
+                               {'pwd'        : node.node_password,
+                                'hostname'   : node.hostname,
+                                'user'       : node.node_username,
+                                'role'       : node.role,
+                                'log'        : LOG_FILENAME,
+                                'hypervisor' : HYPERVISOR})
         node_local_bash.close()
 
     node_q.put(node)
@@ -994,6 +1172,8 @@ def deploy_to_all(config):
             node_config['bond_interface'] = config['default_bond_interface']
         if 'bridges' not in node_config:
             node_config['bridges'] = config['default_bridges']
+        if 'host_name_label' not in node_config:
+            node_config['host_name_label'] = ''
         node_config['pxe_gw'] = config['pxe_gw']
         node_config['mysql_root_pwd'] = config['mysql_root_pwd']
         if not node_config['mysql_root_pwd']:
