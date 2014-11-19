@@ -706,7 +706,7 @@ else
     wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
     yum install -y lldpd
     sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
-    bond_intf_names=$(IFS=, ; echo "${bond_intf_uuids[*]}")
+    bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
     echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
     /sbin/chkconfig --add lldpd
     /sbin/chkconfig lldpd on
@@ -721,13 +721,8 @@ else
     /sbin/chkconfig --add ntpd
     /sbin/chkconfig ntpd on
 
-    # disable ovs, use linux bridge
-    xe-switch-network-backend bridge
+    # disable iptables
     service iptables stop
-    sed -i '/^net.bridge.bridge-nf-call-iptables =/s/=.*/= 1/' /etc/sysctl.conf
-    sed -i '/^net.bridge.bridge-nf-call-ip6tables =/s/=.*/= 0/' /etc/sysctl.conf
-    sed -i '/^net.bridge.bridge-nf-call-arptables =/s/=.*/= 1/' /etc/sysctl.conf
-    sysctl -p /etc/sysctl.conf
 
     # configure bond
     host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
@@ -737,13 +732,9 @@ else
         bond_intf_uuids=("${bond_intf_uuids[@]}" "$bond_intf_uuid")
     done
 
-    bond_uuid="$(xe bond-list)"
-    for bond_intf_uuid in ${bond_intf_uuids[@]}; do
-        bond_uuid="$(echo -e "${bond_uuid}" | grep ${bond_intf_uuid} -B3)"
-    done
-    bond_uuid="$(echo -e "${bond_uuid}" | grep -w uuid | awk '{print $NF}')"
-
     # configure management network
+    bond_uuid=''
+    bond_pif_uuid=''
     mgmt_bridge=''
     count=${#vlan_tags[@]}
     for (( i=0; i<${count}; i++ )); do
@@ -752,27 +743,16 @@ else
         bond_inet=${bond_inets[$i]}
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
+
         if [[ ${vlan_tag} == '' ]]; then
-            unset network_name_labels[$i]
-            unset vlan_tags[$i]
-            unset bond_inets[$i]
-            unset bond_ips[$i]
-            unset bond_masks[$i]
-
-            network_uuid="$(xe network-list params=all | grep -w ${network_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
-            if [[ -z $network_uuid ]]; then
-                network_uuid="$(xe network-create name-label=${network_name_label})"
-            fi
+            network_uuid="$(xe network-create name-label=${network_name_label})"
             mgmt_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
-
-            if [[ -z ${bond_uuid} ]]; then
-                pif_uuids=$(IFS=, eval 'echo "${bond_intf_uuids[@]}"')
-                bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
-            fi
+            pif_uuids=$(IFS=, ; echo "${bond_intf_uuids[*]}")
+            bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
+            bond_pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "VLAN ( RO): -1" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
 
             if [[ ${bond_inet} == 'static' ]]; then
-                pif_uuid=$(xe pif-list params=all | grep -w ${bond_uuid} -B7 | grep -w uuid | grep -v network | awk '{print $NF}')
-                xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+                xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
             fi
             break
         fi
@@ -794,7 +774,6 @@ else
     echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
 
     # configure vlan
-    count=${#network_name_labels[@]}
     for (( i=0; i<${count}; i++ )); do
         network_name_label=${network_name_labels[$i]}
         vlan_tag=${vlan_tags[$i]}
@@ -802,17 +781,14 @@ else
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
 
-        network_uuid="$(xe network-list params=all | grep -w ${network_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
-        if [[ -z $network_uuid ]]; then
-            network_uuid="$(xe network-create name-label=${network_name_label})"
+        if [[ ${vlan_tag} == '' ]]; then
+            continue
         fi
 
-        vlan_uuid=$(xe vlan-list | grep ${vlan_tag} -B3 | grep -w uuid | awk '{print $NF}')
-        pif_uuid=$(xe pif-list params=all | grep -w ${bond_uuid} -B7 | grep -w uuid | awk '{print $NF}')
-        if [[ -z $vlan_uuid ]]; then
-            vlan_uuid=$(xe vlan-create network-uuid=${network_uuid} pif-uuid=${pif_uuid} vlan=${vlan_tag})
-        fi
+        network_uuid="$(xe network-create name-label=${network_name_label})"
+        vlan_uuid=$(xe vlan-create network-uuid=${network_uuid} pif-uuid=${bond_pif_uuid} vlan=${vlan_tag})
         if [[ ${bond_inet} == 'static' ]]; then
+            pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "${vlan_tag}" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
             xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
         fi
 
@@ -825,7 +801,6 @@ else
         pif_uuid=$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${pxe_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
         xe pif-reconfigure-ip uuid=${pif_uuid} mode=${pxe_inet} IP=${pxe_address} netmask=${pxe_netmask} gateway=${pxe_gw} DNS=${pxe_dns}
     fi
-
 fi
 reboot
 '''
