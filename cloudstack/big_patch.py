@@ -753,6 +753,14 @@ def generate_interface_config(node):
         inet = bridge['inet']
         if type(inet) in (tuple, list):
             inet = inet[0]
+        if 'address' in bridge.keys():
+            address = bridge['address']
+            if type(address) in (tuple, list):
+                address = address[0]
+        if 'netmask' in bridge.keys():
+            netmask = bridge['netmask']
+            if type(netmask) in (tuple, list):
+                netmask = netmask[0]
 
         port_name = node.bond_name
         if vlan:
@@ -773,7 +781,7 @@ def generate_interface_config(node):
                           {'port_name' : port_name,
                            'bond'      : node.bond_name})
  
-        if node.role == ROLE_COMPUTE:
+        if node.role == ROLE_COMPUTE and inet != 'static':
             config += ('auto %(name)s\n'
                        '  iface %(name)s inet %(inet)s\n'
                        '  bridge_ports %(port_name)s\n'
@@ -782,6 +790,19 @@ def generate_interface_config(node):
                        {'name'      : name,
                         'port_name' : port_name,
                         'inet'      : inet})
+        elif node.role == ROLE_COMPUTE and inet == 'static':
+            config += ('auto %(name)s\n'
+                       '  iface %(name)s inet %(inet)s\n'
+                       '  address %(address)s\n'
+                       '  netmask %(netmask)s\n'
+                       '  bridge_ports %(port_name)s\n'
+                       '  bridge_stp off\n'
+                       '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
+                       {'name'      : name,
+                        'port_name' : port_name,
+                        'inet'      : inet,
+                        'address'   : address,
+                        'netmask'   : netmask})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
         config_file.write(config)
