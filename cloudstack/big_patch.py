@@ -604,7 +604,7 @@ file_line {'config loop':
     require => File['/etc/modules'],
 }
 
-package {["lldpd", "vlan", "ifenslave"]:
+package {["lldpd", "vlan", "ifenslave-2.6"]:
     ensure => installed,
 }
 
