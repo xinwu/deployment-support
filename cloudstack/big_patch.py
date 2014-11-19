@@ -728,7 +728,7 @@ else
     host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
     bond_intf_uuids=()
     for bond_intf in ${bond_intfs[@]}; do
-        bond_intf_uuid="$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${bond_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')"
+        bond_intf_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${bond_intf}" -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
         bond_intf_uuids=("${bond_intf_uuids[@]}" "$bond_intf_uuid")
     done
 
