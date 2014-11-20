@@ -674,6 +674,7 @@ if [[ ("$hypervisor" == "kvm") || ("%(role)s" == "management") ]]; then
         service cloudstack-management start
         sleep 300
     fi
+    reboot
 else
     host_name_label="%(host_name_label)s"
     network_name_labels=%(network_name_labels)s
@@ -735,7 +736,7 @@ else
     # configure management network
     bond_uuid=''
     bond_pif_uuid=''
-    mgmt_bridge=''
+    bond_bridge=''
     count=${#vlan_tags[@]}
     for (( i=0; i<${count}; i++ )); do
         network_name_label=${network_name_labels[$i]}
@@ -746,9 +747,9 @@ else
 
         if [[ ${vlan_tag} == '' ]]; then
             network_uuid="$(xe network-create name-label=${network_name_label})"
-            mgmt_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
             pif_uuids=$(IFS=, ; echo "${bond_intf_uuids[*]}")
             bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
+            bond_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
             bond_pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "VLAN ( RO): -1" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
 
             if [[ ${bond_inet} == 'static' ]]; then
@@ -758,20 +759,13 @@ else
         fi
     done
 
-    if [[ ${mgmt_bridge} == '' ]]; then
-        echo 'Error: management network must be untagged'
-        exit 1
-    fi
-
     if [[ ${bond_uuid} == '' ]]; then
         echo 'Error: fails to create bond'
         exit 1
     fi
 
-    # change management interface to management bond
-    sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
     bond_name=$(xe pif-list params=all | grep -w ${host_name_label} -B14 | grep -w ${bond_uuid} -B6 | grep -w device | awk '{print $NF}')
-    echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
+    echo "host name: ${host_name_label}, bond bridge: ${bond_bridge}, bond: ${bond_name}"
 
     # configure vlan
     for (( i=0; i<${count}; i++ )); do
@@ -806,7 +800,6 @@ else
     xe-switch-network-backend bridge
 
 fi
-reboot
 '''
 
 NODE_LOCAL_BASH = r'''
@@ -1194,12 +1187,14 @@ def worker():
 def deploy_to_all(config):
     # install sshpass
     safe_print("Installing sshpass to local node...\n")
+    '''
     run_command_on_local(
         'sudo rm -rf ~/.ssh/known_hosts;'
         ' sudo apt-get update;'
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
+    '''
 
     global HYPERVISOR
     HYPERVISOR = config['hypervisor']
@@ -1228,7 +1223,7 @@ def deploy_to_all(config):
 
         node = Node(node_config)
         generate_command_for_node(node)
-
+    '''
     for i in range(MAX_WORKERS):
         t = threading.Thread(target=worker)
         t.daemon = True
@@ -1236,7 +1231,7 @@ def deploy_to_all(config):
 
     node_q.join()
     safe_print("CloudStack deployment finished\n")
-
+    '''
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "
