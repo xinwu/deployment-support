@@ -1187,14 +1187,12 @@ def worker():
 def deploy_to_all(config):
     # install sshpass
     safe_print("Installing sshpass to local node...\n")
-    '''
     run_command_on_local(
         'sudo rm -rf ~/.ssh/known_hosts;'
         ' sudo apt-get update;'
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
-    '''
 
     global HYPERVISOR
     HYPERVISOR = config['hypervisor']
@@ -1223,15 +1221,15 @@ def deploy_to_all(config):
 
         node = Node(node_config)
         generate_command_for_node(node)
-    '''
-    for i in range(MAX_WORKERS):
+
+   for i in range(MAX_WORKERS):
         t = threading.Thread(target=worker)
         t.daemon = True
         t.start()
 
     node_q.join()
     safe_print("CloudStack deployment finished\n")
-    '''
+
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "
