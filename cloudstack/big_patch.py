@@ -740,16 +740,19 @@ def generate_interface_config(node):
     elif pxe_inet == 'static':
         address = get_raw_value(node.pxe_interface, 'address')
         netmask = get_raw_value(node.pxe_interface, 'netmask')
+        dns = get_raw_value(node.pxe_interface, 'dns-nameservers')
         config += ('auto %(pxe_intf)s\n'
                    '  iface %(pxe_intf)s inet %(inet)s\n'
                    '  address %(address)s\n'
                    '  netmask %(netmask)s\n'
+                   '  dns-nameservers %(dns)s\n'
                    '  up route add default gw %(pxe_gw)s\n\n' %
                   {'pxe_intf' : pxe_intf,
                    'pxe_gw'   : node.pxe_gw,
                    'inet'     : pxe_inet,
                    'address'  : address,
-                   'netmask'  : netmask})
+                   'netmask'  : netmask,
+                   'dns'      : dns})
         
 
     for intf in node.bond_interfaces:
