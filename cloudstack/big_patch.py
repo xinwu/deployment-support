@@ -812,6 +812,7 @@ master_address="%(master_address)s"
 master_username="%(master_username)s"
 master_pwd="%(master_pwd)s"
 user_name="%(username)s"
+bond_intfs=%(bond_intfs)s
 
 # wget vhd-util
 mkdir -p /home/${user_name}/bcf
@@ -1318,6 +1319,7 @@ def generate_command_for_node(node):
                         {'master_address'  : MASTER_NODE.hostname,
                          'master_username' : MASTER_NODE.node_username,
                          'master_pwd'      : MASTER_NODE.node_password,
+                         'bond_intfs'      : bond_intfs,
                          'username'        : node.node_username})
     slave_bash.close()
 
