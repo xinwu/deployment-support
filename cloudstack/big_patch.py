@@ -724,9 +724,6 @@ else
     # disable iptables
     service iptables stop
 
-    # use linux bridge instead of ovs
-    xe-switch-network-backend bridge
-
     # configure bond
     host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
     bond_intf_uuids=()
@@ -804,6 +801,10 @@ else
         pif_uuid=$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${pxe_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
         xe pif-reconfigure-ip uuid=${pif_uuid} mode=${pxe_inet} IP=${pxe_address} netmask=${pxe_netmask} gateway=${pxe_gw} DNS=${pxe_dns}
     fi
+
+    # use linux bridge instead of ovs
+    xe-switch-network-backend bridge
+
 fi
 reboot
 '''
@@ -894,46 +895,71 @@ def generate_interface_config(node):
                    '  bond-master %(bond)s\n\n' %
                   {'intf' : intf, 'bond' : node.bond_name})
 
-    config += ('auto %(bond)s\n'
+    if node.role == ROLE_MGMT:
+         mgmt_bond = node.management_bond
+         vlan = get_raw_value(mgmt_bond, 'vlan')
+         inet = get_raw_value(mgmt_bond, 'inet')
+
+         if vlan:
+             config += ('auto %(bond)s\n'
+                        '  iface %(bond)s inet manual\n'
+                        '  bond-mode 0\n'
+                        '  bond-slaves none\n'
+                        '  bond-miimon 50\n\n' %
+                       {'bond' : node.bond_name})
+
+         address = None
+         netmask = None
+         if inet == 'static':
+             address = get_raw_value(mgmt_bond, 'address')
+             netmask = get_raw_value(mgmt_bond, 'netmask')
+
+         if vlan and (inet != 'static'):
+             config += ('auto %(bond)s.%(vlan)s\n'
+                        '  iface %(bond)s.%(vlan)s inet %(inet)s\n'
+                        '  vlan-raw-device %(bond)s\n\n' %
+                       {'vlan' : vlan,
+                        'bond' : node.bond_name,
+                        'inet' : inet})
+         elif vlan and (inet == 'static'):
+             config += ('auto %(bond)s.%(vlan)s\n'
+                        '  iface %(bond)s.%(vlan)s inet %(inet)s\n'
+                        '  vlan-raw-device %(bond)s\n'
+                        '  address %(address)s\n'
+                        '  netmask %(netmask)s\n\n' %
+                       {'vlan'    : vlan,
+                        'bond'    : node.bond_name,
+                        'inet'    : inet,
+                        'address' : address,
+                        'netmask' : netmask})
+         elif (not vlan) and (inet != 'static'):
+             config += ('auto %(bond)s\n'
+                        '  iface %(bond)s inet %(inet)s\n'
+                        '  bond-mode 0\n'
+                        '  bond-slaves none\n'
+                        '  bond-miimon 50\n\n' %
+                       {'bond' : node.bond_name,
+                        'inet' : inet})
+         elif (not vlan) and (inet == 'static'):
+             config += ('auto %(bond)s\n'
+                        '  iface %(bond)s inet %(inet)s\n'
+                        '  address %(address)s\n'
+                        '  netmask %(netmask)s\n'
+                        '  bond-mode 0\n'
+                        '  bond-slaves none\n'
+                        '  bond-miimon 50\n\n' %
+                       {'bond'           : node.bond_name,
+                        'inet'           : inet,
+                        'address'        : address,
+                        'netmask'        : netmask})
+    else:
+        config += ('auto %(bond)s\n'
                '  iface %(bond)s inet manual\n'
                '  bond-mode 0\n'
                '  bond-slaves none\n'
                '  bond-miimon 50\n\n' %
               {'bond' : node.bond_name})
 
-    if node.role == ROLE_MGMT:
-         mgmt_bond = node.management_bond
-         vlan = get_raw_value(mgmt_bond, 'vlan')
-         inet = get_raw_value(mgmt_bond, 'inet')
-         mgmt_bond_name = None
-         if vlan:
-             mgmt_bond_name = ('%(bond_name)s.%(vlan)s' %
-                              {'bond_name' : node.bond_name,
-                               'vlan'      : vlan})
-         else:
-             mgmt_bond_name = ('%(bond_name)s' %
-                              {'bond_name' : node.bond_name})
-         if inet != 'static':
-             config += ('auto %(mgmt_bond_name)s\n'
-                        '  iface %(mgmt_bond_name)s inet %(inet)s\n'
-                        '  vlan-raw-device %(bond)s\n\n' %
-                       {'mgmt_bond_name' : mgmt_bond_name,
-                        'bond'           : node.bond_name,
-                        'inet'           : inet})
-         elif inet == 'static':
-             address = get_raw_value(mgmt_bond, 'address')
-             netmask = get_raw_value(mgmt_bond, 'netmask')
-             config += ('auto %(mgmt_bond_name)s\n'
-                        '  iface %(mgmt_bond_name)s inet %(inet)s\n'
-                        '  vlan-raw-device %(bond)s\n'
-                        '  address %(address)s\n'
-                        '  netmask %(netmask)s\n\n' %
-                       {'mgmt_bond_name' : mgmt_bond_name,
-                        'bond'           : node.bond_name,
-                        'inet'           : inet,
-                        'address'        : address,
-                        'netmask'        : netmask})
-    else:
         for bridge in node.bridges:
             name = get_raw_value(bridge, 'name')
             vlan = get_raw_value(bridge, 'vlan')
@@ -1210,6 +1236,7 @@ def deploy_to_all(config):
 
     node_q.join()
     safe_print("CloudStack deployment finished\n")
+
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "
