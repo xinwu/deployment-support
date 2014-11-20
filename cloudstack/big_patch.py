@@ -1222,7 +1222,7 @@ def deploy_to_all(config):
         node = Node(node_config)
         generate_command_for_node(node)
 
-   for i in range(MAX_WORKERS):
+    for i in range(MAX_WORKERS):
         t = threading.Thread(target=worker)
         t.daemon = True
         t.start()
