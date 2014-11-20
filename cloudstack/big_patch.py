@@ -96,6 +96,9 @@ STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 # hypervisor, can be either kvm or xen
 HYPERVISOR = 'kvm'
 
+# master node for XEN setup
+MASTER_NODE = None
+
 # management node puppet template
 MGMT_PUPPET = r'''
 $user           = "%(user)s"
@@ -808,7 +811,7 @@ XEN_SLAVE = r'''
 master_address="%(master_address)s"
 master_username="%(master_username)s"
 master_pwd="%(master_pwd)s"
-username="%(username)s"
+user_name="%(username)s"
 
 # wget vhd-util
 mkdir -p /home/${user_name}/bcf
@@ -927,7 +930,6 @@ sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inven
 echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
 xe-switch-network-backend bridge
 xe-toolstack-restart
-reboot
 '''
 
 NODE_LOCAL_BASH = r'''
@@ -943,6 +945,14 @@ if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
         echo -e "Copy db.sh to node %(hostname)s\n"
         sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
     fi
+fi
+if [[ "%(hypervisor)s" == "xen" ]]; then
+    echo -e "Copy slave.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
+    echo -e "Copy bondip.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
+    echo -e "Copy mgmtintf.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.mgmtintf.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/mgmtintf.sh >> %(log)s 2>&1
 fi
     echo -e "Copy %(role)s.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
@@ -1223,7 +1233,7 @@ def generate_command_for_node(node):
                                 'hostname'       : node.hostname})
             node_db_bash.close()
 
-    # generate shell script
+    # generate remote shell script
     bond_intfs = '('
     for bond_interface in node.bond_interfaces:
         bond_intfs += r'''"%s" ''' % bond_interface
@@ -1291,7 +1301,7 @@ def generate_command_for_node(node):
                                 'pxe_dns'             : pxe_dns})
         node_remote_bash.close()
 
-    # generate script for node
+    # generate local script for node
     with open('/tmp/%s.local.sh' % node.hostname, "w") as node_local_bash:
         node_local_bash.write(NODE_LOCAL_BASH %
                                {'pwd'        : node.node_password,
@@ -1301,6 +1311,20 @@ def generate_command_for_node(node):
                                 'log'        : LOG_FILENAME,
                                 'hypervisor' : HYPERVISOR})
         node_local_bash.close()
+
+    # generate script for xen slaves
+    with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
+        slave_bash.write(XEN_SLAVE %
+                        {'master_address'  : ,
+                         'master_username' : ,
+                         'master_pwd'      : ,
+                         'user_name'       : node.node_username})
+    slave_bash.close()
+
+    with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
+        mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
+                        {'host_name_label'  : node.host_name_label})
+    mgmtintf_bash.close()
 
     node_q.put(node)
     
@@ -1315,12 +1339,14 @@ def worker():
 def deploy_to_all(config):
     # install sshpass
     safe_print("Installing sshpass to local node...\n")
+    '''
     run_command_on_local(
         'sudo rm -rf ~/.ssh/known_hosts;'
         ' sudo apt-get update;'
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
+    '''
 
     global HYPERVISOR
     HYPERVISOR = config['hypervisor']
@@ -1348,8 +1374,12 @@ def deploy_to_all(config):
             node_config['cloud_db_pwd'] = UNDEF
 
         node = Node(node_config)
+        global MASTER_NODE
+        if HYPERVISOR == "xen" and MASTER_NODE == None:
+            TODO
         generate_command_for_node(node)
 
+    '''
     for i in range(MAX_WORKERS):
         t = threading.Thread(target=worker)
         t.daemon = True
@@ -1357,7 +1387,7 @@ def deploy_to_all(config):
 
     node_q.join()
     safe_print("CloudStack deployment finished\n")
-
+    '''
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "
