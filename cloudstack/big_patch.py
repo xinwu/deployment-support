@@ -856,7 +856,7 @@ xe-switch-network-backend bridge
 XEN_IP_ASSIGNMENT=r'''
 #!/bin/bash
 
-user_name=%(username)s
+user_name="%(username)s"
 cluster_size=%(cluster_size)d
 count_down=30
 slave_name_labels=%(slave_name_labels)s
@@ -921,7 +921,7 @@ done
 XEN_CHANGE_MGMT_INTF=r'''
 #!/bin/bash
 
-host_name_label=%(host_name_label)s
+host_name_label="%(host_name_label)s"
 # change management interface to bond
 network_uuid=$(xe pif-list host-name-label=xenserver-2 device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
 bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w device | grep bond | awk '{print $NF}')
@@ -1315,19 +1315,16 @@ def generate_command_for_node(node):
     # generate script for xen slaves
     with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
         slave_bash.write(XEN_SLAVE %
-                        {'master_address'  : ,
-                         'master_username' : ,
-                         'master_pwd'      : ,
-                         'user_name'       : node.node_username})
+                        {'master_address'  : MASTER_NODE.hostname,
+                         'master_username' : MASTER_NODE.node_username,
+                         'master_pwd'      : MASTER_NODE.node_password,
+                         'username'        : node.node_username})
     slave_bash.close()
 
     with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
         mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
                         {'host_name_label'  : node.host_name_label})
     mgmtintf_bash.close()
-
-    node_q.put(node)
-    
 
 def worker():
     while True:
@@ -1350,6 +1347,13 @@ def deploy_to_all(config):
 
     global HYPERVISOR
     HYPERVISOR = config['hypervisor']
+
+    slave_name_labels = '('
+    bond_ips   = '('
+    bond_masks = '('
+    bond_vlans = None
+    bond_inets = None
+
     for node_config in config['nodes']:
         if 'pxe_interface' not in node_config:
             node_config['pxe_interface'] = config['default_pxe_interface']
@@ -1375,9 +1379,50 @@ def deploy_to_all(config):
 
         node = Node(node_config)
         global MASTER_NODE
-        if HYPERVISOR == "xen" and MASTER_NODE == None:
-            TODO
+        if HYPERVISOR == "xen" and node.role == "compute" and MASTER_NODE == None:
+            MASTER_NODE = node
+            if (not bond_vlans) and (not bond_inets) and node.bridges:
+                bond_vlans = '('
+                bond_inets = '('
+                for bridge in node.bridges:
+                    vlan = get_raw_value(bridge, 'vlan')
+                    if not vlan:
+                        vlan = ""
+                    inet = get_raw_value(bridge, 'inet')
+                    bond_vlans += r'''"%s" ''' % vlan
+                    bond_inets += r'''"%s" ''' % inet
+                bond_vlans += ')'
+                bond_inets += ')'   
+            safe_print("Master node of xenserver pool is: %s\n" % node.hostname)
+        elif HYPERVISOR == "xen" and node.role == "compute":
+            slave_name_labels += r'''"%s" ''' % node.host_name_label
+            if node.bridges:
+                for bridge in node.bridges:
+                    address = ""
+                    if 'address' in bridge.keys():
+                        address = get_raw_value(bridge, 'address')
+                    netmask = ""
+                    if 'netmask' in bridge.keys():
+                        netmask = get_raw_value(bridge, 'netmask')
+                    bond_ips   += r'''"%s" ''' % address
+                    bond_masks += r'''"%s" ''' % netmask
         generate_command_for_node(node)
+        node_q.put(node)
+    slave_name_labels += ')'
+    bond_ips   += ')'
+    bond_masks += ')'
+
+    # generate ip assignment script for xen master node
+    with open('/tmp/%s.bondip.sh' % MASTER_NODE.hostname, "w") as bondip_bash:
+        bondip_bash.write(XEN_IP_ASSIGNMENT %
+                        {'username'          : MASTER_NODE.node_username,
+                         'cluster_size'      : node_q.qsize() - 1,
+                         'slave_name_labels' : slave_name_labels,
+                         'bond_vlans'        : bond_vlans,
+                         'bond_inets'        : bond_inets,
+                         'bond_ips'          : bond_ips,
+                         'bond_masks'        : bond_masks})
+    bondip_bash.close()
 
     '''
     for i in range(MAX_WORKERS):
