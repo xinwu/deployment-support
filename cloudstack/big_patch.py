@@ -802,6 +802,134 @@ else
 fi
 '''
 
+XEN_SLAVE = r'''
+#!/bin/bash
+
+master_address="%(master_address)s"
+master_username="%(master_username)s"
+master_pwd="%(master_pwd)s"
+username="%(username)s"
+
+# wget vhd-util
+mkdir -p /home/${user_name}/bcf
+wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_name}/bcf/
+chmod 777 /home/${user_name}/bcf/vhd-util
+mkdir -p /opt/cloud/bin
+cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
+mkdir -p /opt/xensource/bin
+cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
+
+# configure lldp
+wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
+yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
+cd /etc/yum.repos.d/
+wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
+yum install -y lldpd
+sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
+bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
+echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
+/sbin/chkconfig --add lldpd
+/sbin/chkconfig lldpd on
+service lldpd start
+
+# configure NTP
+yum install -y ntp
+sed -i '/xenserver.pool.ntp.org/d' /etc/ntp.conf
+sed -i '/0.bigswitch.pool.ntp.org/d' /etc/ntp.conf
+echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
+service ntpd restart
+/sbin/chkconfig --add ntpd
+/sbin/chkconfig ntpd on
+
+# disable iptables
+service iptables stop
+
+xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
+
+# use linux bridge instead of ovs
+xe-switch-network-backend bridge
+'''
+
+XEN_IP_ASSIGNMENT=r'''
+#!/bin/bash
+
+user_name=%(username)s
+cluster_size=%(cluster_size)d
+count_down=30
+slave_name_labels=%(slave_name_labels)s
+bond_vlans=%(bond_vlans)s
+bond_inets=%(bond_inets)s
+bond_ips=%(bond_ips)s
+bond_masks=%(bond_masks)s
+
+# wait at most 30 seconds for all slaves to join cluster
+count=${count_down}
+hosts_online=$(xe host-list | grep -w uuid | wc -l)
+while [[ ${count} > 0 ]] && [[ ${hosts_online} < ${cluster_size} ]]; do
+    hosts_online=$(xe host-list | grep -w uuid | wc -l)
+    let count-=1
+    sleep 1
+done
+echo 'Number of compute nodes online:' ${hosts_online}
+
+# configure bonds to all nodes
+mkdir -p /home/${user_name}/bcf
+wget --no-check-certificate https://raw.githubusercontent.com/apache/cloudstack/master/scripts/vm/hypervisor/xenserver/cloud-setup-bonding.sh -P /home/${user_name}/bcf/
+bash /home/${user_name}/bcf/cloud-setup-bonding.sh
+
+# wait at most 30 seconds for all bonds
+bonds_online=$(xe bond-list | grep -w uuid | wc -l)
+count=${count_down}
+while [[ ${count} > 0 ]] && [[ ${bonds_online} < ${hosts_online} ]]; do
+    bonds_online=$(xe bond-list | grep -w uuid | wc -l)
+    let count-=1
+    sleep 1
+done
+echo 'Number of bonds online:' ${bonds_online}
+
+# configure bond interface ip
+bond_count=${#bond_inets[@]}
+slave_count=${#slave_name_labels[@]}
+for (( i=0; i<${slave_count}; i++ )); do
+    slave_name_label=${slave_name_labels[$i]}
+    existence=$(xe host-list | grep ${slave_name_label} | wc -l)
+    if [[ $existence == 0 ]]; then
+        continue
+    fi
+    let start_index=i*bond_count
+    for (( j=0; j<${bond_count}; j++ )); do
+        inet=${bond_inets[$j]}
+        if [[ ${inet} != 'static' ]]; then
+            continue
+        fi
+        vlan=${bond_vlans[$j]}
+        if [[ $vlan == "" ]]; then
+            vlan="-1"
+        fi
+        let k=start_index+j
+        ip=${bond_ips[$k]}
+        mask=${bond_masks[$k]}
+        pif_uuid=$(xe pif-list host-name-label=${slave_name_label} device-name='' VLAN=${vlan} | grep -w uuid | grep -v network | awk '{print $NF}')
+        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask}
+    done
+done
+'''
+
+XEN_CHANGE_MGMT_INTF=r'''
+#!/bin/bash
+
+host_name_label=%(host_name_label)s
+# change management interface to bond
+network_uuid=$(xe pif-list host-name-label=xenserver-2 device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
+bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w device | grep bond | awk '{print $NF}')
+mgmt_bridge=$(xe network-param-get param-name=bridge uuid=${network_uuid})
+sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
+echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
+xe-switch-network-backend bridge
+xe-toolstack-restart
+reboot
+'''
+
 NODE_LOCAL_BASH = r'''
 #!/bin/bash
 echo -e "Start to deploy %(role)s node %(hostname)s...\n"
