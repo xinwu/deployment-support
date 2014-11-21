@@ -8,6 +8,7 @@ default_node_username: root
 default_node_password: bsn
 pxe_gw: 10.8.0.1
 default_role: compute
+default_xenserver_pool: pool1
 default_bond_interface:
   interfaces:
   - eth2
@@ -43,6 +44,7 @@ nodes:
   host_name_label: xenserver2
 - hostname: 172.16.54.134
   host_name_label: xenserver3
+  xenserver_ppol: pool2
   node_username: username
   node_password: password
   pxe_interface:

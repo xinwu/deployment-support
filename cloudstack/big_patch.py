@@ -96,8 +96,11 @@ STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 # hypervisor, can be either kvm or xen
 HYPERVISOR = 'kvm'
 
-# master node for XEN setup
-MASTER_NODE = None
+# master nodes for XEN server pools
+MASTER_NODES = {}
+
+# pool size
+POOL_SIZES = {}
 
 # management node puppet template
 MGMT_PUPPET = r'''
@@ -924,7 +927,7 @@ XEN_CHANGE_MGMT_INTF=r'''
 
 host_name_label="%(host_name_label)s"
 # change management interface to bond
-network_uuid=$(xe pif-list host-name-label=xenserver-2 device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
+network_uuid=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
 bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w device | grep bond | awk '{print $NF}')
 mgmt_bridge=$(xe network-param-get param-name=bridge uuid=${network_uuid})
 sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
@@ -948,10 +951,13 @@ if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
     fi
 fi
 if [[ "%(hypervisor)s" == "xen" ]]; then
-    echo -e "Copy slave.sh to node %(hostname)s\n"
-    sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
-    echo -e "Copy bondip.sh to node %(hostname)s\n"
-    sshpass -p %(pwd)s scp /tmp/%(hostname)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
+    if [[ -f /tmp/%(hostname)s.%(pool)s.bondip.sh ]]; then
+        echo -e "Copy bondip.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.%(pool)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
+    else
+        echo -e "Copy slave.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
+    fi
     echo -e "Copy mgmtintf.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.mgmtintf.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/mgmtintf.sh >> %(log)s 2>&1
 fi
@@ -977,6 +983,7 @@ class Node(object):
         self.node_username   = get_raw_value(node_config, 'node_username')
         self.node_password   = get_raw_value(node_config, 'node_password')
         self.role            = get_raw_value(node_config, 'role')
+        self.xenserver_pool  = get_raw_value(node_config, 'xenserver_pool')
         self.mysql_root_pwd  = get_raw_value(node_config, 'mysql_root_pwd')
         self.cloud_db_pwd    = get_raw_value(node_config, 'cloud_db_pwd')
 
@@ -1309,19 +1316,21 @@ def generate_command_for_node(node):
                                 'hostname'   : node.hostname,
                                 'user'       : node.node_username,
                                 'role'       : node.role,
+                                'pool'       : node.xenserver_pool,
                                 'log'        : LOG_FILENAME,
                                 'hypervisor' : HYPERVISOR})
         node_local_bash.close()
 
     # generate script for xen slaves
-    with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
-        slave_bash.write(XEN_SLAVE %
-                        {'master_address'  : MASTER_NODE.hostname,
-                         'master_username' : MASTER_NODE.node_username,
-                         'master_pwd'      : MASTER_NODE.node_password,
-                         'bond_intfs'      : bond_intfs,
-                         'username'        : node.node_username})
-    slave_bash.close()
+    if MASTER_NODES[node.xenserver_pool].hostname != node.hostname:
+        with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
+            slave_bash.write(XEN_SLAVE %
+                            {'master_address'  : MASTER_NODES[node.xenserver_pool].hostname,
+                             'master_username' : MASTER_NODES[node.xenserver_pool].node_username,
+                             'master_pwd'      : MASTER_NODES[node.xenserver_pool].node_password,
+                             'bond_intfs'      : bond_intfs,
+                             'username'        : node.node_username})
+        slave_bash.close()
 
     with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
         mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
@@ -1348,7 +1357,15 @@ def deploy_to_all(config):
     '''
 
     global HYPERVISOR
+    global MASTER_NODES
+    global POOL_SIZES
     HYPERVISOR = config['hypervisor']
+
+    slave_name_labels_dic = {}
+    bond_ips_dic   = {}
+    bond_masks_dic = {}
+    bond_vlans_dic = {}
+    bond_inets_dic = {}
 
     slave_name_labels = '('
     bond_ips   = '('
@@ -1365,6 +1382,8 @@ def deploy_to_all(config):
             node_config['node_password'] = config['default_node_password']
         if 'role' not in node_config:
             node_config['role'] = config['default_role']
+        if 'xenserver_pool' not in node_config:
+            node_config['server_pool'] = config['default_xenserver_pool']
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
         if 'bridges' not in node_config:
@@ -1380,24 +1399,30 @@ def deploy_to_all(config):
             node_config['cloud_db_pwd'] = UNDEF
 
         node = Node(node_config)
-        global MASTER_NODE
-        if HYPERVISOR == "xen" and node.role == "compute" and MASTER_NODE == None:
-            MASTER_NODE = node
-            if (not bond_vlans) and (not bond_inets) and node.bridges:
-                bond_vlans = '('
-                bond_inets = '('
+        if HYPERVISOR == "xen" and node.role == "compute" and node.xenserver_pool not in MASTER_NODES.keys():
+            MASTER_NODES[node.xenserver_pool] = node
+            POOL_SIZES[node.xenserver_pool] = 1
+            slave_name_labels_dic[node.xenserver_pool] = '('
+            bond_ips_dic[node.xenserver_pool] = '('
+            bond_masks_dic[node.xenserver_pool] = '('
+            bond_vlans_dic[node.xenserver_pool] = '('
+            bond_inets_dic[node.xenserver_pool] = '('
+            if node.bridges:
                 for bridge in node.bridges:
                     vlan = get_raw_value(bridge, 'vlan')
                     if not vlan:
                         vlan = ""
                     inet = get_raw_value(bridge, 'inet')
-                    bond_vlans += r'''"%s" ''' % vlan
-                    bond_inets += r'''"%s" ''' % inet
-                bond_vlans += ')'
-                bond_inets += ')'   
-            safe_print("Master node of xenserver pool is: %s\n" % node.hostname)
+                    bond_vlans_dic[node.xenserver_pool] += r'''"%s" ''' % vlan
+                    bond_inets_dic[node.xenserver_pool] += r'''"%s" ''' % inet
+                bond_vlans_dic[node.xenserver_pool] += ')'
+                bond_inets_dic[node.xenserver_pool] += ')'   
+            safe_print("Master node of xenserver pool %(pool)s is: %(hostname)s\n" %
+                       {'pool'     : node.xenserver_pool,
+                        'hostname' : node.hostname})
         elif HYPERVISOR == "xen" and node.role == "compute":
-            slave_name_labels += r'''"%s" ''' % node.host_name_label
+            POOL_SIZES[node.xenserver_pool] = POOL_SIZES.get(node.xenserver_pool, 1) + 1
+            slave_name_labels_dic[node.xenserver_pool] += r'''"%s" ''' % node.host_name_label
             if node.bridges:
                 for bridge in node.bridges:
                     address = ""
@@ -1406,25 +1431,28 @@ def deploy_to_all(config):
                     netmask = ""
                     if 'netmask' in bridge.keys():
                         netmask = get_raw_value(bridge, 'netmask')
-                    bond_ips   += r'''"%s" ''' % address
-                    bond_masks += r'''"%s" ''' % netmask
+                    bond_ips_dic[node.xenserver_pool] += r'''"%s" ''' % address
+                    bond_masks_dic[node.xenserver_pool] += r'''"%s" ''' % netmask
         generate_command_for_node(node)
         node_q.put(node)
-    slave_name_labels += ')'
-    bond_ips   += ')'
-    bond_masks += ')'
 
-    # generate ip assignment script for xen master node
-    with open('/tmp/%s.bondip.sh' % MASTER_NODE.hostname, "w") as bondip_bash:
-        bondip_bash.write(XEN_IP_ASSIGNMENT %
-                        {'username'          : MASTER_NODE.node_username,
-                         'cluster_size'      : node_q.qsize() - 1,
-                         'slave_name_labels' : slave_name_labels,
-                         'bond_vlans'        : bond_vlans,
-                         'bond_inets'        : bond_inets,
-                         'bond_ips'          : bond_ips,
-                         'bond_masks'        : bond_masks})
-    bondip_bash.close()
+    for pool in MASTER_NODES.keys():
+        slave_name_labels_dic[pool] += ')'
+        bond_ips_dic[pool] += ')'
+        bond_masks_dic[pool] += ')'
+        # generate ip assignment script for xen master node
+        with open('/tmp/%(hostname)s.%(pool)s.bondip.sh' %
+                 {'hostname' : MASTER_NODES[pool].hostname,
+                  'pool'     : pool}, "w") as bondip_bash:
+            bondip_bash.write(XEN_IP_ASSIGNMENT %
+                             {'username'          : MASTER_NODES[pool].node_username,
+                              'cluster_size'      : POOL_SIZES[pool],
+                              'slave_name_labels' : slave_name_labels_dic[pool],
+                              'bond_vlans'        : bond_vlans_dic[pool],
+                              'bond_inets'        : bond_inets_dic[pool],
+                              'bond_ips'          : bond_ips_dic[pool],
+                              'bond_masks'        : bond_masks_dic[pool]})
+            bondip_bash.close()
 
     '''
     for i in range(MAX_WORKERS):
