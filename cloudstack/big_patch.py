@@ -949,24 +949,30 @@ if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
         echo -e "Copy db.sh to node %(hostname)s\n"
         sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
     fi
-fi
-if [[ "%(hypervisor)s" == "xen" ]]; then
-    if [[ -f /tmp/%(hostname)s.%(pool)s.bondip.sh ]]; then
-        echo -e "Copy bondip.sh to node %(hostname)s\n"
-        sshpass -p %(pwd)s scp /tmp/%(hostname)s.%(pool)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
-    else
-        echo -e "Copy slave.sh to node %(hostname)s\n"
-        sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
-    fi
-    echo -e "Copy mgmtintf.sh to node %(hostname)s\n"
-    sshpass -p %(pwd)s scp /tmp/%(hostname)s.mgmtintf.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/mgmtintf.sh >> %(log)s 2>&1
-fi
     echo -e "Copy %(role)s.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
     echo -e "Run %(role)s.sh on node %(hostname)s\n"
     echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
     sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
-echo -e "Finish deploying %(role)s on %(hostname)s\n"
+    echo -e "Finish deploying %(role)s on %(hostname)s\n"
+fi
+if [[ ("%(hypervisor)s" == "xen") && ("%(role)s" == "compute") ]]; then
+    echo -e "Copy mgmtintf.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.mgmtintf.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/mgmtintf.sh >> %(log)s 2>&1
+    if [[ ! -f /tmp/%(hostname)s.%(pool)s.bondip.sh ]]; then
+        echo -e "Copy slave.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
+    else
+        echo -e "Copy bondip.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.%(pool)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
+        echo -e "Copy %(role)s.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
+        echo -e "Run %(role)s.sh on node %(hostname)s\n"
+        echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
+        sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
+        echo -e "Finish deploying master %(role)s on %(pool)s %(hostname)s\n"
+    fi
+fi
 '''
 
 def get_raw_value(dic, key):
@@ -983,13 +989,17 @@ class Node(object):
         self.node_username   = get_raw_value(node_config, 'node_username')
         self.node_password   = get_raw_value(node_config, 'node_password')
         self.role            = get_raw_value(node_config, 'role')
-        self.xenserver_pool  = get_raw_value(node_config, 'xenserver_pool')
         self.mysql_root_pwd  = get_raw_value(node_config, 'mysql_root_pwd')
         self.cloud_db_pwd    = get_raw_value(node_config, 'cloud_db_pwd')
 
         self.bond_name       = get_raw_value(node_config['bond_interface'], 'name')
         self.bond_interfaces = node_config['bond_interface']['interfaces']
         self.pxe_interface   = node_config['pxe_interface']
+
+        if HYPERVISOR == 'xen':
+           self.xenserver_pool  = get_raw_value(node_config, 'xenserver_pool')
+        else:
+           self.xenserver_pool  = None
 
         if self.role == ROLE_MGMT:
             self.management_bond = get_raw_value(node_config, 'management_bond')
@@ -1170,8 +1180,15 @@ def kill_on_timeout(command, event, timeout, proc):
         safe_print('Timeout when running %s' % command)
         proc.kill()
 
-# queue to store all bash cmd
+# queue to store all nodes
 node_q = Queue.Queue()
+# queue to store all xen master nodes
+xen_master_node_q = Queue.Queue()
+# queue to store all xen slave nodes
+xen_slave_node_q = Queue.Queue()
+# TODO
+
+
 def run_command_on_local(command, timeout=1800):
     event = threading.Event()
     p = subprocess.Popen(
@@ -1198,48 +1215,49 @@ def run_command_on_local(command, timeout=1800):
 
 
 def generate_command_for_node(node):
-    # generate interface config
-    generate_interface_config(node)
+    if HYPERVISOR == "kvm" or node.role == "management":
+        # generate interface config
+        generate_interface_config(node)
 
-    # generate puppet script
-    intfs = ','.join(node.bond_interfaces)
-    lldp_config = LLDP_PUPPET % {'bond_interfaces' : intfs}
-    node_config = None
-    if node.role == ROLE_MGMT:
-        node_config = (MGMT_PUPPET %
-                       {'user'                : node.node_username,
-                        'role'                : node.role,
-                        'mysql_root_pwd'      : node.mysql_root_pwd,
-                        'cs_url'              : CS_URL,
-                        'cs_common'           : CS_COMMON,
-                        'cs_mgmt'             : CS_MGMT,
-                        'cloud_db_pwd'        : node.cloud_db_pwd,
-                        'storage_script'      : STORAGE_SCRIPT,
-                        'storage_vm_url'      : STORAGE_VM_URL,
-                        'storage_vm_template' : STORAGE_VM_TEMPLATE})
-    elif node.role == ROLE_COMPUTE:
-        node_config = (COMPUTE_PUPPET %
-                       {'user'      : node.node_username,
-                        'role'      : node.role,
-                        'cs_url'    : CS_URL,
-                        'cs_common' : CS_COMMON,
-                        'cs_agent'  : CS_AGENT})
-    with open('/tmp/%s.pp' % node.hostname, "w") as node_puppet:
-        node_puppet.write("%(node_config)s\n\n%(lldp_config)s" %
-                          {'node_config' : node_config,
-                           'lldp_config' : lldp_config})
-        node_puppet.close()
+        # generate puppet script
+        intfs = ','.join(node.bond_interfaces)
+        lldp_config = LLDP_PUPPET % {'bond_interfaces' : intfs}
+        node_config = None
+        if node.role == ROLE_MGMT:
+            node_config = (MGMT_PUPPET %
+                          {'user'                : node.node_username,
+                           'role'                : node.role,
+                           'mysql_root_pwd'      : node.mysql_root_pwd,
+                           'cs_url'              : CS_URL,
+                           'cs_common'           : CS_COMMON,
+                           'cs_mgmt'             : CS_MGMT,
+                           'cloud_db_pwd'        : node.cloud_db_pwd,
+                           'storage_script'      : STORAGE_SCRIPT,
+                           'storage_vm_url'      : STORAGE_VM_URL,
+                           'storage_vm_template' : STORAGE_VM_TEMPLATE})
+        elif node.role == ROLE_COMPUTE:
+            node_config = (COMPUTE_PUPPET %
+                          {'user'      : node.node_username,
+                           'role'      : node.role,
+                           'cs_url'    : CS_URL,
+                           'cs_common' : CS_COMMON,
+                           'cs_agent'  : CS_AGENT})
+        with open('/tmp/%s.pp' % node.hostname, "w") as node_puppet:
+            node_puppet.write("%(node_config)s\n\n%(lldp_config)s" %
+                             {'node_config' : node_config,
+                              'lldp_config' : lldp_config})
+            node_puppet.close()
 
-    # generate db shell script
-    if node.role == ROLE_MGMT:
-        with open('/tmp/%s.db.sh' % node.hostname, "w") as node_db_bash:
-            node_db_bash.write(DB_BASH %
-                               {'user'           : node.node_username,
-                                'role'           : node.role,
-                                'cloud_db_pwd'   : node.cloud_db_pwd,
-                                'mysql_root_pwd' : node.mysql_root_pwd,
-                                'hostname'       : node.hostname})
-            node_db_bash.close()
+        # generate db shell script
+        if node.role == ROLE_MGMT:
+            with open('/tmp/%s.db.sh' % node.hostname, "w") as node_db_bash:
+                node_db_bash.write(DB_BASH %
+                                  {'user'           : node.node_username,
+                                   'role'           : node.role,
+                                   'cloud_db_pwd'   : node.cloud_db_pwd,
+                                   'mysql_root_pwd' : node.mysql_root_pwd,
+                                   'hostname'       : node.hostname})
+                node_db_bash.close()
 
     # generate remote shell script
     bond_intfs = '('
@@ -1321,21 +1339,22 @@ def generate_command_for_node(node):
                                 'hypervisor' : HYPERVISOR})
         node_local_bash.close()
 
-    # generate script for xen slaves
-    if MASTER_NODES[node.xenserver_pool].hostname != node.hostname:
-        with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
-            slave_bash.write(XEN_SLAVE %
-                            {'master_address'  : MASTER_NODES[node.xenserver_pool].hostname,
-                             'master_username' : MASTER_NODES[node.xenserver_pool].node_username,
-                             'master_pwd'      : MASTER_NODES[node.xenserver_pool].node_password,
-                             'bond_intfs'      : bond_intfs,
-                             'username'        : node.node_username})
-        slave_bash.close()
+    if HYPERVISOR == "xen":
+        # generate script for xen slaves
+        if MASTER_NODES[node.xenserver_pool].hostname != node.hostname:
+            with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
+                slave_bash.write(XEN_SLAVE %
+                                {'master_address'  : MASTER_NODES[node.xenserver_pool].hostname,
+                                 'master_username' : MASTER_NODES[node.xenserver_pool].node_username,
+                                 'master_pwd'      : MASTER_NODES[node.xenserver_pool].node_password,
+                                 'bond_intfs'      : bond_intfs,
+                                 'username'        : node.node_username})
+                slave_bash.close()
 
-    with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
-        mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
-                        {'host_name_label'  : node.host_name_label})
-    mgmtintf_bash.close()
+        with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
+            mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
+                               {'host_name_label'  : node.host_name_label})
+            mgmtintf_bash.close()
 
 def worker():
     while True:
@@ -1382,7 +1401,7 @@ def deploy_to_all(config):
             node_config['node_password'] = config['default_node_password']
         if 'role' not in node_config:
             node_config['role'] = config['default_role']
-        if 'xenserver_pool' not in node_config:
+        if HYPERVISOR == 'xen' and 'xenserver_pool' not in node_config:
             node_config['server_pool'] = config['default_xenserver_pool']
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
@@ -1453,7 +1472,6 @@ def deploy_to_all(config):
                               'bond_ips'          : bond_ips_dic[pool],
                               'bond_masks'        : bond_masks_dic[pool]})
             bondip_bash.close()
-
     '''
     for i in range(MAX_WORKERS):
         t = threading.Thread(target=worker)
