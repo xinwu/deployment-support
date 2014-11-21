@@ -709,8 +709,10 @@ else
     chmod 777 /home/${user_name}/bcf/vhd-util
     mkdir -p /opt/cloud/bin
     cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
+    chmod 777 /opt/cloud/bin/vhd-util
     mkdir -p /opt/xensource/bin
     cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
+    chmod 777 /opt/xensource/bin/vhd-util
 
     # configure lldp
     wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
@@ -835,8 +837,10 @@ wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_n
 chmod 777 /home/${user_name}/bcf/vhd-util
 mkdir -p /opt/cloud/bin
 cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
+chmod 777 /opt/cloud/bin/vhd-util
 mkdir -p /opt/xensource/bin
 cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
+chmod 777 /opt/xensource/bin/vhd-util
 
 # configure lldp
 wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
