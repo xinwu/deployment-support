@@ -701,6 +701,8 @@ else
     pxe_gw="%(pxe_gw)s"
     pxe_dns="%(pxe_dns)s"
 
+    export PATH="/sbin:/opt/xensource/bin:$PATH"
+
     # wget vhd-util
     mkdir -p /home/${user_name}/bcf
     wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_name}/bcf/
@@ -721,19 +723,19 @@ else
     echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
     /sbin/chkconfig --add lldpd
     /sbin/chkconfig lldpd on
-    service lldpd start
+    /sbin/service lldpd start
 
     # configure NTP
     yum install -y ntp
     sed -i '/xenserver.pool.ntp.org/d' /etc/ntp.conf
     sed -i '/0.bigswitch.pool.ntp.org/d' /etc/ntp.conf
     echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
-    service ntpd restart
+    /sbin/service ntpd restart
     /sbin/chkconfig --add ntpd
     /sbin/chkconfig ntpd on
 
     # disable iptables
-    service iptables stop
+    /sbin/service iptables stop
 
     # configure bond
     host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
@@ -811,7 +813,7 @@ else
     fi
 
     # use linux bridge instead of ovs
-    xe-switch-network-backend bridge
+    /opt/xensource/bin/xe-switch-network-backend bridge
 
 fi
 '''
@@ -824,6 +826,8 @@ master_username="%(master_username)s"
 master_pwd="%(master_pwd)s"
 user_name="%(username)s"
 bond_intfs=%(bond_intfs)s
+
+export PATH="/sbin:/opt/xensource/bin:$PATH"
 
 # wget vhd-util
 mkdir -p /home/${user_name}/bcf
@@ -877,6 +881,8 @@ bond_inets=%(bond_inets)s
 bond_ips=%(bond_ips)s
 bond_masks=%(bond_masks)s
 bond_gateways=%(bond_gateways)s
+
+export PATH="/sbin:/opt/xensource/bin:$PATH"
 
 # wait at most 30 seconds for all slaves to join cluster
 count=${count_down}
@@ -936,6 +942,9 @@ done
 XEN_CHANGE_MGMT_INTF=r'''
 #!/bin/bash
 host_name_label="%(host_name_label)s"
+
+export PATH="/sbin:/opt/xensource/bin:$PATH"
+
 # change management interface to bond
 network_uuid=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
 bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w device | grep bond | awk '{print $NF}')
