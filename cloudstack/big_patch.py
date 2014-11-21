@@ -1180,13 +1180,19 @@ def kill_on_timeout(command, event, timeout, proc):
         safe_print('Timeout when running %s' % command)
         proc.kill()
 
-# queue to store all nodes
+
+# queue to store all nodes, for step 1: setup master, on master, compute.sh
 node_q = Queue.Queue()
-# queue to store all xen master nodes
-xen_master_node_q = Queue.Queue()
-# queue to store all xen slave nodes
+# queue to store all xen slave nodes, for step 2: join cluster, on slave, slave.sh
 xen_slave_node_q = Queue.Queue()
-# TODO
+# queue to store all xen master nodes, for step 3: assign ip, on master, bondip.sh
+xen_master_node_q = Queue.Queue()
+# queue to store all nodes, for step 4: change mgmt intf, on all, mgmtintf.sh
+node_mgmtintf_q = Queue.Queue()
+# queue to store all xen master nodes, for step 5: reboot master, on master, reboot
+xen_master_node_reboot_q = Queue.Queue()
+# queue to store all xen slave nodes, for step 6: reboot slave, on slave, reboot
+xen_slave_node_reboot_q = Queue.Queue()
 
 
 def run_command_on_local(command, timeout=1800):
@@ -1356,12 +1362,75 @@ def generate_command_for_node(node):
                                {'host_name_label'  : node.host_name_label})
             mgmtintf_bash.close()
 
-def worker():
+
+# step 1: setup master, on master, compute.sh
+def worker_setup_master():
     while True:
         node = node_q.get()
         cmd = 'bash /tmp/%s.local.sh' % node.hostname
         run_command_on_local(cmd)
         node_q.task_done()
+
+# step 2: join cluster, on slave, slave.s
+def worker_join_cluster():
+    while True:
+        node = xen_slave_node_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/slave.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_slave_node_q.task_done()
+
+# step 3: assign ip, on master, bondip.sh
+def worker_assign_ip():
+    while True:
+        node = xen_master_node_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/bondip.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_master_node_q.task_done()
+
+# step 4: change mgmt intf, on all, mgmtintf.sh
+def worker_change_mgmtintf():
+    while True:
+        node = node_mgmtintf_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/mgmtintf.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        node_mgmtintf_q.task_done()
+
+# step 5: reboot master, on master, reboot
+def worker_reboot_master():
+    while True:
+        node = xen_master_node_reboot_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S reboot"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_master_node_reboot_q.task_done()
+
+# step 6: reboot slave, on master, reboot
+def worker_reboot_slave():
+    while True:
+        node = xen_slave_node_reboot_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S reboot"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_slave_node_reboot_q.task_done()
+
 
 def deploy_to_all(config):
     # install sshpass
@@ -1435,7 +1504,9 @@ def deploy_to_all(config):
                     bond_vlans_dic[node.xenserver_pool] += r'''"%s" ''' % vlan
                     bond_inets_dic[node.xenserver_pool] += r'''"%s" ''' % inet
                 bond_vlans_dic[node.xenserver_pool] += ')'
-                bond_inets_dic[node.xenserver_pool] += ')'   
+                bond_inets_dic[node.xenserver_pool] += ')'
+            xen_master_node_q.put(node)
+            xen_master_node_reboot_q.put(node)
             safe_print("Master node of xenserver pool %(pool)s is: %(hostname)s\n" %
                        {'pool'     : node.xenserver_pool,
                         'hostname' : node.hostname})
@@ -1452,8 +1523,11 @@ def deploy_to_all(config):
                         netmask = get_raw_value(bridge, 'netmask')
                     bond_ips_dic[node.xenserver_pool] += r'''"%s" ''' % address
                     bond_masks_dic[node.xenserver_pool] += r'''"%s" ''' % netmask
+            xen_slave_node_q.put(node)
+            xen_slave_node_reboot_q.put(node)        
         generate_command_for_node(node)
         node_q.put(node)
+        node_mgmtintf_q.put(node)
 
     for pool in MASTER_NODES.keys():
         slave_name_labels_dic[pool] += ')'
@@ -1472,15 +1546,59 @@ def deploy_to_all(config):
                               'bond_ips'          : bond_ips_dic[pool],
                               'bond_masks'        : bond_masks_dic[pool]})
             bondip_bash.close()
-    '''
+
+    # step 1: setup master, using node_q, on master run compute.sh   
     for i in range(MAX_WORKERS):
-        t = threading.Thread(target=worker)
+        t = threading.Thread(target=worker_setup_master)
         t.daemon = True
         t.start()
-
     node_q.join()
+    if HYPERVISOR == "kvm":
+        safe_print("CloudStack deployment finished\n")
+        return
+    else:
+        safe_print("Finish step 1: setup xen master\n")
+
+    # step 2: join cluster, using xen_slave_node_q, on slave run slave.sh
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_join_cluster)
+        t.daemon = True
+        t.start()
+    xen_slave_node_q.join()
+    safe_print("Finish step 2: join cluster\n")
+
+    # step 3: assign ip, using xen_master_node_q, on master run bondip.sh
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_assign_ip)
+        t.daemon = True
+        t.start()
+    xen_master_node_q.join()
+    safe_print("Finish step 3: assign ip to bond interfaces\n")
+
+    # step 4: change mgmt intf, using node_mgmtintf_q, on all run mgmtintf.sh
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_change_mgmtintf)
+        t.daemon = True
+        t.start()
+    node_mgmtintf_q.join()
+    safe_print("Finish step 4: change management interfaces\n")
+
+    # step 5: reboot master, using xen_master_node_reboot_q, on master using reboot
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_reboot_master)
+        t.daemon = True
+        t.start()
+    xen_master_node_reboot_q.join()
+    safe_print("Finish step 5: reboot xen masters\n")
+
+    # step 6: reboot slave, using xen_slave_node_reboot_q, on slave run reboot
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_reboot_slave)
+        t.daemon = True
+        t.start()
+    xen_slave_node_reboot_q.join()
+    safe_print("Finish step 6: reboot xen slaves\n")
     safe_print("CloudStack deployment finished\n")
-    '''
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "
