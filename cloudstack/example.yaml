@@ -58,6 +58,7 @@ nodes:
     inet: static
     address: 10.8.11.11
     netmask: 255.255.255.0
+    gateway: 10.8.11.11
     vlan: 6
   - name: brbond1-52
     inet: manual

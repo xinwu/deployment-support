@@ -692,6 +692,7 @@ else
     bond_inets=%(bond_inets)s
     bond_ips=%(bond_ips)s
     bond_masks=%(bond_masks)s
+    bond_gateways=%(bond_gateways)s
     user_name="%(user)s"
     pxe_intf="%(pxe_intf)s"
     pxe_inet="%(pxe_inet)s"
@@ -753,6 +754,7 @@ else
         bond_inet=${bond_inets[$i]}
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
+        bond_gateway=${bond_gateways[$i]}
 
         if [[ ${vlan_tag} == '' ]]; then
             network_uuid="$(xe network-create name-label=${network_name_label})"
@@ -762,7 +764,8 @@ else
             bond_pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "VLAN ( RO): -1" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
 
             if [[ ${bond_inet} == 'static' ]]; then
-                xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+                xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
+                ping ${bond_gateway} -c3
             fi
             break
         fi
@@ -783,6 +786,7 @@ else
         bond_inet=${bond_inets[$i]}
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
+        bond_gateway=${bond_gateways[$i]}
 
         if [[ ${vlan_tag} == '' ]]; then
             continue
@@ -792,7 +796,8 @@ else
         vlan_uuid=$(xe vlan-create network-uuid=${network_uuid} pif-uuid=${bond_pif_uuid} vlan=${vlan_tag})
         if [[ ${bond_inet} == 'static' ]]; then
             pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "${vlan_tag}" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
-            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
+            ping ${bond_gateway} -c3
         fi
 
         bridge=$(xe network-list | grep -w ${network_uuid} -A3 | grep -w bridge | awk '{print $NF}')
@@ -871,6 +876,7 @@ bond_vlans=%(bond_vlans)s
 bond_inets=%(bond_inets)s
 bond_ips=%(bond_ips)s
 bond_masks=%(bond_masks)s
+bond_gateways=%(bond_gateways)s
 
 # wait at most 30 seconds for all slaves to join cluster
 count=${count_down}
@@ -881,8 +887,6 @@ while [[ ${count} > 0 ]] && [[ ${hosts_online} < ${cluster_size} ]]; do
     sleep 1
 done
 echo 'Number of compute nodes online:' ${hosts_online}
-
-sleep 10
 
 # configure bonds to all nodes
 mkdir -p /home/${user_name}/bcf
@@ -921,8 +925,10 @@ for (( i=0; i<${slave_count}; i++ )); do
         let k=start_index+j
         ip=${bond_ips[$k]}
         mask=${bond_masks[$k]}
+        gateway=${bond_gateways[$k]}
         pif_uuid=$(xe pif-list host-name-label=${slave_name_label} device-name='' VLAN=${vlan} | grep -w uuid | grep -v network | awk '{print $NF}')
-        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask}
+        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask} gateway=${gateway}
+        ping ${gateway} -c3
     done
 done
 '''
@@ -1137,6 +1143,8 @@ def generate_interface_config(node):
                 address = get_raw_value(bridge, 'address')
             if 'netmask' in bridge.keys():
                 netmask = get_raw_value(bridge, 'netmask')
+            if 'gateway' in bridge.keys():
+                gateway = get_raw_value(bridge, 'gateway')
 
             port_name = node.bond_name
             if vlan:
@@ -1163,6 +1171,7 @@ def generate_interface_config(node):
                            '  iface %(name)s inet %(inet)s\n'
                            '  address %(address)s\n'
                            '  netmask %(netmask)s\n'
+                           '  gateway %(gateway)s\n'
                            '  bridge_ports %(port_name)s\n'
                            '  bridge_stp off\n'
                            '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
@@ -1170,7 +1179,8 @@ def generate_interface_config(node):
                            'port_name' : port_name,
                            'inet'      : inet,
                            'address'   : address,
-                           'netmask'   : netmask})
+                           'netmask'   : netmask,
+                           'gateway'   : gateway})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
         config_file.write(config)
@@ -1296,6 +1306,7 @@ def generate_command_for_node(node):
     bond_inets = '('
     bond_ips   = '('
     bond_masks = '('
+    bond_gateways = '('
     if node.bridges:
         for bridge in node.bridges:
             name = get_raw_value(bridge, 'name')
@@ -1309,16 +1320,21 @@ def generate_command_for_node(node):
             netmask = ""
             if 'netmask' in bridge.keys():
                 netmask = get_raw_value(bridge, 'netmask')
+            gateway = ""
+            if 'gateway' in bridge.keys():
+                gateway = get_raw_value(bridge, 'gateway')
             network_name_labels += r'''"%s" ''' % name
             vlan_tags  += r'''"%s" ''' % vlan
             bond_inets += r'''"%s" ''' % inet
             bond_ips   += r'''"%s" ''' % address
             bond_masks += r'''"%s" ''' % netmask
+            bond_gateways += r'''"%s" ''' % gateway
     network_name_labels += ')'
     vlan_tags  += ')'
     bond_inets += ')'
     bond_ips   += ')'
     bond_masks += ')'
+    bond_gateways += ')'
 
     pxe_intf = get_raw_value(node.pxe_interface, 'interface')
     pxe_inet = get_raw_value(node.pxe_interface, 'inet')
@@ -1345,6 +1361,7 @@ def generate_command_for_node(node):
                                 'bond_inets'          : bond_inets,
                                 'bond_ips'            : bond_ips,
                                 'bond_masks'          : bond_masks,
+                                'bond_gateways'       : bond_gateways,
                                 'pxe_intf'            : pxe_intf,
                                 'pxe_inet'            : pxe_inet,
                                 'pxe_address'         : pxe_address,
@@ -1479,14 +1496,9 @@ def deploy_to_all(config):
     slave_name_labels_dic = {}
     bond_ips_dic   = {}
     bond_masks_dic = {}
+    bond_gateway_dic = {}
     bond_vlans_dic = {}
     bond_inets_dic = {}
-
-    slave_name_labels = '('
-    bond_ips   = '('
-    bond_masks = '('
-    bond_vlans = None
-    bond_inets = None
 
     for node_config in config['nodes']:
         if 'pxe_interface' not in node_config:
@@ -1526,6 +1538,7 @@ def deploy_to_all(config):
             slave_name_labels_dic[node.xenserver_pool] = '('
             bond_ips_dic[node.xenserver_pool] = '('
             bond_masks_dic[node.xenserver_pool] = '('
+            bond_gateways_dic[node.xenserver_pool] = '('
             bond_vlans_dic[node.xenserver_pool] = '('
             bond_inets_dic[node.xenserver_pool] = '('
             if node.bridges:
@@ -1554,8 +1567,12 @@ def deploy_to_all(config):
                     netmask = ""
                     if 'netmask' in bridge.keys():
                         netmask = get_raw_value(bridge, 'netmask')
+                    gateway = ""
+                    if 'gateway' in bridge.keys():
+                        gateway = get_raw_value(bridge, 'gateway')
                     bond_ips_dic[node.xenserver_pool] += r'''"%s" ''' % address
                     bond_masks_dic[node.xenserver_pool] += r'''"%s" ''' % netmask
+                    bond_gateways_dic[node.xenserver_pool] += r'''"%s" ''' % gateway
             xen_slave_node_q.put(node)
             xen_slave_node_reboot_q.put(node)
 
@@ -1576,7 +1593,8 @@ def deploy_to_all(config):
                               'bond_vlans'        : bond_vlans_dic[pool],
                               'bond_inets'        : bond_inets_dic[pool],
                               'bond_ips'          : bond_ips_dic[pool],
-                              'bond_masks'        : bond_masks_dic[pool]})
+                              'bond_masks'        : bond_masks_dic[pool],
+                              'bond_gateways'     : bond_gateways_dic[pool]})
             bondip_bash.close()
 
     # step 0: setup management node
