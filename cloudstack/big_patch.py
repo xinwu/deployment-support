@@ -1599,6 +1599,7 @@ def deploy_to_all(config):
         return
     else:
         safe_print("Finish step 1: setup xen master\n")
+        return
 
     # step 2: join cluster, using xen_slave_node_q, on slave run slave.sh
     for i in range(MAX_WORKERS):
