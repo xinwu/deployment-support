@@ -1659,6 +1659,7 @@ def deploy_to_all(config):
         t.start()
     xen_master_node_reboot_q.join()
     safe_print("Finish step 5: reboot xen masters\n")
+    time.sleep(30)
 
     # step 6: reboot slave, using xen_slave_node_reboot_q, on slave run reboot
     for i in range(MAX_WORKERS):
