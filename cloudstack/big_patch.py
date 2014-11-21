@@ -1590,7 +1590,9 @@ def deploy_to_all(config):
         t.start()
     node_q.join()
     if HYPERVISOR == "kvm":
-        management_node_thread.join()
+        if MANAGEMENT_NODE:
+            management_node_thread.join()
+            safe_print("Finish step 0: deploy management node\n")
         safe_print("CloudStack deployment finished\n")
         return
     else:
