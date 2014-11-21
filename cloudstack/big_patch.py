@@ -924,7 +924,6 @@ done
 
 XEN_CHANGE_MGMT_INTF=r'''
 #!/bin/bash
-
 host_name_label="%(host_name_label)s"
 # change management interface to bond
 network_uuid=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
@@ -934,6 +933,20 @@ sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inven
 echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
 xe-switch-network-backend bridge
 xe-toolstack-restart
+'''
+
+XEN_REBOOT_SLAVE=r'''
+master_address="%(master_address)s"
+count_down=300 
+while [[ ${count_down} > 0 ]]; do
+    echo quit | telnet ${master_address} 22 2>/dev/null | grep Connected
+    if [[ $? == 0 ]]; then
+        break
+    fi
+    let count_down-=1
+    sleep 1
+done
+reboot
 '''
 
 NODE_LOCAL_BASH = r'''
