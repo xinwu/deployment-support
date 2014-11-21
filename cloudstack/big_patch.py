@@ -882,6 +882,8 @@ while [[ ${count} > 0 ]] && [[ ${hosts_online} < ${cluster_size} ]]; do
 done
 echo 'Number of compute nodes online:' ${hosts_online}
 
+sleep 10
+
 # configure bonds to all nodes
 mkdir -p /home/${user_name}/bcf
 wget --no-check-certificate https://raw.githubusercontent.com/apache/cloudstack/master/scripts/vm/hypervisor/xenserver/cloud-setup-bonding.sh -P /home/${user_name}/bcf/
