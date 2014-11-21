@@ -102,6 +102,9 @@ MASTER_NODES = {}
 # pool size
 POOL_SIZES = {}
 
+# management node
+MANAGEMENT_NODE = None
+
 # management node puppet template
 MGMT_PUPPET = r'''
 $user           = "%(user)s"
@@ -935,7 +938,7 @@ xe-switch-network-backend bridge
 xe-toolstack-restart
 '''
 
-XEN_REBOOT_SLAVE=r'''
+XEN_SLAVE_REBOOT=r'''
 master_address="%(master_address)s"
 count_down=300 
 while [[ ${count_down} > 0 ]]; do
@@ -975,6 +978,8 @@ if [[ ("%(hypervisor)s" == "xen") && ("%(role)s" == "compute") ]]; then
     if [[ ! -f /tmp/%(hostname)s.%(pool)s.bondip.sh ]]; then
         echo -e "Copy slave.sh to node %(hostname)s\n"
         sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
+        echo -e "Copy slave_reboot.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave_reboot.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave_reboot.sh >> %(log)s 2>&1
     else
         echo -e "Copy bondip.sh to node %(hostname)s\n"
         sshpass -p %(pwd)s scp /tmp/%(hostname)s.%(pool)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
@@ -1369,12 +1374,20 @@ def generate_command_for_node(node):
                                  'bond_intfs'      : bond_intfs,
                                  'username'        : node.node_username})
                 slave_bash.close()
+            with open('/tmp/%s.slave_reboot.sh' % node.hostname, "w") as slave_reboot_bash:
+                slave_reboot_bash.write(XEN_SLAVE_REBOOT %
+                                {'master_address' : MASTER_NODES[node.xenserver_pool].hostname})
+                slave_reboot_bash.close()
 
         with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
             mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
                                {'host_name_label'  : node.host_name_label})
             mgmtintf_bash.close()
 
+# step 0: setup management node
+def worker_setup_management():
+    cmd = 'bash /tmp/%s.local.sh' % MANAGEMENT_NODE.hostname
+    run_command_on_local(cmd)
 
 # step 1: setup master, on master, compute.sh
 def worker_setup_master():
@@ -1436,7 +1449,7 @@ def worker_reboot_master():
 def worker_reboot_slave():
     while True:
         node = xen_slave_node_reboot_q.get()
-        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S reboot"''' %
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/slave_reboot.sh"''' %
                {'pwd'      : node.node_password,
                 'user'     : node.node_username,
                 'hostname' : node.hostname,
@@ -1448,18 +1461,17 @@ def worker_reboot_slave():
 def deploy_to_all(config):
     # install sshpass
     safe_print("Installing sshpass to local node...\n")
-    '''
     run_command_on_local(
         'sudo rm -rf ~/.ssh/known_hosts;'
         ' sudo apt-get update;'
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
-    '''
 
     global HYPERVISOR
     global MASTER_NODES
     global POOL_SIZES
+    global MANAGEMENT_NODE
     HYPERVISOR = config['hypervisor']
 
     slave_name_labels_dic = {}
@@ -1500,6 +1512,12 @@ def deploy_to_all(config):
             node_config['cloud_db_pwd'] = UNDEF
 
         node = Node(node_config)
+        if node.role == "management":
+            MANAGEMENT_NODE = node
+        else:
+            node_q.put(node)
+            node_mgmtintf_q.put(node)           
+
         if HYPERVISOR == "xen" and node.role == "compute" and node.xenserver_pool not in MASTER_NODES.keys():
             MASTER_NODES[node.xenserver_pool] = node
             POOL_SIZES[node.xenserver_pool] = 1
@@ -1537,10 +1555,9 @@ def deploy_to_all(config):
                     bond_ips_dic[node.xenserver_pool] += r'''"%s" ''' % address
                     bond_masks_dic[node.xenserver_pool] += r'''"%s" ''' % netmask
             xen_slave_node_q.put(node)
-            xen_slave_node_reboot_q.put(node)        
+            xen_slave_node_reboot_q.put(node)
+
         generate_command_for_node(node)
-        node_q.put(node)
-        node_mgmtintf_q.put(node)
 
     for pool in MASTER_NODES.keys():
         slave_name_labels_dic[pool] += ')'
@@ -1560,6 +1577,12 @@ def deploy_to_all(config):
                               'bond_masks'        : bond_masks_dic[pool]})
             bondip_bash.close()
 
+    # step 0: setup management node
+    if MANAGEMENT_NODE:
+        management_node_thread = threading.Thread(target=worker_setup_management)
+        management_node_thread.daemon = True
+        management_node_thread.start()
+
     # step 1: setup master, using node_q, on master run compute.sh   
     for i in range(MAX_WORKERS):
         t = threading.Thread(target=worker_setup_master)
@@ -1567,6 +1590,7 @@ def deploy_to_all(config):
         t.start()
     node_q.join()
     if HYPERVISOR == "kvm":
+        management_node_thread.join()
         safe_print("CloudStack deployment finished\n")
         return
     else:
@@ -1611,6 +1635,11 @@ def deploy_to_all(config):
         t.start()
     xen_slave_node_reboot_q.join()
     safe_print("Finish step 6: reboot xen slaves\n")
+
+    if MANAGEMENT_NODE:
+        management_node_thread.join()
+        safe_print("Finish step 0: deploy management node\n")
+
     safe_print("CloudStack deployment finished\n")
 
 if __name__ == '__main__':
