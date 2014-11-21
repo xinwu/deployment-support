@@ -845,24 +845,24 @@ bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
 echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
 /sbin/chkconfig --add lldpd
 /sbin/chkconfig lldpd on
-service lldpd start
+/sbin/service lldpd start
 
 # configure NTP
 yum install -y ntp
 sed -i '/xenserver.pool.ntp.org/d' /etc/ntp.conf
 sed -i '/0.bigswitch.pool.ntp.org/d' /etc/ntp.conf
 echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
-service ntpd restart
+/sbin/service ntpd restart
 /sbin/chkconfig --add ntpd
 /sbin/chkconfig ntpd on
 
 # disable iptables
-service iptables stop
-
-xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
+/sbin/service iptables stop
 
 # use linux bridge instead of ovs
-xe-switch-network-backend bridge
+/opt/xensource/bin/xe-switch-network-backend bridge
+
+xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
 '''
 
 XEN_IP_ASSIGNMENT=r'''
@@ -891,17 +891,17 @@ echo 'Number of compute nodes online:' ${hosts_online}
 # configure bonds to all nodes
 mkdir -p /home/${user_name}/bcf
 wget --no-check-certificate https://raw.githubusercontent.com/apache/cloudstack/master/scripts/vm/hypervisor/xenserver/cloud-setup-bonding.sh -P /home/${user_name}/bcf/
-bash /home/${user_name}/bcf/cloud-setup-bonding.sh
 
-# wait at most 30 seconds for all bonds
-bonds_online=$(xe bond-list | grep -w uuid | wc -l)
+# wait at most 120 seconds for all networks
 count=${count_down}
-while [[ ${count} > 0 ]] && [[ ${bonds_online} < ${hosts_online} ]]; do
-    bonds_online=$(xe bond-list | grep -w uuid | wc -l)
+while [[ ${count} > 0 ]]; do
+    bash /home/${user_name}/bcf/cloud-setup-bonding.sh
+    if [[ $? == 0 ]]; then
+        break
+    fi
     let count-=1
-    sleep 1
+    sleep 4
 done
-echo 'Number of bonds online:' ${bonds_online}
 
 # configure bond interface ip
 bond_count=${#bond_inets[@]}
@@ -942,8 +942,8 @@ bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-
 mgmt_bridge=$(xe network-param-get param-name=bridge uuid=${network_uuid})
 sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
 echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
-xe-switch-network-backend bridge
-xe-toolstack-restart
+/opt/xensource/bin/xe-switch-network-backend bridge
+/opt/xensource/bin/xe-toolstack-restart
 '''
 
 XEN_SLAVE_REBOOT=r'''
