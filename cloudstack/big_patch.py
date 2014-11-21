@@ -1496,7 +1496,7 @@ def deploy_to_all(config):
         if 'role' not in node_config:
             node_config['role'] = config['default_role']
         if HYPERVISOR == 'xen' and 'xenserver_pool' not in node_config:
-            node_config['server_pool'] = config['default_xenserver_pool']
+            node_config['xenserver_pool'] = config['default_xenserver_pool']
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
         if 'bridges' not in node_config:
