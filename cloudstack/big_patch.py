@@ -1496,7 +1496,7 @@ def deploy_to_all(config):
     slave_name_labels_dic = {}
     bond_ips_dic   = {}
     bond_masks_dic = {}
-    bond_gateway_dic = {}
+    bond_gateways_dic = {}
     bond_vlans_dic = {}
     bond_inets_dic = {}
 
