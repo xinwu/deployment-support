@@ -82,7 +82,7 @@ import subprocess32 as subprocess
 from sets import Set
 from threading import Lock
 
-LOG_FILENAME = '/tmp/cloudstack_deploy.log'
+LOG_FILENAME = '/var/log/cloudstack_deploy.log'
 logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 
 
@@ -804,6 +804,8 @@ else
     echo "route del default" >> /etc/rc.local
     echo "route add default gw ${pxe_gw}" >> /etc/rc.local
 
+    echo "/sbin/service iptables stop" >> /etc/rc.local
+
 fi
 '''
 
@@ -852,6 +854,8 @@ xe pool-join master-address=${master_address} master-username=${master_username}
 echo "sleep 60" >> /etc/rc.local
 echo "route del default" >> /etc/rc.local
 echo "route add default gw ${pxe_gw}" >> /etc/rc.local
+
+echo "/sbin/service iptables stop" >> /etc/rc.local
 
 '''
 
@@ -970,6 +974,7 @@ echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, manageme
 '''
 
 XEN_SLAVE_REBOOT=r'''
+#!/bin/bash
 master_address="%(master_address)s"
 count_down=300 
 while [[ ${count_down} > 0 ]]; do
@@ -981,6 +986,27 @@ while [[ ${count_down} > 0 ]]; do
     sleep 1
 done
 reboot
+'''
+
+XEN_CHECK_BOND=r'''
+#!/bin/bash
+
+count_down=300
+while [[ ${count_down} > 0 ]]; do
+    echo quit | telnet %(hostname)s 22 2>/dev/null | grep Connected
+    if [[ $? == 0 ]]; then
+        sleep 180
+        intf_count=$(sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s "echo %(pwd)s | sudo -S cat /proc/net/bonding/bond0 | grep -w Interface | wc -l")
+        if [[ ${intf_count} == %(intf_count)s ]]; then
+            exit 0
+        if
+        break
+    fi
+    let count_down-=1
+    sleep 1
+done
+echo "ERROR BOND ON " "%(hostname)s" >> %(log)s
+exit 1
 '''
 
 NODE_LOCAL_BASH = r'''
@@ -1281,6 +1307,8 @@ node_mgmtintf_q = Queue.Queue()
 xen_master_node_reboot_q = Queue.Queue()
 # queue to store all xen slave nodes, for step 6: reboot slave, on slave, reboot
 xen_slave_node_reboot_q = Queue.Queue()
+# queue to store all xen nodes, for step 7: check bond
+node_check_bond_q = Queue.Queue()
 
 
 def run_command_on_local(command, timeout=1800):
@@ -1461,9 +1489,17 @@ def generate_command_for_node(node):
                                 {'master_address' : MASTER_NODES[node.xenserver_pool].hostname})
                 slave_reboot_bash.close()
 
+        with open('/tmp/%s.checkbond.sh' % node.hostname, "w") as checkbond_bash:
+            checkbond_bash.write(XEN_CHECK_BOND %
+                               {'hostname'   : node.hostname,
+                                'pwd'        : node.node_password,
+                                'user'       : node.node_username,
+                                'intf_count' : len(node.bond_interfaces)})
+            checkbond_bash.close()
+
         with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
             mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
-                               {'host_name_label'  : node.host_name_label})
+                               {'host_name_label'  : node.host_name_label,})
             mgmtintf_bash.close()
 
 # step 0: setup management node
@@ -1548,6 +1584,14 @@ def worker_reboot_management():
             'log'      : LOG_FILENAME})
     run_command_on_local(cmd)
 
+# step 7: check bond of all xen server
+def worker_check_bond():
+    while True:
+        node = xen_check_bond_q.get()
+        cmd = (r'''bash /tmp/%s.checkbond.sh''' % node.hostname)
+        run_command_on_local(cmd)
+        xen_check_bond_q.task_done()
+
 def deploy_to_all(config):
     # install sshpass
     safe_print("Prepare cloud stack packages\n")
@@ -1621,7 +1665,8 @@ def deploy_to_all(config):
             MANAGEMENT_NODE = node
         else:
             node_q.put(node)
-            node_mgmtintf_q.put(node)           
+            node_mgmtintf_q.put(node)
+            node_check_bond_q.put(node)
 
         if HYPERVISOR == "xen" and node.role == "compute" and node.xenserver_pool not in MASTER_NODES.keys():
             MASTER_NODES[node.xenserver_pool] = node
@@ -1756,6 +1801,14 @@ def deploy_to_all(config):
         t.start()
     xen_slave_node_reboot_q.join()
     safe_print("Finish step 6: reboot xen slaves\n")
+
+    # step 7: check all xen nodes' bond
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_check_bond)
+        t.daemon = True
+        t.start()
+    xen_check_bond_q.join()
+    safe_print("Finish step 7: verify bonds on all xen servers. Check %s for result.\n" % LOG_FILENAME)
 
     if MANAGEMENT_NODE:
         management_node_thread.join()
