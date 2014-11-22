@@ -750,7 +750,7 @@ else
         if [[ ${vlan_tag} == '' ]]; then
             network_uuid="$(xe network-create name-label=${network_name_label})"
             pif_uuids=$(IFS=, ; echo "${bond_intf_uuids[*]}")
-            bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
+            bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids} mode=active-backup)
             bond_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
             bond_pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "VLAN ( RO): -1" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
 
