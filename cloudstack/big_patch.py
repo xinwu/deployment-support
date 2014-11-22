@@ -381,7 +381,6 @@ $cs_url     = "%(cs_url)s"
 $cs_common  = "%(cs_common)s"
 $cs_agent   = "%(cs_agent)s"
 
-
 class {'apt':
     always_apt_update => true,
 }
@@ -451,6 +450,9 @@ file {"/etc/rc.local":
     group   => root,
     mode    => 755,
     content => "
+sleep 30
+route del default
+route add default gw %(pxe_gw)s
 /etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
 /etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 service dbus stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
@@ -1304,7 +1306,8 @@ def generate_command_for_node(node):
                            'role'      : node.role,
                            'cs_url'    : CS_URL,
                            'cs_common' : CS_COMMON,
-                           'cs_agent'  : CS_AGENT})
+                           'cs_agent'  : CS_AGENT,
+                           'pxe_gw'    : node.pxe_gw})
         with open('/tmp/%s.pp' % node.hostname, "w") as node_puppet:
             node_puppet.write("%(node_config)s\n\n%(lldp_config)s" %
                              {'node_config' : node_config,
