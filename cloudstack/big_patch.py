@@ -691,9 +691,6 @@ else
     export PATH="/sbin:/opt/xensource/bin:$PATH"
 
     # wget vhd-util
-    mkdir -p /home/${user_name}/bcf
-    wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_name}/bcf/
-    chmod 777 /home/${user_name}/bcf/vhd-util
     mkdir -p /opt/cloud/bin
     cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
     chmod 777 /opt/cloud/bin/vhd-util
@@ -702,10 +699,7 @@ else
     chmod 777 /opt/xensource/bin/vhd-util
 
     # configure lldp
-    wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
     yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
-    cd /etc/yum.repos.d/
-    wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
     yum install -y lldpd
     sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
     bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
@@ -830,10 +824,7 @@ pxe_gw="%(pxe_gw)s"
 
 export PATH="/sbin:/opt/xensource/bin:$PATH"
 
-# wget vhd-util
-mkdir -p /home/${user_name}/bcf
-wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_name}/bcf/
-chmod 777 /home/${user_name}/bcf/vhd-util
+# prepare vhd-util
 mkdir -p /opt/cloud/bin
 cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
 chmod 777 /opt/cloud/bin/vhd-util
@@ -842,10 +833,7 @@ cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
 chmod 777 /opt/xensource/bin/vhd-util
 
 # configure lldp
-wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
 yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
-cd /etc/yum.repos.d/
-wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
 yum install -y lldpd
 sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
 bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
@@ -904,9 +892,6 @@ done
 echo 'Number of compute nodes online:' ${hosts_online}
 
 # configure bonds to all nodes
-mkdir -p /home/${user_name}/bcf
-wget --no-check-certificate https://raw.githubusercontent.com/apache/cloudstack/master/scripts/vm/hypervisor/xenserver/cloud-setup-bonding.sh -P /home/${user_name}/bcf/
-
 # wait at most 120 seconds for all networks
 count=${count_down}
 while [[ ${count} > 0 ]]; do
@@ -1029,6 +1014,30 @@ if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
     echo -e "Finish deploying %(role)s on %(hostname)s\n"
 fi
 if [[ ("%(hypervisor)s" == "xen") && ("%(role)s" == "compute") ]]; then
+    if [[ ! -f /tmp/vhd-util ]]; then
+        wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /tmp/
+    fi
+    echo -e "Copy vhd-util to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/vhd-util %(user)s@%(hostname)s:/home/%(user)s/bcf/ >> %(log)s 2>&1
+
+    if [[ ! -f /tmp/lm_sensors-2.10.7-9.el5.i386.rpm ]]; then
+        wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /tmp/
+    fi
+    echo -e "Copy lm_sensors-2.10.7-9.el5.i386.rpm to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/lm_sensors-2.10.7-9.el5.i386.rpm %(user)s@%(hostname)s:/home/%(user)s/bcf/ >> %(log)s 2>&1
+
+    if [[ ! -f /tmp/home:vbernat.repo ]]; then
+        wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo -P /tmp/
+    fi
+    echo -e "Copy home:vbernat.repo to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/home:vbernat.repo %(user)s@%(hostname)s:/etc/yum.repos.d/ >> %(log)s 2>&1
+
+    if [[ ! -f /tmp/cloud-setup-bonding.sh ]]; then
+        wget --no-check-certificate https://raw.githubusercontent.com/apache/cloudstack/master/scripts/vm/hypervisor/xenserver/cloud-setup-bonding.sh -P /tmp/
+    fi
+    echo -e "Copy cloud-setup-bonding.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/cloud-setup-bonding.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/ >> %(log)s 2>&1
+
     echo -e "Copy mgmtintf.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.mgmtintf.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/mgmtintf.sh >> %(log)s 2>&1
     if [[ ! -f /tmp/%(hostname)s.%(pool)s.bondip.sh ]]; then
