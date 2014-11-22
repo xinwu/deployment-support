@@ -1,12 +1,29 @@
 # Copyright 2014 Big Switch Networks, Inc.
 # All Rights Reserved.
 #
-# This script requires sshpass python-yaml, python-pip,
-# python-dev and concurrent.futures on the patch node.
-# It also requires ssh on all nodes, i.e.,
-# sudo apt-get install -y sshpass python-yaml python-pip python-dev (on patch node)
-# sudo pip install futures subprocess32 (on patch node)
+# This script is used to set up cloud stack management node
+# and compute nodes with Big Cloud Fabric. The requirements are:
+# BCF: 2.0.1 or higher
+# installation node: ubuntu 12.04
+# management node: ubuntu 12.04
+# compute node: ubuntu 12.04 or xenserver 6.2
+# 
+# To prepare installation, on installation node, please download
+# cloudstack-common_4.5.0-snapshot_all.deb,
+# cloudstack-management_4.5.0-snapshot_all.deb,
+# cloudstack-agent_4.5.0-snapshot_all.deb
+# and put them under the same directory as this script.
+#
+# On installation node, run
+# sudo apt-get install -y sshpass python-yaml python-pip python-dev
+# sudo pip install futures subprocess32
+#
+# On all compute nodes, make sure ssh is installed
 # sudo apt-get install -y ssh (on all nodes)
+#
+# On installation node, edit example.yaml to reflect the physical setup, then
+# sudo python ./big_patch.py -c example.yaml
+
 
 '''
 # Following is an example data structure 
@@ -927,6 +944,7 @@ while [[ ${count} > 0 ]]; do
 done
 
 # configure bond interface ip
+ip_array=()
 bond_count=${#bond_inets[@]}
 slave_count=${#slave_name_labels[@]}
 for (( i=0; i<${slave_count}; i++ )); do
@@ -951,8 +969,26 @@ for (( i=0; i<${slave_count}; i++ )); do
         gateway=${bond_gateways[$k]}
         pif_uuid=$(xe pif-list host-name-label=${slave_name_label} device-name='' VLAN=${vlan} | grep -w uuid | grep -v network | awk '{print $NF}')
         xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask} gateway=${gateway}
+        ip_array=("${ip_array[@]}" "${ip}")
         ping ${gateway} -c3
     done
+done
+
+ip_count=${#ip_array[@]}
+for (( i=0; i<${ip_count}; i++ )); do
+    ip=${ip_array[$i]}
+    count_down=30
+    while [[ ${count_down} > 0 ]]; do
+        ping ${ip} -c1
+        if [[ $? == 0 ]]; then
+            break
+        fi
+        let count_down-=1
+        sleep 1
+    done
+    if [[ ${count_down}==0 ]]; then
+        echo "Failed to assign IP:" "${ip}"
+    fi
 done
 '''
 
@@ -1665,8 +1701,6 @@ def deploy_to_all(config):
         t.start()
     xen_master_node_q.join()
     safe_print("Finish step 3: assign ip to bond interfaces\n")
-    # wait long enough to let the IP assignment propagate
-    time.sleep(60)
 
     # step 4: change mgmt intf, using node_mgmtintf_q, on all run mgmtintf.sh
     for i in range(MAX_WORKERS):
@@ -1700,9 +1734,6 @@ def deploy_to_all(config):
     safe_print("CloudStack deployment finished\n")
 
 if __name__ == '__main__':
-    safe_print("Start to setup CloudStack for "
-               "Big Cloud Fabric %s\n" % (RELEASE_NAME))
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config-file", required=True,
                         help="CloudStack YAML config path")
@@ -1710,6 +1741,8 @@ if __name__ == '__main__':
     if not args.config_file:
         parser.error('--config-file is not specified.')
     else:
+        safe_print("Start to setup CloudStack for "
+               "Big Cloud Fabric %s\n" % (RELEASE_NAME))
         config_file_path = args.config_file
         with open(config_file_path, 'r') as config_file:
             config = yaml.load(config_file)
