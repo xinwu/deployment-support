@@ -1,11 +1,11 @@
-hypervisor: xen
+hypervisor: kvm
 mysql_root_pwd: bsn
 cloud_db_pwd: null
 default_pxe_interface:
   interface: eth0
   inet: dhcp
 default_node_username: root
-default_node_password: bsnbsn
+default_node_password: bsn
 pxe_gw: 10.8.0.1
 default_role: compute
 default_xenserver_pool: pool1
@@ -17,14 +17,20 @@ default_bond_interface:
 default_bridges:
 - name: cs-mgmt
   inet: dhcp
-  vlan: null
+  vlan: 6
+- name: cs-storage
+  inet: dhcp
+  vlan: 7
+- name: brbond0-52
+  inet: manual
+  vlan: 52
 - name: cs-guest
   inet: manual
-  vlan: 10
+  vlan: null
 nodes:
 - hostname: 172.16.54.130
   role: management
-  host_name_label: management
+  host_name_label: xenserver1
   pxe_interface: 
     interface: eth0
     inet: static
@@ -33,12 +39,14 @@ nodes:
     dns-nameservers: 172.16.54.2
   management_bond:
     inet: dhcp
-    vlan: null
+    vlan: 6
 - hostname: 172.16.54.132
-  host_name_label: xenserver1
-- hostname: 172.16.54.134
   host_name_label: xenserver2
+- hostname: 172.16.54.134
+  host_name_label: xenserver3
   xenserver_ppol: pool2
+  node_username: username
+  node_password: password
   pxe_interface:
     interface: eth0
     inet: static
@@ -51,7 +59,15 @@ nodes:
     address: 10.8.11.11
     netmask: 255.255.255.0
     gateway: 10.8.11.11
-    vlan: null
+    vlan: 6
+  - name: brbond1-52
+    inet: manual
+    vlan: 52
   - name: cs-guest
     inet: manual
-    vlan: 10
+    vlan: null
+  bond_interface:
+    interfaces:
+    - eth3
+    - eth4
+    name: bond1
