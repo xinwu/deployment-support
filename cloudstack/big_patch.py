@@ -989,12 +989,6 @@ reboot
 NODE_LOCAL_BASH = r'''
 #!/bin/bash
 
-ping www.bigswitch.come -c1
-if [[ $? != 0 ]]; then
-    echo "DNS is not setup. Quit deploying %(hostname)s\n"
-    exit
-fi
-
 echo -e "Start to deploy %(role)s node %(hostname)s...\n"
 sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S mkdir -m 0777 -p /home/%(user)s/bcf"
 if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
@@ -1784,11 +1778,15 @@ if __name__ == '__main__':
                         help="CloudStack YAML config path")
     args = parser.parse_args()
     if args.config_file:
-        safe_print("Start to setup CloudStack for Big Cloud Fabric\n")
-        config_file_path = args.config_file
-        with open(config_file_path, 'r') as config_file:
-            config = yaml.load(config_file)
-        deploy_to_all(config)
+        code = subprocess.call("ping www.bigswitch.com -c1", shell=True)
+        if code != 0:
+            safe_print("DNS is not configured correctly, quit deployment\n")
+        else:
+            safe_print("Start to setup CloudStack for Big Cloud Fabric\n")
+            config_file_path = args.config_file
+            with open(config_file_path, 'r') as config_file:
+                config = yaml.load(config_file)
+            deploy_to_all(config)
     else:
         safe_print("This script supports Ubuntu 12.04 as the CloudStack management node.\n"
                    "CloudStack compute node can be either Ubuntu 12.04 or XenServer 6.2.\n"
