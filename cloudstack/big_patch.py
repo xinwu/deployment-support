@@ -997,7 +997,7 @@ while [[ ${count_down} > 0 ]]; do
     if [[ $? == 0 ]]; then
         sleep 180
         intf_count=$(sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s "echo %(pwd)s | sudo -S cat /proc/net/bonding/bond0 | grep -w Interface | wc -l")
-        if [[ ${intf_count} == %(intf_count)s ]]; then
+        if [[ ${intf_count} == %(intf_count)d ]]; then
             exit 0
         if
         break
@@ -1494,7 +1494,8 @@ def generate_command_for_node(node):
                                {'hostname'   : node.hostname,
                                 'pwd'        : node.node_password,
                                 'user'       : node.node_username,
-                                'intf_count' : len(node.bond_interfaces)})
+                                'intf_count' : len(node.bond_interfaces),
+                                'log'        : LOG_FILENAME})
             checkbond_bash.close()
 
         with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
