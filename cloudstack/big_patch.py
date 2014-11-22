@@ -318,23 +318,8 @@ exec {"install maven3":
     returns => [0, 100],
 }
 
-exec {"wget cloudstack common":
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "wget $cs_url/$cs_common -O /home/$user/bcf/$cs_common",
-    creates => "/home/$user/bcf/$cs_common",
-    timeout => 1200,
-}
-
-exec {"wget cloudstack management":
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "wget $cs_url/$cs_mgmt -O /home/$user/bcf/$cs_mgmt",
-    creates => "/home/$user/bcf/$cs_mgmt",
-    timeout => 1200,
-}
-
 exec {"dpkg common":
-    require => [Exec['wget cloudstack common'],
-                Exec["install maven3"],
+    require => [Exec["install maven3"],
                 Exec['export nfs'],
                 Package['tomcat6'],
                 Package['jsvc'],
@@ -361,9 +346,7 @@ exec {"dpkg common":
 }
 
 exec {"dpkg management":
-    require => [Exec['wget cloudstack common'],
-                Exec['wget cloudstack management'],
-                Exec['dpkg common']],
+    require => Exec['dpkg common'],
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_mgmt",
@@ -530,23 +513,8 @@ service {"libvirt-bin":
                 Service['dbus']],
 }
 
-exec {"wget cloudstack common":
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "wget $cs_url/$cs_common -O /home/$user/bcf/$cs_common",
-    creates => "/home/$user/bcf/$cs_common",
-    timeout => 1200,
-}
-
-exec {"wget cloudstack agent":
-    path    => "/bin:/usr/bin:/usr/sbin",
-    command => "wget $cs_url/$cs_agent -O /home/$user/bcf/$cs_agent",
-    creates => "/home/$user/bcf/$cs_agent",
-    timeout => 1200,
-}
-
 exec {"dpkg common":
-    require => [Exec['wget cloudstack common'],
-                Package['ethtool'],
+    require => [Package['ethtool'],
                 Package['qemu-kvm'],
                 Package['ubuntu-vm-builder'],
                 Package['openjdk-7-jre'],
@@ -565,9 +533,7 @@ exec {"dpkg common":
 }
 
 exec {"dpkg agent":
-    require => [Exec['wget cloudstack common'],
-                Exec['wget cloudstack agent'],
-                Exec['dpkg common']],
+    require => Exec['dpkg common'],
     user    => root,
     path    => "/bin:/usr/bin:/usr/sbin:/sbin",
     command => "dpkg -i /home/$user/bcf/$cs_agent",
@@ -1031,9 +997,16 @@ if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.intf %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.intf >> %(log)s 2>&1
     echo -e "Copy %(role)s.pp to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.pp %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.pp >> %(log)s 2>&1
+    echo -e "Copy %(CS_COMMON)s to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(CS_COMMON)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_COMMON)s >> %(log)s 2>&1
     if [ -f /tmp/%(hostname)s.db.sh ]; then
         echo -e "Copy db.sh to node %(hostname)s\n"
         sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
+        echo -e "Copy %(CS_MGMT)s to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(CS_MGMT)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_MGMT)s >> %(log)s 2>&1
+    else
+        echo -e "Copy %(CS_AGENT)s to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(CS_AGENT)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_AGENT)s >> %(log)s 2>&1
     fi
     echo -e "Copy %(role)s.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
@@ -1445,7 +1418,10 @@ def generate_command_for_node(node):
                                 'role'       : node.role,
                                 'pool'       : node.xenserver_pool,
                                 'log'        : LOG_FILENAME,
-                                'hypervisor' : HYPERVISOR})
+                                'hypervisor' : HYPERVISOR,
+                                'CS_COMMON'  : CS_COMMON,
+                                'CS_MGMT'    : CS_MGMT,
+                                'CS_AGENT'   : CS_AGENT})
         node_local_bash.close()
 
     if HYPERVISOR == "xen":
@@ -1546,6 +1522,25 @@ def worker_reboot_slave():
 
 def deploy_to_all(config):
     # install sshpass
+    safe_print("Prepare cloud stack packages\n")
+    run_command_on_local(
+        'sudo mkdir -p /tmp;'
+        'sudo cp %(CS_COMMON)s /tmp/;'
+        'sudo cp %(CS_MGMT)s /tmp/;'
+        'sudo cp %()s /tmp/' %
+       {'CS_COMMON' : CS_COMMON,
+        'CS_MGMT'   : CS_MGMT,
+        'CS_AGENT'  : CS_AGENT})
+    if not os.path.isfile("/tmp/%s" % CS_COMMON):
+       safe_print("%s is missing\n" % CS_COMMON)
+       return
+    if not os.path.isfile("/tmp/%s" % CS_MGMT):
+       safe_print("%s is missing\n" % CS_MGMT)
+       return
+    if not os.path.isfile("/tmp/%s" % CS_AGENT):
+       safe_print("%s is missing\n" % CS_AGENT)
+       return
+
     safe_print("Installing sshpass to local node...\n")
     run_command_on_local(
         'sudo rm -rf ~/.ssh/known_hosts;'
