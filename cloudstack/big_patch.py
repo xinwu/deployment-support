@@ -1567,14 +1567,12 @@ def deploy_to_all(config):
        return
 
     safe_print("Installing sshpass to local node...\n")
-    '''
     run_command_on_local(
         'sudo rm -rf ~/.ssh/known_hosts;'
         ' sudo apt-get update;'
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
-    '''
 
     global HYPERVISOR
     global MASTER_NODES
