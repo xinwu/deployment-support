@@ -1163,10 +1163,13 @@ def generate_interface_config(node):
             name = get_raw_value(bridge, 'name')
             vlan = get_raw_value(bridge, 'vlan')
             inet = get_raw_value(bridge, 'inet')
+            address = ""
             if 'address' in bridge.keys():
                 address = get_raw_value(bridge, 'address')
+            netmask = ""
             if 'netmask' in bridge.keys():
                 netmask = get_raw_value(bridge, 'netmask')
+            gateway = ""
             if 'gateway' in bridge.keys():
                 gateway = get_raw_value(bridge, 'gateway')
 
