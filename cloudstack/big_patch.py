@@ -1527,7 +1527,7 @@ def deploy_to_all(config):
         'sudo mkdir -p /tmp;'
         'sudo cp %(CS_COMMON)s /tmp/;'
         'sudo cp %(CS_MGMT)s /tmp/;'
-        'sudo cp %()s /tmp/' %
+        'sudo cp %(CS_AGENT)s /tmp/' %
        {'CS_COMMON' : CS_COMMON,
         'CS_MGMT'   : CS_MGMT,
         'CS_AGENT'  : CS_AGENT})
@@ -1737,7 +1737,7 @@ if __name__ == '__main__':
         parser.error('--config-file is not specified.')
     else:
         safe_print("Start to setup CloudStack for "
-               "Big Cloud Fabric %s\n" % (RELEASE_NAME))
+                   "Big Cloud Fabric %s\n" % (RELEASE_NAME))
         config_file_path = args.config_file
         with open(config_file_path, 'r') as config_file:
             config = yaml.load(config_file)
