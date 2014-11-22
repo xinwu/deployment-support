@@ -1525,6 +1525,7 @@ def deploy_to_all(config):
     safe_print("Prepare cloud stack packages\n")
     run_command_on_local(
         'sudo mkdir -p /tmp;'
+        'sudo rm /tmp/*.deb;'
         'sudo cp %(CS_COMMON)s /tmp/;'
         'sudo cp %(CS_MGMT)s /tmp/;'
         'sudo cp %(CS_AGENT)s /tmp/' %
