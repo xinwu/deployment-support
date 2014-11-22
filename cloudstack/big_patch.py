@@ -1308,7 +1308,7 @@ xen_master_node_reboot_q = Queue.Queue()
 # queue to store all xen slave nodes, for step 6: reboot slave, on slave, reboot
 xen_slave_node_reboot_q = Queue.Queue()
 # queue to store all xen nodes, for step 7: check bond
-node_check_bond_q = Queue.Queue()
+xen_check_bond_q = Queue.Queue()
 
 
 def run_command_on_local(command, timeout=1800):
