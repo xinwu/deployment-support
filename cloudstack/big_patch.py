@@ -1667,7 +1667,7 @@ def deploy_to_all(config):
         else:
             node_q.put(node)
             node_mgmtintf_q.put(node)
-            node_check_bond_q.put(node)
+            xen_check_bond_q.put(node)
 
         if HYPERVISOR == "xen" and node.role == "compute" and node.xenserver_pool not in MASTER_NODES.keys():
             MASTER_NODES[node.xenserver_pool] = node
