@@ -755,8 +755,7 @@ else
             if [[ ${bond_inet} == 'static' ]]; then
                 xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
                 ping ${bond_gateway} -c3
-            fi
-            if [[ ${bond_inet} == 'dhcp' ]]; then
+            else
                 xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet}
             fi
             break
