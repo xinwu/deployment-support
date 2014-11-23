@@ -8,10 +8,14 @@
 # management node: ubuntu 12.04, centos 6.5 or centos 6.6
 # compute node: ubuntu 12.04 or xenserver 6.2
 # 
-# To prepare installation, on installation node, please download
+# To prepare installation, on installation node, please download deb packages if it is ubuntu
 # cloudstack-common_4.5.0-snapshot_all.deb,
 # cloudstack-management_4.5.0-snapshot_all.deb,
 # cloudstack-agent_4.5.0-snapshot_all.deb
+# or rpm packages if it is centos
+# cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
+# cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
+# cloudstack-management-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # and put them under the same directory as this script.
 #
 # On installation node, run
@@ -105,6 +109,10 @@ CS_URL    = ('http://jenkins.bigswitch.com/job/cloudstack_ihplus_4.5/lastSuccess
 CS_COMMON = ('cloudstack-common_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 CS_MGMT   = ('cloudstack-management_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 CS_AGENT  = ('cloudstack-agent_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
+
+CS_COMMON_RPM = ('cloudstack-common-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
+CS_MGMT_RPM   = ('cloudstack-management-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
+CS_AWSAPI_RPM = ('cloudstack-awsapi-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
 
 STORAGE_SCRIPT = '/usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt'
 STORAGE_VM_URL = ('http://jenkins.buildacloud.org/view/master/job/'
@@ -1126,6 +1134,7 @@ CENTOS_MGMT_REMOTE=r'''
 #!/bin/bash
 
 bond_name=%(bond_name)s
+pxe_address=%(pxe_address)s
 
 # install and config lldp
 cd /etc/yum.repos.d/;
@@ -1138,10 +1147,9 @@ echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_name}\"" >> /etc/sysconfig/
 /sbin/service lldpd stop
 /sbin/service lldpd start
 
-# TODO
 # install and config NFS
 yum -y install nfs*
-service rpcbind start
+/sbin/service rpcbind start
 /sbin/chkconfig rpcbind on
 /sbin/service nfs start
 /sbin/chkconfig nfs on
@@ -1149,6 +1157,55 @@ mkdir -p /export/primary
 mkdir -p /export/secondary
 chmod 755 /export/primary
 chmod 755 /export/secondary
+sed -i '/${pxe_address}/d' /etc/hosts
+echo "${pxe_address}    $HOSTNAME" >> /etc/hosts
+/usr/sbin/exportfs -a
+
+# update iptables rules
+iptables -A INPUT -p udp --dport 111 -j ACCEPT
+iptables -A INPUT -p tcp --dport 111 -j ACCEPT
+iptables -A INPUT -p tcp --dport 2049 -j ACCEPT
+iptables -A INPUT -p tcp --dport 32803 -j ACCEPT
+iptables -A INPUT -p udp --dport 32769 -j ACCEPT
+iptables -A INPUT -p tcp --dport 892 -j ACCEPT
+iptables -A INPUT -p udp --dport 892 -j ACCEPT
+iptables -A INPUT -p tcp --dport 875 -j ACCEPT
+iptables -A INPUT -p udp --dport 875 -j ACCEPT
+iptables -A INPUT -p tcp --dport 662 -j ACCEPT
+iptables -A INPUT -p udp --dport 662 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3922 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3306 -j ACCEPT
+/sbin/service iptables save
+/sbin/service iptables restart
+
+# install and config mysql server
+yum install -y mysql-server
+sed -i "/innodb_rollback_on_timeou/d" /etc/my.cnf
+sed -i "/innodb_lock_wait_timeout/d" /etc/my.cnf
+sed -i "/max_connections/d" /etc/my.cnf
+sed -i "/log-bin/d" /etc/my.cnf
+sed -i "/binlog-format/d" /etc/my.cnf
+sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600\nmax_connections=350\nlog-bin=mysql-bin\nbinlog-format=\'ROW\'" /etc/my.cnf
+/sbin/service mysqld stop
+/sbin/service mysqld start
+
+# install cloudstack dependencies
+yum install -y java-1.7.0-openjdk-devel.x86_64
+yum install -y MySQL-python mysql-connector-java ipmitool mkisofs python-paramiko ws-commons-util tomcat6 
+yum update -y
+
+# install cloudstack rpm
+/bin/rpm -Uvh /home/%(user)s/bcf/cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
+/bin/rpm -Uvh /home/%(user)s/bcf/cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
+/bin/rpm -Uvh /home/%(user)s/bcf/cloudstack-management-4.5.0-SNAPSHOT.el6.x86_64.rpm
+
+# set up cloudstack db
+mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
+cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
+/sbin/service mysqld stop
+/sbin/service mysqld start
+
+# TODO
 '''
 
 CENTOS_MGMT_LOCAL=r'''
@@ -1676,10 +1733,16 @@ def deploy_to_all(config):
         'sudo rm /tmp/*.deb;'
         'sudo cp %(CS_COMMON)s /tmp/;'
         'sudo cp %(CS_MGMT)s /tmp/;'
-        'sudo cp %(CS_AGENT)s /tmp/' %
-       {'CS_COMMON' : CS_COMMON,
-        'CS_MGMT'   : CS_MGMT,
-        'CS_AGENT'  : CS_AGENT})
+        'sudo cp %(CS_AGENT)s /tmp/;'
+        'sudo cp %(CS_COMMON_RPM)s /tmp/;'
+        'sudo cp %(CS_MGMT_RPM)s /tmp/;'
+        'sudo cp %(CS_AWSAPI_RPM)s /tmp/' %
+       {'CS_COMMON'     : CS_COMMON,
+        'CS_MGMT'       : CS_MGMT,
+        'CS_AGENT'      : CS_AGENT,
+        'CS_COMMON_RPM' : CS_COMMON_RPM,
+        'CS_MGMT_RPM'   : CS_MGMT_RPM,
+        'CS_AWSAPI_RPM' : CS_AWSAPI_RPM})
     if not os.path.isfile("/tmp/%s" % CS_COMMON):
        safe_print("%s is missing\n" % CS_COMMON)
        return
