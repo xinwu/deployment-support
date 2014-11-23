@@ -812,7 +812,7 @@ fi
 XEN_SLAVE = r'''
 #!/bin/bash
 
-host_name_label="%(host_name_label)"
+host_name_label="%(host_name_label)s"
 master_address="%(master_address)s"
 master_username="%(master_username)s"
 master_pwd="%(master_pwd)s"
