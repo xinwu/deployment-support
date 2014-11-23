@@ -1209,6 +1209,28 @@ cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(m
 '''
 
 CENTOS_MGMT_LOCAL=r'''
+#!/bin/bash
+ifcfgs=%(ifcfgs)s
+echo -e "Start to deploy %(role)s node %(hostname)s...\n"
+sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S mkdir -m 0777 -p /home/%(user)s/bcf"
+ifcfg_count=${#ifcfgs[@]}
+for (( i=0; i<${ifcfg_count}; i++ )); do
+    ifcfg=${ifcfgs[$i]}
+    echo -e "Copy /etc/sysconfig/network-scripts/${ifcfg} to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.${ifcfg} %(user)s@%(hostname)s:/etc/sysconfig/network-scripts/${ifcfg} >> %(log)s 2>&1
+done    
+echo -e "Copy %(CS_COMMON_RPM)s to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(CS_COMMON_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_COMMON_RPM)s >> %(log)s 2>&1
+echo -e "Copy %(CS_MGMT_RPM)s to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(CS_MGMT_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_MGMT_RPM)s >> %(log)s 2>&1
+echo -e "Copy %(CS_AWSAPI_RPM)s to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(CS_AWSAPI_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_AWSAPI_RPM)s >> %(log)s 2>&1
+echo -e "Copy %(role)s.sh to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
+echo -e "Run %(role)s.sh on node %(hostname)s\n"
+echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
+sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
+echo -e "Finish deploying %(role)s on %(hostname)s\n"
 '''
 
 def get_raw_value(dic, key):
