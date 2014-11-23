@@ -1090,6 +1090,70 @@ if [[ ("%(hypervisor)s" == "xen") && ("%(role)s" == "compute") ]]; then
 fi
 '''
 
+CENTOS_ETH=r'''
+DEVICE=%(device)s
+MASTER=%(bond_name)s
+SLAVE=yes
+USERCTL=no
+ONBOOT=yes
+BOOTPROTO=none
+'''
+
+CENTOS_BOND=r'''
+DEVICE=%(bond_name)s
+BOOTPROTO=none
+ONBOOT=yes
+USERCTL=no
+BONDING_OPTS="mode=1 miimon=100"
+'''
+
+CENTOS_BOND_CONFIG=r'''
+alias %(bond_name)s bonding
+'''
+
+CENTOS_TAGGED_BOND=r'''
+DEVICE=%(bond_name)s.%(vlan)d
+BOOTPROTO=none
+ONBOOT=yes
+USERCTL=no
+IPADDR=%(address)s
+NETWORK=%(network)s
+NETMASK=%(netmask)s
+VLAN=yes
+'''
+
+CENTOS_MGMT_REMOTE=r'''
+#!/bin/bash
+
+bond_name=%(bond_name)s
+
+# install and config lldp
+cd /etc/yum.repos.d/;
+wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo;
+yum -y install lldpd
+sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
+echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_name}\"" >> /etc/sysconfig/lldpd
+/sbin/chkconfig --add lldpd
+/sbin/chkconfig lldpd on
+/sbin/service lldpd stop
+/sbin/service lldpd start
+
+# TODO
+# install and config NFS
+yum -y install nfs*
+service rpcbind start
+/sbin/chkconfig rpcbind on
+/sbin/service nfs start
+/sbin/chkconfig nfs on
+mkdir -p /export/primary
+mkdir -p /export/secondary
+chmod 755 /export/primary
+chmod 755 /export/secondary
+'''
+
+CENTOS_MGMT_LOCAL=r'''
+'''
+
 def get_raw_value(dic, key):
     value = dic[key]
     if type(value) in (tuple, list):
@@ -1853,7 +1917,7 @@ if __name__ == '__main__':
                 config = yaml.load(config_file)
             deploy_to_all(config)
     else:
-        safe_print("This script supports Ubuntu 12.04 as the CloudStack management node.\n"
+        safe_print("This script supports Ubuntu 12.04, centos 6.5 or centos 6.6 as the CloudStack management node.\n"
                    "CloudStack compute node can be either Ubuntu 12.04 or XenServer 6.2.\n"
                    "Use -h for how to use this script.\n")
 
