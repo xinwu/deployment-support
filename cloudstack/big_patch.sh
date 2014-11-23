@@ -1,4 +1,24 @@
 #!/bin/bash
+#
+# Copyright 2014 Big Switch Networks, Inc.
+# All Rights Reserved.
+#
+# This script is used to set up cloud stack management node
+# and compute nodes with Big Cloud Fabric. The requirements are:
+# BCF: 2.0.1 or higher
+# installation node: ubuntu 12.04, centos 6.5 or centos 6.6
+# management node: ubuntu 12.04, centos 6.5 or centos 6.6
+# compute node: ubuntu 12.04 or xenserver 6.2
+# 
+# To prepare installation, on installation node, please download
+# cloudstack-common_4.5.0-snapshot_all.deb,
+# cloudstack-management_4.5.0-snapshot_all.deb,
+# cloudstack-agent_4.5.0-snapshot_all.deb
+# and put them under the same directory as this script.
+#
+# please also download example.yaml and make necessary modifications
+# according to your physical setup.
+#
 # Usage: bash big_patch.sh example.yaml
 
 # check configuration file

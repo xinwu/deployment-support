@@ -1,3 +1,4 @@
+management_os: ubuntu
 hypervisor: xen
 mysql_root_pwd: bsn
 cloud_db_pwd: null

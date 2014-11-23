@@ -4,8 +4,8 @@
 # This script is used to set up cloud stack management node
 # and compute nodes with Big Cloud Fabric. The requirements are:
 # BCF: 2.0.1 or higher
-# installation node: ubuntu 12.04
-# management node: ubuntu 12.04
+# installation node: ubuntu 12.04, centos 6.5 or centos 6.6
+# management node: ubuntu 12.04, centos 6.5 or centos 6.6
 # compute node: ubuntu 12.04 or xenserver 6.2
 # 
 # To prepare installation, on installation node, please download
@@ -113,6 +113,9 @@ STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 
 # hypervisor, can be either kvm or xen
 HYPERVISOR = 'kvm'
+
+# management os
+MGMT_OS = 'ubuntu'
 
 # master nodes for XEN server pools
 MASTER_NODES = {}
@@ -1632,10 +1635,12 @@ def deploy_to_all(config):
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
 
     global HYPERVISOR
+    global MGMT_OS
     global MASTER_NODES
     global POOL_SIZES
     global MANAGEMENT_NODE
     HYPERVISOR = config['hypervisor']
+    MGMT_OS = config['management_os']
 
     slave_name_labels_dic = {}
     bond_ips_dic   = {}
