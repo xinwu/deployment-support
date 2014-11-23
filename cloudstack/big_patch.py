@@ -997,6 +997,7 @@ while [[ ${count_down} > 0 ]]; do
     if [[ $? == 0 ]]; then
         sleep 120
         intf_count=$(sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s "echo %(pwd)s | sudo -S cat /proc/net/bonding/bond0 | grep -w Interface | wc -l")
+        echo "%(hostname)s has ${intf_count/$'\r'/} interfaces in bond0" >> %(log)s
         if [[ ${intf_count/$'\r'/} == %(intf_count)d ]]; then
             exit 0
         fi
@@ -1589,9 +1590,11 @@ def worker_reboot_management():
 def worker_check_bond():
     while True:
         node = xen_check_bond_q.get()
+        safe_print("start to check bond on %s\n" % node.hostname)
         cmd = (r'''bash /tmp/%s.checkbond.sh''' % node.hostname)
         run_command_on_local(cmd)
         xen_check_bond_q.task_done()
+        safe_print("finish checking bond on %s\n" % node.hostname)
 
 def deploy_to_all(config):
     # install sshpass
