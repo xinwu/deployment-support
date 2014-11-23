@@ -812,6 +812,7 @@ fi
 XEN_SLAVE = r'''
 #!/bin/bash
 
+host_name_label="%(host_name_label)"
 master_address="%(master_address)s"
 master_username="%(master_username)s"
 master_pwd="%(master_pwd)s"
@@ -848,7 +849,9 @@ echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
 # use linux bridge instead of ovs
 /opt/xensource/bin/xe-switch-network-backend bridge
 
+echo "${host_name_label}" "starts to join pool with master:" "${master_address}"
 xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
+echo "${host_name_label}" "finishes joining pool with master:" "${master_address}"
 
 # change default gw on upstart script
 echo "sleep 60" >> /etc/rc.local
@@ -863,6 +866,7 @@ XEN_IP_ASSIGNMENT=r'''
 #!/bin/bash
 
 user_name="%(username)s"
+xenserver_pool="%(xenserver_pool)s"
 cluster_size=%(cluster_size)d
 count_down=30
 slave_name_labels=%(slave_name_labels)s
@@ -882,7 +886,7 @@ while [[ ${count} > 0 ]] && [[ ${hosts_online} < ${cluster_size} ]]; do
     let count-=1
     sleep 1
 done
-echo 'Number of compute nodes online:' ${hosts_online}
+echo "Pool" "${xenserver_pool}" "has" "${hosts_online}" "compute nodes online"
 
 # configure bonds to all nodes
 # wait at most 120 seconds for all networks
@@ -1483,7 +1487,8 @@ def generate_command_for_node(node):
                                  'master_pwd'      : MASTER_NODES[node.xenserver_pool].node_password,
                                  'bond_intfs'      : bond_intfs,
                                  'username'        : node.node_username,
-                                 'pxe_gw'          : node.pxe_gw})
+                                 'pxe_gw'          : node.pxe_gw,
+                                 'host_name_label' : node.host_name_label})
                 slave_bash.close()
             with open('/tmp/%s.slave_reboot.sh' % node.hostname, "w") as slave_reboot_bash:
                 slave_reboot_bash.write(XEN_SLAVE_REBOOT %
@@ -1501,7 +1506,7 @@ def generate_command_for_node(node):
 
         with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
             mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
-                               {'host_name_label'  : node.host_name_label,})
+                               {'host_name_label'  : node.host_name_label})
             mgmtintf_bash.close()
 
 # step 0: setup management node
@@ -1735,7 +1740,8 @@ def deploy_to_all(config):
                               'bond_inets'        : bond_inets_dic[pool],
                               'bond_ips'          : bond_ips_dic[pool],
                               'bond_masks'        : bond_masks_dic[pool],
-                              'bond_gateways'     : bond_gateways_dic[pool]})
+                              'bond_gateways'     : bond_gateways_dic[pool],
+                              'xenserver_pool'    : MASTER_NODES[pool].xenserver_pool})
             bondip_bash.close()
 
     # step 0: setup management node
