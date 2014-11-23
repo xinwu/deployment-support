@@ -995,7 +995,7 @@ count_down=300
 while [[ ${count_down} > 0 ]]; do
     echo quit | telnet %(hostname)s 22 2>/dev/null | grep Connected
     if [[ $? == 0 ]]; then
-        sleep 120
+        sleep 180
         intf_count=$(sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s "echo %(pwd)s | sudo -S cat /proc/net/bonding/bond0 | grep -w Interface | wc -l")
         echo "%(hostname)s has ${intf_count/$'\r'/} interfaces in bond0" >> %(log)s
         if [[ ${intf_count/$'\r'/} == %(intf_count)d ]]; then
