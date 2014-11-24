@@ -1186,6 +1186,7 @@ chmod 755 /export/secondary
 /usr/sbin/exportfs -a
 
 # update iptables rules
+iptables -F
 iptables -A INPUT -p udp --dport 111 -j ACCEPT
 iptables -A INPUT -p tcp --dport 111 -j ACCEPT
 iptables -A INPUT -p tcp --dport 2049 -j ACCEPT
