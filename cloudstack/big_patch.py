@@ -1253,7 +1253,7 @@ chmod 755 /etc/rc.local
 cloudstack-setup-management
 /sbin/service cloudstack-management stop
 /sbin/service cloudstack-management start
-sleep 120
+sleep 300
 '''
 
 CENTOS_MGMT_LOCAL=r'''
