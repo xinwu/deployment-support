@@ -1230,14 +1230,17 @@ cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(m
 /sbin/service mysqld start
 
 # configure rc.local
-sed '/lldp/d' /etc/rc.local
-sed '/mysql/d' /etc/rc.local
-sed '/cloudstack/d' /etc/rc.local
-sed '/exit/d' /etc/rc.local
+sed -i '/lldp/d' /etc/rc.local
+sed -i '/mysql/d' /etc/rc.local
+sed -i '/tomcat6/d' /etc/rc.local
+sed -i '/cloudstack/d' /etc/rc.local
+sed -i '/exit/d' /etc/rc.local
 echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
 echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service mysql stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service mysql start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service mysqld stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service mysqld start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service tomcat6 stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service tomcat6 start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
 echo "/sbin/service cloudstack-management stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
 echo "/sbin/service cloudstack-management start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
 echo "route del default" >> /etc/rc.local
@@ -1249,7 +1252,7 @@ chmod 755 /etc/rc.local
 cloudstack-setup-management
 /sbin/service cloudstack-management stop
 /sbin/service cloudstack-management start
-sleep 300
+sleep 120
 '''
 
 CENTOS_MGMT_LOCAL=r'''
