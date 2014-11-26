@@ -29,6 +29,7 @@ default_bridges:
 nodes:
 - hostname: 172.16.54.130
   role: management
+  host_name_label: xenserver1
   pxe_interface: 
     interface: eth0
     inet: static
@@ -39,7 +40,9 @@ nodes:
     inet: dhcp
     vlan: 6
 - hostname: 172.16.54.132
+  host_name_label: xenserver2
 - hostname: 172.16.54.134
+  host_name_label: xenserver3
   node_username: username
   node_password: password
   pxe_interface:
