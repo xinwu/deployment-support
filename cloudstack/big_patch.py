@@ -96,6 +96,15 @@ STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 # hypervisor, can be either kvm or xen
 HYPERVISOR = 'kvm'
 
+# master nodes for XEN server pools
+MASTER_NODES = {}
+
+# pool size
+POOL_SIZES = {}
+
+# management node
+MANAGEMENT_NODE = None
+
 # management node puppet template
 MGMT_PUPPET = r'''
 $user           = "%(user)s"
@@ -674,6 +683,7 @@ if [[ ("$hypervisor" == "kvm") || ("%(role)s" == "management") ]]; then
         service cloudstack-management start
         sleep 300
     fi
+    reboot
 else
     host_name_label="%(host_name_label)s"
     network_name_labels=%(network_name_labels)s
@@ -682,6 +692,7 @@ else
     bond_inets=%(bond_inets)s
     bond_ips=%(bond_ips)s
     bond_masks=%(bond_masks)s
+    bond_gateways=%(bond_gateways)s
     user_name="%(user)s"
     pxe_intf="%(pxe_intf)s"
     pxe_inet="%(pxe_inet)s"
@@ -689,6 +700,8 @@ else
     pxe_netmask="%(pxe_netmask)s"
     pxe_gw="%(pxe_gw)s"
     pxe_dns="%(pxe_dns)s"
+
+    export PATH="/sbin:/opt/xensource/bin:$PATH"
 
     # wget vhd-util
     mkdir -p /home/${user_name}/bcf
@@ -710,19 +723,19 @@ else
     echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
     /sbin/chkconfig --add lldpd
     /sbin/chkconfig lldpd on
-    service lldpd start
+    /sbin/service lldpd start
 
     # configure NTP
     yum install -y ntp
     sed -i '/xenserver.pool.ntp.org/d' /etc/ntp.conf
     sed -i '/0.bigswitch.pool.ntp.org/d' /etc/ntp.conf
     echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
-    service ntpd restart
+    /sbin/service ntpd restart
     /sbin/chkconfig --add ntpd
     /sbin/chkconfig ntpd on
 
     # disable iptables
-    service iptables stop
+    /sbin/service iptables stop
 
     # configure bond
     host_uuid="$(xe host-list | grep -w ${host_name_label} -B1 | grep -w uuid | awk '{print $NF}')"
@@ -735,7 +748,7 @@ else
     # configure management network
     bond_uuid=''
     bond_pif_uuid=''
-    mgmt_bridge=''
+    bond_bridge=''
     count=${#vlan_tags[@]}
     for (( i=0; i<${count}; i++ )); do
         network_name_label=${network_name_labels[$i]}
@@ -743,35 +756,30 @@ else
         bond_inet=${bond_inets[$i]}
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
+        bond_gateway=${bond_gateways[$i]}
 
         if [[ ${vlan_tag} == '' ]]; then
             network_uuid="$(xe network-create name-label=${network_name_label})"
-            mgmt_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
             pif_uuids=$(IFS=, ; echo "${bond_intf_uuids[*]}")
             bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
+            bond_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
             bond_pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "VLAN ( RO): -1" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
 
             if [[ ${bond_inet} == 'static' ]]; then
-                xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+                xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
+                ping ${bond_gateway} -c3
             fi
             break
         fi
     done
-
-    if [[ ${mgmt_bridge} == '' ]]; then
-        echo 'Error: management network must be untagged'
-        exit 1
-    fi
 
     if [[ ${bond_uuid} == '' ]]; then
         echo 'Error: fails to create bond'
         exit 1
     fi
 
-    # change management interface to management bond
-    sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
     bond_name=$(xe pif-list params=all | grep -w ${host_name_label} -B14 | grep -w ${bond_uuid} -B6 | grep -w device | awk '{print $NF}')
-    echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
+    echo "host name: ${host_name_label}, bond bridge: ${bond_bridge}, bond: ${bond_name}"
 
     # configure vlan
     for (( i=0; i<${count}; i++ )); do
@@ -780,6 +788,7 @@ else
         bond_inet=${bond_inets[$i]}
         bond_ip=${bond_ips[$i]}
         bond_mask=${bond_masks[$i]}
+        bond_gateway=${bond_gateways[$i]}
 
         if [[ ${vlan_tag} == '' ]]; then
             continue
@@ -789,7 +798,8 @@ else
         vlan_uuid=$(xe vlan-create network-uuid=${network_uuid} pif-uuid=${bond_pif_uuid} vlan=${vlan_tag})
         if [[ ${bond_inet} == 'static' ]]; then
             pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "${vlan_tag}" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
-            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask}
+            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
+            ping ${bond_gateway} -c3
         fi
 
         bridge=$(xe network-list | grep -w ${network_uuid} -A3 | grep -w bridge | awk '{print $NF}')
@@ -803,9 +813,159 @@ else
     fi
 
     # use linux bridge instead of ovs
-    xe-switch-network-backend bridge
+    /opt/xensource/bin/xe-switch-network-backend bridge
 
 fi
+'''
+
+XEN_SLAVE = r'''
+#!/bin/bash
+
+master_address="%(master_address)s"
+master_username="%(master_username)s"
+master_pwd="%(master_pwd)s"
+user_name="%(username)s"
+bond_intfs=%(bond_intfs)s
+
+export PATH="/sbin:/opt/xensource/bin:$PATH"
+
+# wget vhd-util
+mkdir -p /home/${user_name}/bcf
+wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /home/${user_name}/bcf/
+chmod 777 /home/${user_name}/bcf/vhd-util
+mkdir -p /opt/cloud/bin
+cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
+mkdir -p /opt/xensource/bin
+cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
+
+# configure lldp
+wget ftp://rpmfind.net/linux/centos/5.11/os/i386/CentOS/lm_sensors-2.10.7-9.el5.i386.rpm -P /home/${user_name}/bcf/
+yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
+cd /etc/yum.repos.d/
+wget http://download.opensuse.org/repositories/home:vbernat/CentOS_5/home:vbernat.repo
+yum install -y lldpd
+sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
+bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
+echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
+/sbin/chkconfig --add lldpd
+/sbin/chkconfig lldpd on
+/sbin/service lldpd start
+
+# configure NTP
+yum install -y ntp
+sed -i '/xenserver.pool.ntp.org/d' /etc/ntp.conf
+sed -i '/0.bigswitch.pool.ntp.org/d' /etc/ntp.conf
+echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
+/sbin/service ntpd restart
+/sbin/chkconfig --add ntpd
+/sbin/chkconfig ntpd on
+
+# disable iptables
+/sbin/service iptables stop
+
+# use linux bridge instead of ovs
+/opt/xensource/bin/xe-switch-network-backend bridge
+
+xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
+'''
+
+XEN_IP_ASSIGNMENT=r'''
+#!/bin/bash
+
+user_name="%(username)s"
+cluster_size=%(cluster_size)d
+count_down=30
+slave_name_labels=%(slave_name_labels)s
+bond_vlans=%(bond_vlans)s
+bond_inets=%(bond_inets)s
+bond_ips=%(bond_ips)s
+bond_masks=%(bond_masks)s
+bond_gateways=%(bond_gateways)s
+
+export PATH="/sbin:/opt/xensource/bin:$PATH"
+
+# wait at most 30 seconds for all slaves to join cluster
+count=${count_down}
+hosts_online=$(xe host-list | grep -w uuid | wc -l)
+while [[ ${count} > 0 ]] && [[ ${hosts_online} < ${cluster_size} ]]; do
+    hosts_online=$(xe host-list | grep -w uuid | wc -l)
+    let count-=1
+    sleep 1
+done
+echo 'Number of compute nodes online:' ${hosts_online}
+
+# configure bonds to all nodes
+mkdir -p /home/${user_name}/bcf
+wget --no-check-certificate https://raw.githubusercontent.com/apache/cloudstack/master/scripts/vm/hypervisor/xenserver/cloud-setup-bonding.sh -P /home/${user_name}/bcf/
+
+# wait at most 120 seconds for all networks
+count=${count_down}
+while [[ ${count} > 0 ]]; do
+    bash /home/${user_name}/bcf/cloud-setup-bonding.sh
+    if [[ $? == 0 ]]; then
+        break
+    fi
+    let count-=1
+    sleep 4
+done
+
+# configure bond interface ip
+bond_count=${#bond_inets[@]}
+slave_count=${#slave_name_labels[@]}
+for (( i=0; i<${slave_count}; i++ )); do
+    slave_name_label=${slave_name_labels[$i]}
+    existence=$(xe host-list | grep ${slave_name_label} | wc -l)
+    if [[ $existence == 0 ]]; then
+        continue
+    fi
+    let start_index=i*bond_count
+    for (( j=0; j<${bond_count}; j++ )); do
+        inet=${bond_inets[$j]}
+        if [[ ${inet} != 'static' ]]; then
+            continue
+        fi
+        vlan=${bond_vlans[$j]}
+        if [[ $vlan == "" ]]; then
+            vlan="-1"
+        fi
+        let k=start_index+j
+        ip=${bond_ips[$k]}
+        mask=${bond_masks[$k]}
+        gateway=${bond_gateways[$k]}
+        pif_uuid=$(xe pif-list host-name-label=${slave_name_label} device-name='' VLAN=${vlan} | grep -w uuid | grep -v network | awk '{print $NF}')
+        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask} gateway=${gateway}
+        ping ${gateway} -c3
+    done
+done
+'''
+
+XEN_CHANGE_MGMT_INTF=r'''
+#!/bin/bash
+host_name_label="%(host_name_label)s"
+
+export PATH="/sbin:/opt/xensource/bin:$PATH"
+
+# change management interface to bond
+network_uuid=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
+bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w device | grep bond | awk '{print $NF}')
+mgmt_bridge=$(xe network-param-get param-name=bridge uuid=${network_uuid})
+sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
+echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
+/opt/xensource/bin/xe-switch-network-backend bridge
+/opt/xensource/bin/xe-toolstack-restart
+'''
+
+XEN_SLAVE_REBOOT=r'''
+master_address="%(master_address)s"
+count_down=300 
+while [[ ${count_down} > 0 ]]; do
+    echo quit | telnet ${master_address} 22 2>/dev/null | grep Connected
+    if [[ $? == 0 ]]; then
+        break
+    fi
+    let count_down-=1
+    sleep 1
+done
 reboot
 '''
 
@@ -822,13 +982,32 @@ if [[ ("%(role)s" == "management") || ("%(hypervisor)s" == "kvm") ]]; then
         echo -e "Copy db.sh to node %(hostname)s\n"
         sshpass -p %(pwd)s scp /tmp/%(hostname)s.db.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/db.sh >> %(log)s 2>&1
     fi
-fi
     echo -e "Copy %(role)s.sh to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
     echo -e "Run %(role)s.sh on node %(hostname)s\n"
     echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
     sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
-echo -e "Finish deploying %(role)s on %(hostname)s\n"
+    echo -e "Finish deploying %(role)s on %(hostname)s\n"
+fi
+if [[ ("%(hypervisor)s" == "xen") && ("%(role)s" == "compute") ]]; then
+    echo -e "Copy mgmtintf.sh to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.mgmtintf.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/mgmtintf.sh >> %(log)s 2>&1
+    if [[ ! -f /tmp/%(hostname)s.%(pool)s.bondip.sh ]]; then
+        echo -e "Copy slave.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave.sh >> %(log)s 2>&1
+        echo -e "Copy slave_reboot.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.slave_reboot.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/slave_reboot.sh >> %(log)s 2>&1
+    else
+        echo -e "Copy bondip.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.%(pool)s.bondip.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/bondip.sh >> %(log)s 2>&1
+        echo -e "Copy %(role)s.sh to node %(hostname)s\n"
+        sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
+        echo -e "Run %(role)s.sh on node %(hostname)s\n"
+        echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
+        sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
+        echo -e "Finish deploying master %(role)s on %(pool)s %(hostname)s\n"
+    fi
+fi
 '''
 
 def get_raw_value(dic, key):
@@ -851,6 +1030,11 @@ class Node(object):
         self.bond_name       = get_raw_value(node_config['bond_interface'], 'name')
         self.bond_interfaces = node_config['bond_interface']['interfaces']
         self.pxe_interface   = node_config['pxe_interface']
+
+        if HYPERVISOR == 'xen':
+           self.xenserver_pool  = get_raw_value(node_config, 'xenserver_pool')
+        else:
+           self.xenserver_pool  = None
 
         if self.role == ROLE_MGMT:
             self.management_bond = get_raw_value(node_config, 'management_bond')
@@ -968,6 +1152,8 @@ def generate_interface_config(node):
                 address = get_raw_value(bridge, 'address')
             if 'netmask' in bridge.keys():
                 netmask = get_raw_value(bridge, 'netmask')
+            if 'gateway' in bridge.keys():
+                gateway = get_raw_value(bridge, 'gateway')
 
             port_name = node.bond_name
             if vlan:
@@ -994,6 +1180,7 @@ def generate_interface_config(node):
                            '  iface %(name)s inet %(inet)s\n'
                            '  address %(address)s\n'
                            '  netmask %(netmask)s\n'
+                           '  gateway %(gateway)s\n'
                            '  bridge_ports %(port_name)s\n'
                            '  bridge_stp off\n'
                            '  up /sbin/ifconfig $IFACE up || /bin/true\n\n' %
@@ -1001,7 +1188,8 @@ def generate_interface_config(node):
                            'port_name' : port_name,
                            'inet'      : inet,
                            'address'   : address,
-                           'netmask'   : netmask})
+                           'netmask'   : netmask,
+                           'gateway'   : gateway})
 
     with open('/tmp/%s.intf' % node.hostname, "w") as config_file:
         config_file.write(config)
@@ -1031,8 +1219,21 @@ def kill_on_timeout(command, event, timeout, proc):
         safe_print('Timeout when running %s' % command)
         proc.kill()
 
-# queue to store all bash cmd
+
+# queue to store all nodes, for step 1: setup master, on master, compute.sh
 node_q = Queue.Queue()
+# queue to store all xen slave nodes, for step 2: join cluster, on slave, slave.sh
+xen_slave_node_q = Queue.Queue()
+# queue to store all xen master nodes, for step 3: assign ip, on master, bondip.sh
+xen_master_node_q = Queue.Queue()
+# queue to store all nodes, for step 4: change mgmt intf, on all, mgmtintf.sh
+node_mgmtintf_q = Queue.Queue()
+# queue to store all xen master nodes, for step 5: reboot master, on master, reboot
+xen_master_node_reboot_q = Queue.Queue()
+# queue to store all xen slave nodes, for step 6: reboot slave, on slave, reboot
+xen_slave_node_reboot_q = Queue.Queue()
+
+
 def run_command_on_local(command, timeout=1800):
     event = threading.Event()
     p = subprocess.Popen(
@@ -1059,50 +1260,51 @@ def run_command_on_local(command, timeout=1800):
 
 
 def generate_command_for_node(node):
-    # generate interface config
-    generate_interface_config(node)
+    if HYPERVISOR == "kvm" or node.role == "management":
+        # generate interface config
+        generate_interface_config(node)
 
-    # generate puppet script
-    intfs = ','.join(node.bond_interfaces)
-    lldp_config = LLDP_PUPPET % {'bond_interfaces' : intfs}
-    node_config = None
-    if node.role == ROLE_MGMT:
-        node_config = (MGMT_PUPPET %
-                       {'user'                : node.node_username,
-                        'role'                : node.role,
-                        'mysql_root_pwd'      : node.mysql_root_pwd,
-                        'cs_url'              : CS_URL,
-                        'cs_common'           : CS_COMMON,
-                        'cs_mgmt'             : CS_MGMT,
-                        'cloud_db_pwd'        : node.cloud_db_pwd,
-                        'storage_script'      : STORAGE_SCRIPT,
-                        'storage_vm_url'      : STORAGE_VM_URL,
-                        'storage_vm_template' : STORAGE_VM_TEMPLATE})
-    elif node.role == ROLE_COMPUTE:
-        node_config = (COMPUTE_PUPPET %
-                       {'user'      : node.node_username,
-                        'role'      : node.role,
-                        'cs_url'    : CS_URL,
-                        'cs_common' : CS_COMMON,
-                        'cs_agent'  : CS_AGENT})
-    with open('/tmp/%s.pp' % node.hostname, "w") as node_puppet:
-        node_puppet.write("%(node_config)s\n\n%(lldp_config)s" %
-                          {'node_config' : node_config,
-                           'lldp_config' : lldp_config})
-        node_puppet.close()
+        # generate puppet script
+        intfs = ','.join(node.bond_interfaces)
+        lldp_config = LLDP_PUPPET % {'bond_interfaces' : intfs}
+        node_config = None
+        if node.role == ROLE_MGMT:
+            node_config = (MGMT_PUPPET %
+                          {'user'                : node.node_username,
+                           'role'                : node.role,
+                           'mysql_root_pwd'      : node.mysql_root_pwd,
+                           'cs_url'              : CS_URL,
+                           'cs_common'           : CS_COMMON,
+                           'cs_mgmt'             : CS_MGMT,
+                           'cloud_db_pwd'        : node.cloud_db_pwd,
+                           'storage_script'      : STORAGE_SCRIPT,
+                           'storage_vm_url'      : STORAGE_VM_URL,
+                           'storage_vm_template' : STORAGE_VM_TEMPLATE})
+        elif node.role == ROLE_COMPUTE:
+            node_config = (COMPUTE_PUPPET %
+                          {'user'      : node.node_username,
+                           'role'      : node.role,
+                           'cs_url'    : CS_URL,
+                           'cs_common' : CS_COMMON,
+                           'cs_agent'  : CS_AGENT})
+        with open('/tmp/%s.pp' % node.hostname, "w") as node_puppet:
+            node_puppet.write("%(node_config)s\n\n%(lldp_config)s" %
+                             {'node_config' : node_config,
+                              'lldp_config' : lldp_config})
+            node_puppet.close()
 
-    # generate db shell script
-    if node.role == ROLE_MGMT:
-        with open('/tmp/%s.db.sh' % node.hostname, "w") as node_db_bash:
-            node_db_bash.write(DB_BASH %
-                               {'user'           : node.node_username,
-                                'role'           : node.role,
-                                'cloud_db_pwd'   : node.cloud_db_pwd,
-                                'mysql_root_pwd' : node.mysql_root_pwd,
-                                'hostname'       : node.hostname})
-            node_db_bash.close()
+        # generate db shell script
+        if node.role == ROLE_MGMT:
+            with open('/tmp/%s.db.sh' % node.hostname, "w") as node_db_bash:
+                node_db_bash.write(DB_BASH %
+                                  {'user'           : node.node_username,
+                                   'role'           : node.role,
+                                   'cloud_db_pwd'   : node.cloud_db_pwd,
+                                   'mysql_root_pwd' : node.mysql_root_pwd,
+                                   'hostname'       : node.hostname})
+                node_db_bash.close()
 
-    # generate shell script
+    # generate remote shell script
     bond_intfs = '('
     for bond_interface in node.bond_interfaces:
         bond_intfs += r'''"%s" ''' % bond_interface
@@ -1113,6 +1315,7 @@ def generate_command_for_node(node):
     bond_inets = '('
     bond_ips   = '('
     bond_masks = '('
+    bond_gateways = '('
     if node.bridges:
         for bridge in node.bridges:
             name = get_raw_value(bridge, 'name')
@@ -1126,16 +1329,21 @@ def generate_command_for_node(node):
             netmask = ""
             if 'netmask' in bridge.keys():
                 netmask = get_raw_value(bridge, 'netmask')
+            gateway = ""
+            if 'gateway' in bridge.keys():
+                gateway = get_raw_value(bridge, 'gateway')
             network_name_labels += r'''"%s" ''' % name
             vlan_tags  += r'''"%s" ''' % vlan
             bond_inets += r'''"%s" ''' % inet
             bond_ips   += r'''"%s" ''' % address
             bond_masks += r'''"%s" ''' % netmask
+            bond_gateways += r'''"%s" ''' % gateway
     network_name_labels += ')'
     vlan_tags  += ')'
     bond_inets += ')'
     bond_ips   += ')'
     bond_masks += ')'
+    bond_gateways += ')'
 
     pxe_intf = get_raw_value(node.pxe_interface, 'interface')
     pxe_inet = get_raw_value(node.pxe_interface, 'inet')
@@ -1162,6 +1370,7 @@ def generate_command_for_node(node):
                                 'bond_inets'          : bond_inets,
                                 'bond_ips'            : bond_ips,
                                 'bond_masks'          : bond_masks,
+                                'bond_gateways'       : bond_gateways,
                                 'pxe_intf'            : pxe_intf,
                                 'pxe_inet'            : pxe_inet,
                                 'pxe_address'         : pxe_address,
@@ -1170,26 +1379,112 @@ def generate_command_for_node(node):
                                 'pxe_dns'             : pxe_dns})
         node_remote_bash.close()
 
-    # generate script for node
+    # generate local script for node
     with open('/tmp/%s.local.sh' % node.hostname, "w") as node_local_bash:
         node_local_bash.write(NODE_LOCAL_BASH %
                                {'pwd'        : node.node_password,
                                 'hostname'   : node.hostname,
                                 'user'       : node.node_username,
                                 'role'       : node.role,
+                                'pool'       : node.xenserver_pool,
                                 'log'        : LOG_FILENAME,
                                 'hypervisor' : HYPERVISOR})
         node_local_bash.close()
 
-    node_q.put(node)
-    
+    if HYPERVISOR == "xen":
+        # generate script for xen slaves
+        if MASTER_NODES[node.xenserver_pool].hostname != node.hostname:
+            with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
+                slave_bash.write(XEN_SLAVE %
+                                {'master_address'  : MASTER_NODES[node.xenserver_pool].hostname,
+                                 'master_username' : MASTER_NODES[node.xenserver_pool].node_username,
+                                 'master_pwd'      : MASTER_NODES[node.xenserver_pool].node_password,
+                                 'bond_intfs'      : bond_intfs,
+                                 'username'        : node.node_username})
+                slave_bash.close()
+            with open('/tmp/%s.slave_reboot.sh' % node.hostname, "w") as slave_reboot_bash:
+                slave_reboot_bash.write(XEN_SLAVE_REBOOT %
+                                {'master_address' : MASTER_NODES[node.xenserver_pool].hostname})
+                slave_reboot_bash.close()
 
-def worker():
+        with open('/tmp/%s.mgmtintf.sh' % node.hostname, "w") as mgmtintf_bash:
+            mgmtintf_bash.write(XEN_CHANGE_MGMT_INTF %
+                               {'host_name_label'  : node.host_name_label})
+            mgmtintf_bash.close()
+
+# step 0: setup management node
+def worker_setup_management():
+    cmd = 'bash /tmp/%s.local.sh' % MANAGEMENT_NODE.hostname
+    run_command_on_local(cmd)
+
+# step 1: setup master, on master, compute.sh
+def worker_setup_master():
     while True:
         node = node_q.get()
         cmd = 'bash /tmp/%s.local.sh' % node.hostname
         run_command_on_local(cmd)
         node_q.task_done()
+
+# step 2: join cluster, on slave, slave.s
+def worker_join_cluster():
+    while True:
+        node = xen_slave_node_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/slave.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_slave_node_q.task_done()
+
+# step 3: assign ip, on master, bondip.sh
+def worker_assign_ip():
+    while True:
+        node = xen_master_node_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/bondip.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_master_node_q.task_done()
+
+# step 4: change mgmt intf, on all, mgmtintf.sh
+def worker_change_mgmtintf():
+    while True:
+        node = node_mgmtintf_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/mgmtintf.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        node_mgmtintf_q.task_done()
+
+# step 5: reboot master, on master, reboot
+def worker_reboot_master():
+    while True:
+        node = xen_master_node_reboot_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S reboot"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_master_node_reboot_q.task_done()
+
+# step 6: reboot slave, on master, reboot
+def worker_reboot_slave():
+    while True:
+        node = xen_slave_node_reboot_q.get()
+        cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/slave_reboot.sh"''' %
+               {'pwd'      : node.node_password,
+                'user'     : node.node_username,
+                'hostname' : node.hostname,
+                'log'      : LOG_FILENAME})
+        run_command_on_local(cmd)
+        xen_slave_node_reboot_q.task_done()
+
 
 def deploy_to_all(config):
     # install sshpass
@@ -1202,7 +1497,18 @@ def deploy_to_all(config):
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
 
     global HYPERVISOR
+    global MASTER_NODES
+    global POOL_SIZES
+    global MANAGEMENT_NODE
     HYPERVISOR = config['hypervisor']
+
+    slave_name_labels_dic = {}
+    bond_ips_dic   = {}
+    bond_masks_dic = {}
+    bond_gateways_dic = {}
+    bond_vlans_dic = {}
+    bond_inets_dic = {}
+
     for node_config in config['nodes']:
         if 'pxe_interface' not in node_config:
             node_config['pxe_interface'] = config['default_pxe_interface']
@@ -1212,6 +1518,8 @@ def deploy_to_all(config):
             node_config['node_password'] = config['default_node_password']
         if 'role' not in node_config:
             node_config['role'] = config['default_role']
+        if HYPERVISOR == 'xen' and 'xenserver_pool' not in node_config:
+            node_config['xenserver_pool'] = config['default_xenserver_pool']
         if 'bond_interface' not in node_config:
             node_config['bond_interface'] = config['default_bond_interface']
         if 'bridges' not in node_config:
@@ -1227,16 +1535,145 @@ def deploy_to_all(config):
             node_config['cloud_db_pwd'] = UNDEF
 
         node = Node(node_config)
+        if node.role == "management":
+            MANAGEMENT_NODE = node
+        else:
+            node_q.put(node)
+            node_mgmtintf_q.put(node)           
+
+        if HYPERVISOR == "xen" and node.role == "compute" and node.xenserver_pool not in MASTER_NODES.keys():
+            MASTER_NODES[node.xenserver_pool] = node
+            POOL_SIZES[node.xenserver_pool] = 1
+            slave_name_labels_dic[node.xenserver_pool] = '('
+            bond_ips_dic[node.xenserver_pool] = '('
+            bond_masks_dic[node.xenserver_pool] = '('
+            bond_gateways_dic[node.xenserver_pool] = '('
+            bond_vlans_dic[node.xenserver_pool] = '('
+            bond_inets_dic[node.xenserver_pool] = '('
+            if node.bridges:
+                for bridge in node.bridges:
+                    vlan = get_raw_value(bridge, 'vlan')
+                    if not vlan:
+                        vlan = ""
+                    inet = get_raw_value(bridge, 'inet')
+                    bond_vlans_dic[node.xenserver_pool] += r'''"%s" ''' % vlan
+                    bond_inets_dic[node.xenserver_pool] += r'''"%s" ''' % inet
+                bond_vlans_dic[node.xenserver_pool] += ')'
+                bond_inets_dic[node.xenserver_pool] += ')'
+            xen_master_node_q.put(node)
+            xen_master_node_reboot_q.put(node)
+            safe_print("Master node of xenserver pool %(pool)s is: %(hostname)s\n" %
+                       {'pool'     : node.xenserver_pool,
+                        'hostname' : node.hostname})
+        elif HYPERVISOR == "xen" and node.role == "compute":
+            POOL_SIZES[node.xenserver_pool] = POOL_SIZES.get(node.xenserver_pool, 1) + 1
+            slave_name_labels_dic[node.xenserver_pool] += r'''"%s" ''' % node.host_name_label
+            if node.bridges:
+                for bridge in node.bridges:
+                    address = ""
+                    if 'address' in bridge.keys():
+                        address = get_raw_value(bridge, 'address')
+                    netmask = ""
+                    if 'netmask' in bridge.keys():
+                        netmask = get_raw_value(bridge, 'netmask')
+                    gateway = ""
+                    if 'gateway' in bridge.keys():
+                        gateway = get_raw_value(bridge, 'gateway')
+                    bond_ips_dic[node.xenserver_pool] += r'''"%s" ''' % address
+                    bond_masks_dic[node.xenserver_pool] += r'''"%s" ''' % netmask
+                    bond_gateways_dic[node.xenserver_pool] += r'''"%s" ''' % gateway
+            xen_slave_node_q.put(node)
+            xen_slave_node_reboot_q.put(node)
+
         generate_command_for_node(node)
 
+    for pool in MASTER_NODES.keys():
+        slave_name_labels_dic[pool] += ')'
+        bond_ips_dic[pool] += ')'
+        bond_masks_dic[pool] += ')'
+        bond_gateways_dic[pool] += ')'
+        # generate ip assignment script for xen master node
+        with open('/tmp/%(hostname)s.%(pool)s.bondip.sh' %
+                 {'hostname' : MASTER_NODES[pool].hostname,
+                  'pool'     : pool}, "w") as bondip_bash:
+            bondip_bash.write(XEN_IP_ASSIGNMENT %
+                             {'username'          : MASTER_NODES[pool].node_username,
+                              'cluster_size'      : POOL_SIZES[pool],
+                              'slave_name_labels' : slave_name_labels_dic[pool],
+                              'bond_vlans'        : bond_vlans_dic[pool],
+                              'bond_inets'        : bond_inets_dic[pool],
+                              'bond_ips'          : bond_ips_dic[pool],
+                              'bond_masks'        : bond_masks_dic[pool],
+                              'bond_gateways'     : bond_gateways_dic[pool]})
+            bondip_bash.close()
+
+    # step 0: setup management node
+    if MANAGEMENT_NODE:
+        management_node_thread = threading.Thread(target=worker_setup_management)
+        management_node_thread.daemon = True
+        management_node_thread.start()
+
+    # step 1: setup master, using node_q, on master run compute.sh   
     for i in range(MAX_WORKERS):
-        t = threading.Thread(target=worker)
+        t = threading.Thread(target=worker_setup_master)
         t.daemon = True
         t.start()
-
     node_q.join()
-    safe_print("CloudStack deployment finished\n")
+    if HYPERVISOR == "kvm":
+        if MANAGEMENT_NODE:
+            management_node_thread.join()
+            safe_print("Finish step 0: deploy management node\n")
+        safe_print("CloudStack deployment finished\n")
+        return
+    else:
+        safe_print("Finish step 1: setup xen master\n")
 
+    # step 2: join cluster, using xen_slave_node_q, on slave run slave.sh
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_join_cluster)
+        t.daemon = True
+        t.start()
+    xen_slave_node_q.join()
+    safe_print("Finish step 2: join cluster\n")
+
+    # step 3: assign ip, using xen_master_node_q, on master run bondip.sh
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_assign_ip)
+        t.daemon = True
+        t.start()
+    xen_master_node_q.join()
+    safe_print("Finish step 3: assign ip to bond interfaces\n")
+
+    # step 4: change mgmt intf, using node_mgmtintf_q, on all run mgmtintf.sh
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_change_mgmtintf)
+        t.daemon = True
+        t.start()
+    node_mgmtintf_q.join()
+    safe_print("Finish step 4: change management interfaces\n")
+
+    # step 5: reboot master, using xen_master_node_reboot_q, on master using reboot
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_reboot_master)
+        t.daemon = True
+        t.start()
+    xen_master_node_reboot_q.join()
+    safe_print("Finish step 5: reboot xen masters\n")
+    time.sleep(30)
+
+    # step 6: reboot slave, using xen_slave_node_reboot_q, on slave run reboot
+    for i in range(MAX_WORKERS):
+        t = threading.Thread(target=worker_reboot_slave)
+        t.daemon = True
+        t.start()
+    xen_slave_node_reboot_q.join()
+    safe_print("Finish step 6: reboot xen slaves\n")
+
+    if MANAGEMENT_NODE:
+        management_node_thread.join()
+        safe_print("Finish step 0: deploy management node\n")
+
+    safe_print("CloudStack deployment finished\n")
 
 if __name__ == '__main__':
     safe_print("Start to setup CloudStack for "
