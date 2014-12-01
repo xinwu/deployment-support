@@ -817,6 +817,11 @@ else
     # use linux bridge instead of ovs
     /opt/xensource/bin/xe-switch-network-backend bridge
 
+    # change default gw on upstart script
+    echo "sleep 60" >> /etc/rc.local
+    echo "route del default" >> /etc/rc.local
+    echo "route add default gw ${pxe_gw}" >> /etc/rc.local
+
 fi
 '''
 
@@ -828,6 +833,7 @@ master_username="%(master_username)s"
 master_pwd="%(master_pwd)s"
 user_name="%(username)s"
 bond_intfs=%(bond_intfs)s
+pxe_gw="%(pxe_gw)s"
 
 export PATH="/sbin:/opt/xensource/bin:$PATH"
 
@@ -871,6 +877,11 @@ echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
 /opt/xensource/bin/xe-switch-network-backend bridge
 
 xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
+
+# change default gw on upstart script
+echo "sleep 60" >> /etc/rc.local
+echo "route del default" >> /etc/rc.local
+echo "route add default gw ${pxe_gw}" >> /etc/rc.local
 '''
 
 XEN_IP_ASSIGNMENT=r'''
@@ -1404,7 +1415,8 @@ def generate_command_for_node(node):
                                  'master_username' : MASTER_NODES[node.xenserver_pool].node_username,
                                  'master_pwd'      : MASTER_NODES[node.xenserver_pool].node_password,
                                  'bond_intfs'      : bond_intfs,
-                                 'username'        : node.node_username})
+                                 'username'        : node.node_username,
+                                 'pxe_gw'          : node.pxe_gw})
                 slave_bash.close()
             with open('/tmp/%s.slave_reboot.sh' % node.hostname, "w") as slave_reboot_bash:
                 slave_reboot_bash.write(XEN_SLAVE_REBOOT %
