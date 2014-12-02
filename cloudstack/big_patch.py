@@ -1665,6 +1665,8 @@ def deploy_to_all(config):
         t.start()
     xen_master_node_q.join()
     safe_print("Finish step 3: assign ip to bond interfaces\n")
+    # wait long enough to let the IP assignment propagate
+    time.sleep(60)
 
     # step 4: change mgmt intf, using node_mgmtintf_q, on all run mgmtintf.sh
     for i in range(MAX_WORKERS):
@@ -1681,7 +1683,7 @@ def deploy_to_all(config):
         t.start()
     xen_master_node_reboot_q.join()
     safe_print("Finish step 5: reboot xen masters\n")
-    time.sleep(30)
+    time.sleep(60)
 
     # step 6: reboot slave, using xen_slave_node_reboot_q, on slave run reboot
     for i in range(MAX_WORKERS):
