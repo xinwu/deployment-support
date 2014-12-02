@@ -381,7 +381,6 @@ $cs_url     = "%(cs_url)s"
 $cs_common  = "%(cs_common)s"
 $cs_agent   = "%(cs_agent)s"
 
-
 class {'apt':
     always_apt_update => true,
 }
@@ -451,6 +450,9 @@ file {"/etc/rc.local":
     group   => root,
     mode    => 755,
     content => "
+sleep 30
+route del default
+route add default gw %(pxe_gw)s
 /etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
 /etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1
 service dbus stop >> /home/%(user)s/bcf/%(role)s.log 2>&1
@@ -1163,10 +1165,13 @@ def generate_interface_config(node):
             name = get_raw_value(bridge, 'name')
             vlan = get_raw_value(bridge, 'vlan')
             inet = get_raw_value(bridge, 'inet')
+            address = ""
             if 'address' in bridge.keys():
                 address = get_raw_value(bridge, 'address')
+            netmask = ""
             if 'netmask' in bridge.keys():
                 netmask = get_raw_value(bridge, 'netmask')
+            gateway = ""
             if 'gateway' in bridge.keys():
                 gateway = get_raw_value(bridge, 'gateway')
 
@@ -1301,7 +1306,8 @@ def generate_command_for_node(node):
                            'role'      : node.role,
                            'cs_url'    : CS_URL,
                            'cs_common' : CS_COMMON,
-                           'cs_agent'  : CS_AGENT})
+                           'cs_agent'  : CS_AGENT,
+                           'pxe_gw'    : node.pxe_gw})
         with open('/tmp/%s.pp' % node.hostname, "w") as node_puppet:
             node_puppet.write("%(node_config)s\n\n%(lldp_config)s" %
                              {'node_config' : node_config,
