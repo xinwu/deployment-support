@@ -15,6 +15,7 @@
 # and put them under the same directory as this script.
 #
 # On installation node, run
+# sudo apt-get update
 # sudo apt-get install -y sshpass python-yaml python-pip python-dev
 # sudo pip install futures subprocess32
 #
@@ -814,8 +815,6 @@ else
     echo "route del default" >> /etc/rc.local
     echo "route add default gw ${pxe_gw}" >> /etc/rc.local
 
-    # experimental, we may not need this at all
-    /opt/xensource/bin/xe-toolstack-restart
 fi
 '''
 
@@ -877,8 +876,6 @@ echo "sleep 60" >> /etc/rc.local
 echo "route del default" >> /etc/rc.local
 echo "route add default gw ${pxe_gw}" >> /etc/rc.local
 
-# experimental, we may not need this at all
-/opt/xensource/bin/xe-toolstack-restart
 '''
 
 XEN_IP_ASSIGNMENT=r'''
