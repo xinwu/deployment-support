@@ -1764,17 +1764,17 @@ def deploy_to_all(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config-file", required=True,
+    parser.add_argument("-c", "--config-file", required=False,
                         help="CloudStack YAML config path")
     args = parser.parse_args()
-    if not args.config_file:
-        parser.error('--config-file is not specified.')
-    else:
-        safe_print("Start to setup CloudStack for "
-                   "Big Cloud Fabric %s\n" % (RELEASE_NAME))
+    if args.config_file:
+        safe_print("Start to setup CloudStack for Big Cloud Fabric\n")
         config_file_path = args.config_file
         with open(config_file_path, 'r') as config_file:
             config = yaml.load(config_file)
-
-    deploy_to_all(config)
+        deploy_to_all(config)
+    else:
+        safe_print("This script supports Ubuntu 12.04 as the CloudStack management node.\n"
+                   "CloudStack compute node can be either Ubuntu 12.04 or XenServer 6.2.\n"
+                   "Use -h for how to use this script.\n")
 
