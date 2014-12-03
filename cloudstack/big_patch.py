@@ -755,6 +755,8 @@ else
             if [[ ${bond_inet} == 'static' ]]; then
                 xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
                 ping ${bond_gateway} -c3
+            else
+                xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet}
             fi
             break
         fi
@@ -783,10 +785,12 @@ else
 
         network_uuid="$(xe network-create name-label=${network_name_label})"
         vlan_uuid=$(xe vlan-create network-uuid=${network_uuid} pif-uuid=${bond_pif_uuid} vlan=${vlan_tag})
+        pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "${vlan_tag}" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
         if [[ ${bond_inet} == 'static' ]]; then
-            pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "${vlan_tag}" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
             xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
             ping ${bond_gateway} -c3
+        else
+            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${bond_inet}
         fi
 
         bridge=$(xe network-list | grep -w ${network_uuid} -A3 | grep -w bridge | awk '{print $NF}')
@@ -794,9 +798,11 @@ else
     done
 
     # configure pxe interface
+    pif_uuid=$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${pxe_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
     if [[ ${pxe_inet} == 'static' ]]; then
-        pif_uuid=$(xe pif-list params=all | grep -w ${host_name_label} -B15 | grep -w ${pxe_intf} -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
         xe pif-reconfigure-ip uuid=${pif_uuid} mode=${pxe_inet} IP=${pxe_address} netmask=${pxe_netmask} gateway=${pxe_gw} DNS=${pxe_dns}
+    else
+        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${pxe_inet}
     fi
 
     # use linux bridge instead of ovs
@@ -927,9 +933,6 @@ for (( i=0; i<${slave_count}; i++ )); do
     let start_index=i*bond_count
     for (( j=0; j<${bond_count}; j++ )); do
         inet=${bond_inets[$j]}
-        if [[ ${inet} != 'static' ]]; then
-            continue
-        fi
         vlan=${bond_vlans[$j]}
         if [[ $vlan == "" ]]; then
             vlan="-1"
@@ -939,24 +942,31 @@ for (( i=0; i<${slave_count}; i++ )); do
         mask=${bond_masks[$k]}
         gateway=${bond_gateways[$k]}
         pif_uuid=$(xe pif-list host-name-label=${slave_name_label} device-name='' VLAN=${vlan} | grep -w uuid | grep -v network | awk '{print $NF}')
-        xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask} gateway=${gateway}
-        ip_array=("${ip_array[@]}" "${ip}")
-        ping ${gateway} -c3
+        if [[ ${inet} == 'static' ]]; then
+            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet} IP=${ip} netmask=${mask} gateway=${gateway}
+            ip_array=("${ip_array[@]}" "${ip}")
+            ping ${gateway} -c3
+        else
+            xe pif-reconfigure-ip uuid=${pif_uuid} mode=${inet}
+        fi
     done
 done
 
 ip_count=${#ip_array[@]}
-for (( i=0; i<${ip_count}; i++ )); do
-    ip=${ip_array[$i]}
-    count_down=30
-    while [[ ${count_down} > 0 ]]; do
+count_down=60
+while [[ ${count_down} > 0 ]]; do
+    success_count=0
+    for (( i=0; i<${ip_count}; i++ )); do
+        ip=${ip_array[$i]}
         ping ${ip} -c1
         if [[ $? == 0 ]]; then
-            break
+            let success_count+=1
         fi
-        let count_down-=1
-        sleep 1
     done
+    if [[ ${ip_count}==${success_count} ]]; then
+        break
+    fi
+    let count_down-=1
     if [[ ${count_down}==0 ]]; then
         echo "Failed to assign IP:" "${ip}"
     fi
