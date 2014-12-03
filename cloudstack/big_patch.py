@@ -1697,7 +1697,13 @@ def deploy_to_all(config):
     if HYPERVISOR == "kvm":
         if MANAGEMENT_NODE:
             management_node_thread.join()
-            safe_print("Finish step 0: deploy management node\n")
+            safe_print("Finish deploying management node\n")
+            safe_print("CloudStack deployment finished\n")
+            t = threading.Thread(target=worker_reboot_management)
+            t.daemon = True
+            t.start()
+            t.join()
+            return
         safe_print("CloudStack deployment finished\n")
         return
     else:
@@ -1746,11 +1752,13 @@ def deploy_to_all(config):
 
     if MANAGEMENT_NODE:
         management_node_thread.join()
-        safe_print("Finish step 0: deploy management node\n")
+        safe_print("Finish deploying management node\n")
+        safe_print("CloudStack deployment finished\n")
         t = threading.Thread(target=worker_reboot_management)
         t.daemon = True
         t.start()
         t.join()
+        return
 
     safe_print("CloudStack deployment finished\n")
 
