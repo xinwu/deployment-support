@@ -667,8 +667,9 @@ if [[ ("$hypervisor" == "kvm") || ("%(role)s" == "management") ]]; then
         cloudstack-setup-management   
         service cloudstack-management start
         sleep 300
+    else
+        reboot
     fi
-    reboot
 else
     host_name_label="%(host_name_label)s"
     network_name_labels=%(network_name_labels)s
@@ -1439,7 +1440,7 @@ def generate_command_for_node(node):
                                 'CS_AGENT'   : CS_AGENT})
         node_local_bash.close()
 
-    if HYPERVISOR == "xen":
+    if HYPERVISOR == "xen" and node.role == "compute":
         # generate script for xen slaves
         if MASTER_NODES[node.xenserver_pool].hostname != node.hostname:
             with open('/tmp/%s.slave.sh' % node.hostname, "w") as slave_bash:
@@ -1534,6 +1535,14 @@ def worker_reboot_slave():
         run_command_on_local(cmd)
         xen_slave_node_reboot_q.task_done()
 
+# step 7: reboot management
+def worker_reboot_management():
+    cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S reboot"''' %
+           {'pwd'      : MANAGEMENT_NODE.node_password,
+            'user'     : MANAGEMENT_NODE.node_username,
+            'hostname' : MANAGEMENT_NODE.hostname,
+            'log'      : LOG_FILENAME})
+    run_command_on_local(cmd)
 
 def deploy_to_all(config):
     # install sshpass
@@ -1741,6 +1750,10 @@ def deploy_to_all(config):
     if MANAGEMENT_NODE:
         management_node_thread.join()
         safe_print("Finish step 0: deploy management node\n")
+        t = threading.Thread(target=worker_reboot_management)
+        t.daemon = True
+        t.start()
+        t.join()
 
     safe_print("CloudStack deployment finished\n")
 
