@@ -698,15 +698,9 @@ else
     cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
     chmod 777 /opt/xensource/bin/vhd-util
 
-    # configure lldp
+    # install lldp
     yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
     yum install -y lldpd
-    sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
-    bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
-    echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
-    /sbin/chkconfig --add lldpd
-    /sbin/chkconfig lldpd on
-    /sbin/service lldpd start
 
     # configure NTP
     yum install -y ntp
@@ -744,10 +738,11 @@ else
         if [[ ${vlan_tag} == '' ]]; then
             network_uuid="$(xe network-create name-label=${network_name_label})"
             pif_uuids=$(IFS=, ; echo "${bond_intf_uuids[*]}")
-            bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids} mode=active-backup)
+            bond_uuid=$(xe bond-create network-uuid=${network_uuid} pif-uuids=${pif_uuids})
             bond_bridge=$(xe network-list params=all | grep -w ${network_uuid} -A6 | grep -w bridge | awk '{print $NF}')
             bond_pif_uuid=$(xe pif-list params=all | grep -w "${host_name_label}" -B15 | grep -w "${network_name_label}" -B13 | grep -w "VLAN ( RO): -1" -B6 | grep bond -B1 | grep -w uuid | grep -v network | awk '{print $NF}')
 
+            # configure ip address to bond interface
             if [[ ${bond_inet} == 'static' ]]; then
                 xe pif-reconfigure-ip uuid=${bond_pif_uuid} mode=${bond_inet} IP=${bond_ip} netmask=${bond_mask} gateway=${bond_gateway}
                 ping ${bond_gateway} -c3
@@ -832,15 +827,9 @@ mkdir -p /opt/xensource/bin
 cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
 chmod 777 /opt/xensource/bin/vhd-util
 
-# configure lldp
+# install lldp
 yum install -y /home/${user_name}/bcf/lm_sensors-2.10.7-9.el5.i386.rpm
 yum install -y lldpd
-sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
-bond_intf_names=$(IFS=, ; echo "${bond_intfs[*]}")
-echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intf_names}\"" >> /etc/sysconfig/lldpd
-/sbin/chkconfig --add lldpd
-/sbin/chkconfig lldpd on
-/sbin/service lldpd start
 
 # configure NTP
 yum install -y ntp
@@ -964,7 +953,15 @@ export PATH="/sbin:/opt/xensource/bin:$PATH"
 
 # change management interface to bond
 network_uuid=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w network-uuid | awk '{print $NF}')
+
+# configure lldp
 bond_name=$(xe pif-list host-name-label=${host_name_label} device-name='' VLAN=-1 params=all | grep -w device | grep bond | awk '{print $NF}')
+sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
+echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_name}\"" >> /etc/sysconfig/lldpd
+/sbin/chkconfig --add lldpd
+/sbin/chkconfig lldpd on
+/sbin/service lldpd start
+
 mgmt_bridge=$(xe network-param-get param-name=bridge uuid=${network_uuid})
 sed -i "/^MANAGEMENT_INTERFACE=/s/=.*/=\'${mgmt_bridge}\'/" /etc/xensource-inventory
 echo "host name: ${host_name_label}, management bridge: ${mgmt_bridge}, management bond: ${bond_name}"
