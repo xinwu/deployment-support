@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.0.5'
+SCRIPT_VERSION = '1.0.6'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -920,6 +920,23 @@ file {$conf_dirs:
 exec{'ensureovsagentconfig':
     command => "bash -c 'mkdir -p /etc/neutron/plugins/openvswitch/; ln -s /etc/neutron/neutron.conf $neutron_ovs_conf_path; echo 0'",
     path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+}
+
+# use password for deferred authentication method for heat
+# so users don't need extra roles.
+ini_setting {"heat_deferred_auth_method":
+  path => '/etc/heat/heat.conf',
+  section  => 'DEFAULT',
+  setting => 'deferred_auth_method',
+  value => 'password',
+  ensure => present,
+  notify => Exec['restartheatservices'],
+}
+$heat_services = 'heat-api heat-engine heat-api-cfn'
+exec{"restartheatservices":
+    refreshonly=> true,
+    command => "bash -c 'for s in ${heat_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 
 # use two DHCP agents per network for redundancy
