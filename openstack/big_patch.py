@@ -922,6 +922,10 @@ exec{'ensureovsagentconfig':
     path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 
+exec{"heatconfexists":
+    command => "bash -c 'mkdir /etc/heat/; touch /etc/heat/heat.conf; echo done'",
+    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+}
 # use password for deferred authentication method for heat
 # so users don't need extra roles.
 ini_setting {"heat_deferred_auth_method":
@@ -931,6 +935,7 @@ ini_setting {"heat_deferred_auth_method":
   value => 'password',
   ensure => present,
   notify => Exec['restartheatservices'],
+  require => Exec['heatconfexists']
 }
 $heat_services = 'heat-api heat-engine heat-api-cfn'
 exec{"restartheatservices":
