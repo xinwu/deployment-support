@@ -850,7 +850,7 @@ echo '0.bigswitch.pool.ntp.org' >> /etc/ntp.conf
 /opt/xensource/bin/xe-switch-network-backend bridge
 
 echo "${host_name_label}" "starts to join pool with master:" "${master_address}"
-xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd}
+xe pool-join master-address=${master_address} master-username=${master_username} master-password=${master_pwd} force=true
 echo "${host_name_label}" "finishes joining pool with master:" "${master_address}"
 
 # change default gw on upstart script
