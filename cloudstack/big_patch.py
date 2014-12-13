@@ -1165,6 +1165,7 @@ bond_name="%(bond_name)s"
 # install and config lldp
 cd /etc/yum.repos.d/;
 wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo;
+yum update -y
 yum -y install lldpd
 sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
 echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_name}\"" >> /etc/sysconfig/lldpd
@@ -1216,7 +1217,12 @@ sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600
 
 # install cloudstack dependencies
 yum install -y java-1.7.0-openjdk-devel.x86_64
-yum install -y MySQL-python mysql-connector-java ipmitool mkisofs python-paramiko ws-commons-util tomcat6 
+yum install -y MySQL-python
+yum install -y mysql-connector-java
+yum install -y ipmitool mkisofs
+yum install -y python-paramiko
+yum install -y ws-commons-util
+yum install -y tomcat6 
 yum update -y
 
 # install cloudstack rpm
