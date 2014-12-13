@@ -1219,7 +1219,8 @@ sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600
 yum install -y java-1.7.0-openjdk-devel.x86_64
 yum install -y MySQL-python
 yum install -y mysql-connector-java
-yum install -y ipmitool mkisofs
+yum install -y ipmitool
+yum install -y mkisofs
 yum install -y python-paramiko
 yum install -y ws-commons-util
 yum install -y tomcat6 
