@@ -576,7 +576,7 @@ LLDP_PUPPET = r'''
 $bond_interfaces = '%(bond_interfaces)s'
 
 file {"/etc/default/lldpd" :
-    require => Exec['rm /var/run/lldpd.socket'],
+    require => Exec['rm -f /var/run/lldpd.socket'],
     ensure  => present,
     owner   => root,
     group   => root,
@@ -614,7 +614,7 @@ package {["lldpd", "vlan", "ifenslave-2.6"]:
     ensure => installed,
 }
 
-exec {'rm /var/run/lldpd.socket':
+exec {'rm -f /var/run/lldpd.socket':
     path    => "/bin:/usr/bin:/usr/sbin",
     command => "rm -rf /var/run/lldpd.socket",
     require => Package[lldpd],
@@ -1917,7 +1917,7 @@ def deploy_to_all(config):
     safe_print("Prepare cloud stack packages\n")
     run_command_on_local(
         'sudo mkdir -p /tmp;'
-        'sudo rm /tmp/*.deb;'
+        'sudo rm -f /tmp/*.deb;'
         'sudo cp %(CS_COMMON)s /tmp/;'
         'sudo cp %(CS_MGMT)s /tmp/;'
         'sudo cp %(CS_AGENT)s /tmp/;'
@@ -1950,15 +1950,6 @@ def deploy_to_all(config):
        return
     if (MGMT_OS == 'centos') and (not os.path.isfile("/tmp/%s" % CS_AWSAPI_RPM)):
        safe_print("cloudstack awsapi package is missing\n")
-       
-
-    safe_print("Installing sshpass to local node...\n")
-    run_command_on_local(
-        'sudo rm -rf ~/.ssh/known_hosts;'
-        ' sudo apt-get update;'
-        ' sudo apt-get -fy install --fix-missing;'
-        ' sudo apt-get install -fy sshpass;'
-        ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
 
     slave_name_labels_dic = {}
     bond_ips_dic   = {}
