@@ -4,14 +4,18 @@
 # This script is used to set up cloud stack management node
 # and compute nodes with Big Cloud Fabric. The requirements are:
 # BCF: 2.0.1 or higher
-# installation node: ubuntu 12.04
-# management node: ubuntu 12.04
+# installation node: ubuntu 12.04, centos 6.5 or centos 6.6
+# management node: ubuntu 12.04, centos 6.5 or centos 6.6
 # compute node: ubuntu 12.04 or xenserver 6.2
 # 
-# To prepare installation, on installation node, please download
+# To prepare installation, on installation node, please download deb packages if it is ubuntu
 # cloudstack-common_4.5.0-snapshot_all.deb,
 # cloudstack-management_4.5.0-snapshot_all.deb,
 # cloudstack-agent_4.5.0-snapshot_all.deb
+# or rpm packages if it is centos
+# cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
+# cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
+# cloudstack-management-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # and put them under the same directory as this script.
 #
 # On installation node, run
@@ -106,6 +110,10 @@ CS_COMMON = ('cloudstack-common_%(cs_version)s-snapshot_all.deb' % {'cs_version'
 CS_MGMT   = ('cloudstack-management_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 CS_AGENT  = ('cloudstack-agent_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
 
+CS_COMMON_RPM = ('cloudstack-common-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
+CS_MGMT_RPM   = ('cloudstack-management-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
+CS_AWSAPI_RPM = ('cloudstack-awsapi-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
+
 STORAGE_SCRIPT = '/usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt'
 STORAGE_VM_URL = ('http://jenkins.buildacloud.org/view/master/job/'
                   'build-systemvm-master/lastStableBuild/artifact/tools/appliance/dist')
@@ -113,6 +121,9 @@ STORAGE_VM_TEMPLATE = 'systemvmtemplate-master-kvm.qcow2.bz2'
 
 # hypervisor, can be either kvm or xen
 HYPERVISOR = 'kvm'
+
+# management os
+MGMT_OS = 'ubuntu'
 
 # master nodes for XEN server pools
 MASTER_NODES = {}
@@ -1087,6 +1098,191 @@ if [[ ("%(hypervisor)s" == "xen") && ("%(role)s" == "compute") ]]; then
 fi
 '''
 
+CENTOS_ETH=r'''
+DEVICE=%(device)s
+MASTER=%(bond_name)s
+SLAVE=yes
+USERCTL=no
+ONBOOT=yes
+BOOTPROTO=none
+'''
+
+CENTOS_BASE_BOND=r'''
+DEVICE=%(bond_name)s
+BOOTPROTO=none
+ONBOOT=yes
+USERCTL=no
+BONDING_OPTS="mode=1 miimon=100"
+'''
+
+CENTOS_BASE_STATIC_BOND=r'''
+DEVICE=%(bond_name)s
+BOOTPROTO=none
+ONBOOT=yes
+USERCTL=no
+BONDING_OPTS="mode=1 miimon=100"
+IPADDR=%(address)s
+NETWORK=%(network)s
+NETMASK=%(netmask)s
+'''
+
+CENTOS_BASE_DHCP_BOND=r'''
+DEVICE=%(bond_name)s
+BOOTPROTO=dhcp
+ONBOOT=yes
+USERCTL=no
+BONDING_OPTS="mode=1 miimon=100"
+'''
+
+CENTOS_BOND_ALIAS=r'''
+alias %(bond_name)s bonding
+'''
+
+CENTOS_TAGGED_STATIC_BOND=r'''
+DEVICE=%(bond_name)s.%(vlan)d
+BOOTPROTO=none
+ONBOOT=yes
+USERCTL=no
+IPADDR=%(address)s
+NETWORK=%(network)s
+NETMASK=%(netmask)s
+VLAN=yes
+'''
+
+CENTOS_TAGGED_DHCP_BOND=r'''
+DEVICE=%(bond_name)s.%(vlan)d
+BOOTPROTO=dhcp
+ONBOOT=yes
+USERCTL=no
+VLAN=yes
+'''
+
+CENTOS_MGMT_REMOTE=r'''
+#!/bin/bash
+
+bond_name="%(bond_name)s"
+
+# install and config lldp
+cd /etc/yum.repos.d/;
+wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo;
+yum -y install lldpd
+sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
+echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_name}\"" >> /etc/sysconfig/lldpd
+/sbin/chkconfig --add lldpd
+/sbin/chkconfig lldpd on
+/sbin/service lldpd stop
+/sbin/service lldpd start
+
+# install and config NFS
+yum -y install nfs*
+/sbin/service rpcbind start
+/sbin/chkconfig rpcbind on
+/sbin/service nfs start
+/sbin/chkconfig nfs on
+mkdir -p /export/primary
+mkdir -p /export/secondary
+chmod 755 /export/primary
+chmod 755 /export/secondary
+/usr/sbin/exportfs -a
+
+# update iptables rules
+iptables -F
+iptables -A INPUT -p udp --dport 111 -j ACCEPT
+iptables -A INPUT -p tcp --dport 111 -j ACCEPT
+iptables -A INPUT -p tcp --dport 2049 -j ACCEPT
+iptables -A INPUT -p tcp --dport 32803 -j ACCEPT
+iptables -A INPUT -p udp --dport 32769 -j ACCEPT
+iptables -A INPUT -p tcp --dport 892 -j ACCEPT
+iptables -A INPUT -p udp --dport 892 -j ACCEPT
+iptables -A INPUT -p tcp --dport 875 -j ACCEPT
+iptables -A INPUT -p udp --dport 875 -j ACCEPT
+iptables -A INPUT -p tcp --dport 662 -j ACCEPT
+iptables -A INPUT -p udp --dport 662 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3922 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3306 -j ACCEPT
+/sbin/service iptables save
+/sbin/service iptables restart
+
+# install and config mysql server
+yum install -y mysql-server
+sed -i "/innodb_rollback_on_timeou/d" /etc/my.cnf
+sed -i "/innodb_lock_wait_timeout/d" /etc/my.cnf
+sed -i "/max_connections/d" /etc/my.cnf
+sed -i "/log-bin/d" /etc/my.cnf
+sed -i "/binlog-format/d" /etc/my.cnf
+sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600\nmax_connections=350\nlog-bin=mysql-bin\nbinlog-format=\'ROW\'" /etc/my.cnf
+/sbin/service mysqld stop
+/sbin/service mysqld start
+
+# install cloudstack dependencies
+yum install -y java-1.7.0-openjdk-devel.x86_64
+yum install -y MySQL-python mysql-connector-java ipmitool mkisofs python-paramiko ws-commons-util tomcat6 
+yum update -y
+
+# install cloudstack rpm
+/bin/rpm -Uvh /home/%(user)s/bcf/cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
+/bin/rpm -Uvh /home/%(user)s/bcf/cloudstack-management-4.5.0-SNAPSHOT.el6.x86_64.rpm /home/%(user)s/bcf/cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
+
+# set up cloudstack db
+/usr/bin/mysqladmin -uroot password %(mysql_root_pwd)s
+mysql -uroot -p%(mysql_root_pwd)s -e "DROP DATABASE cloud; DROP DATABASE cloud_usage; DROP USER cloud@localhost;"
+cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(mysql_root_pwd)s -i %(hostname)s
+/sbin/service mysqld stop
+/sbin/service mysqld start
+
+# configure rc.local
+sed -i '/lldp/d' /etc/rc.local
+sed -i '/mysql/d' /etc/rc.local
+sed -i '/tomcat6/d' /etc/rc.local
+sed -i '/cloudstack/d' /etc/rc.local
+sed -i '/exit/d' /etc/rc.local
+echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service mysqld stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service mysqld start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service tomcat6 stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service tomcat6 start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service cloudstack-management stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "/sbin/service cloudstack-management start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
+echo "route del default" >> /etc/rc.local
+echo "route add default gw %(pxe_gw)s" >> /etc/rc.local
+echo "exit 0" >> /etc/rc.local
+chmod 755 /etc/rc.local
+
+# setup cloudstack management
+cloudstack-setup-management
+/sbin/service cloudstack-management stop
+/sbin/service cloudstack-management start
+sleep 300
+'''
+
+CENTOS_MGMT_LOCAL=r'''
+#!/bin/bash
+ifcfgs=%(ifcfgs)s
+echo -e "Start to deploy %(role)s node %(hostname)s...\n"
+sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S mkdir -m 0777 -p /home/%(user)s/bcf"
+ifcfg_count=${#ifcfgs[@]}
+for (( i=0; i<${ifcfg_count}; i++ )); do
+    ifcfg=${ifcfgs[$i]}
+    echo -e "Copy /etc/sysconfig/network-scripts/${ifcfg} to node %(hostname)s\n"
+    sshpass -p %(pwd)s scp /tmp/%(hostname)s.${ifcfg} %(user)s@%(hostname)s:/etc/sysconfig/network-scripts/${ifcfg} >> %(log)s 2>&1
+done
+echo -e "Copy bonding.conf to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(hostname)s.alias %(user)s@%(hostname)s:/etc/modprobe.d/bonding.conf >> %(log)s 2>&1
+echo -e "Copy %(CS_COMMON_RPM)s to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(CS_COMMON_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_COMMON_RPM)s >> %(log)s 2>&1
+echo -e "Copy %(CS_MGMT_RPM)s to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(CS_MGMT_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_MGMT_RPM)s >> %(log)s 2>&1
+echo -e "Copy %(CS_AWSAPI_RPM)s to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(CS_AWSAPI_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_AWSAPI_RPM)s >> %(log)s 2>&1
+echo -e "Copy %(role)s.sh to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/%(hostname)s.remote.sh %(user)s@%(hostname)s:/home/%(user)s/bcf/%(role)s.sh >> %(log)s 2>&1
+echo -e "Run %(role)s.sh on node %(hostname)s\n"
+echo -e "Open another command prompt and use \"tail -f %(log)s\" to display the progress\n"
+sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s >> %(log)s 2>&1 "echo %(pwd)s | sudo -S bash /home/%(user)s/bcf/%(role)s.sh"
+echo -e "Finish deploying %(role)s on %(hostname)s\n"
+'''
+
 def get_raw_value(dic, key):
     value = dic[key]
     if type(value) in (tuple, list):
@@ -1342,7 +1538,7 @@ def run_command_on_local(command, timeout=1800):
 
 
 def generate_command_for_node(node):
-    if HYPERVISOR == "kvm" or node.role == "management":
+    if HYPERVISOR == "kvm" or (node.role == "management" and MGMT_OS == 'ubuntu'):
         # generate interface config
         generate_interface_config(node)
 
@@ -1387,95 +1583,210 @@ def generate_command_for_node(node):
                                    'hostname'       : node.hostname})
                 node_db_bash.close()
 
-    # generate remote shell script
-    bond_intfs = '('
-    for bond_interface in node.bond_interfaces:
-        bond_intfs += r'''"%s" ''' % bond_interface
-    bond_intfs += ')'
+        # generate remote shell script
+        bond_intfs = '('
+        for bond_interface in node.bond_interfaces:
+            bond_intfs += r'''"%s" ''' % bond_interface
+        bond_intfs += ')'
 
-    network_name_labels = '('
-    vlan_tags  = '('
-    bond_inets = '('
-    bond_ips   = '('
-    bond_masks = '('
-    bond_gateways = '('
-    if node.bridges:
-        for bridge in node.bridges:
-            name = get_raw_value(bridge, 'name')
-            vlan = get_raw_value(bridge, 'vlan')
-            if not vlan:
-                vlan = ""
-            inet = get_raw_value(bridge, 'inet')
-            address = ""
-            if 'address' in bridge.keys():
-                address = get_raw_value(bridge, 'address')
-            netmask = ""
-            if 'netmask' in bridge.keys():
-                netmask = get_raw_value(bridge, 'netmask')
-            gateway = ""
-            if 'gateway' in bridge.keys():
-                gateway = get_raw_value(bridge, 'gateway')
-            network_name_labels += r'''"%s" ''' % name
-            vlan_tags  += r'''"%s" ''' % vlan
-            bond_inets += r'''"%s" ''' % inet
-            bond_ips   += r'''"%s" ''' % address
-            bond_masks += r'''"%s" ''' % netmask
-            bond_gateways += r'''"%s" ''' % gateway
-    network_name_labels += ')'
-    vlan_tags  += ')'
-    bond_inets += ')'
-    bond_ips   += ')'
-    bond_masks += ')'
-    bond_gateways += ')'
+        network_name_labels = '('
+        vlan_tags  = '('
+        bond_inets = '('
+        bond_ips   = '('
+        bond_masks = '('
+        bond_gateways = '('
+        if node.bridges:
+            for bridge in node.bridges:
+                name = get_raw_value(bridge, 'name')
+                vlan = get_raw_value(bridge, 'vlan')
+                if not vlan:
+                    vlan = ""
+                inet = get_raw_value(bridge, 'inet')
+                address = ""
+                if 'address' in bridge.keys():
+                    address = get_raw_value(bridge, 'address')
+                netmask = ""
+                if 'netmask' in bridge.keys():
+                    netmask = get_raw_value(bridge, 'netmask')
+                gateway = ""
+                if 'gateway' in bridge.keys():
+                    gateway = get_raw_value(bridge, 'gateway')
+                network_name_labels += r'''"%s" ''' % name
+                vlan_tags  += r'''"%s" ''' % vlan
+                bond_inets += r'''"%s" ''' % inet
+                bond_ips   += r'''"%s" ''' % address
+                bond_masks += r'''"%s" ''' % netmask
+                bond_gateways += r'''"%s" ''' % gateway
+        network_name_labels += ')'
+        vlan_tags  += ')'
+        bond_inets += ')'
+        bond_ips   += ')'
+        bond_masks += ')'
+        bond_gateways += ')'
 
-    pxe_intf = get_raw_value(node.pxe_interface, 'interface')
-    pxe_inet = get_raw_value(node.pxe_interface, 'inet')
-    pxe_address = ""
-    pxe_netmask = ""
-    pxe_dns     = ""
-    if pxe_inet == 'static':
-        pxe_address = get_raw_value(node.pxe_interface, 'address')
-        pxe_netmask = get_raw_value(node.pxe_interface, 'netmask')
-        pxe_dns     = get_raw_value(node.pxe_interface, 'dns-nameservers')
+        pxe_intf = get_raw_value(node.pxe_interface, 'interface')
+        pxe_inet = get_raw_value(node.pxe_interface, 'inet')
+        pxe_address = ""
+        pxe_netmask = ""
+        pxe_dns     = ""
+        if pxe_inet == 'static':
+            pxe_address = get_raw_value(node.pxe_interface, 'address')
+            pxe_netmask = get_raw_value(node.pxe_interface, 'netmask')
+            pxe_dns     = get_raw_value(node.pxe_interface, 'dns-nameservers')
 
-    with open('/tmp/%s.remote.sh' % node.hostname, "w") as node_remote_bash:
-        node_remote_bash.write(NODE_REMOTE_BASH %
-                               {'user'                : node.node_username,
-                                'role'                : node.role,
-                                'cloud_db_pwd'        : node.cloud_db_pwd,
-                                'mysql_root_pwd'      : node.mysql_root_pwd,
-                                'hostname'            : node.hostname,
-                                'hypervisor'          : HYPERVISOR,
-                                'host_name_label'     : node.host_name_label,
-                                'network_name_labels' : network_name_labels,
-                                'vlan_tags'           : vlan_tags,
-                                'bond_intfs'          : bond_intfs,
-                                'bond_inets'          : bond_inets,
-                                'bond_ips'            : bond_ips,
-                                'bond_masks'          : bond_masks,
-                                'bond_gateways'       : bond_gateways,
-                                'pxe_intf'            : pxe_intf,
-                                'pxe_inet'            : pxe_inet,
-                                'pxe_address'         : pxe_address,
-                                'pxe_netmask'         : pxe_netmask,
-                                'pxe_gw'              : node.pxe_gw,
-                                'pxe_dns'             : pxe_dns})
-        node_remote_bash.close()
+        with open('/tmp/%s.remote.sh' % node.hostname, "w") as node_remote_bash:
+            node_remote_bash.write(NODE_REMOTE_BASH %
+                                  {'user'                : node.node_username,
+                                   'role'                : node.role,
+                                   'cloud_db_pwd'        : node.cloud_db_pwd,
+                                   'mysql_root_pwd'      : node.mysql_root_pwd,
+                                   'hostname'            : node.hostname,
+                                   'hypervisor'          : HYPERVISOR,
+                                   'host_name_label'     : node.host_name_label,
+                                   'network_name_labels' : network_name_labels,
+                                   'vlan_tags'           : vlan_tags,
+                                   'bond_intfs'          : bond_intfs,
+                                   'bond_inets'          : bond_inets,
+                                   'bond_ips'            : bond_ips,
+                                   'bond_masks'          : bond_masks,
+                                   'bond_gateways'       : bond_gateways,
+                                   'pxe_intf'            : pxe_intf,
+                                   'pxe_inet'            : pxe_inet,
+                                   'pxe_address'         : pxe_address,
+                                   'pxe_netmask'         : pxe_netmask,
+                                   'pxe_gw'              : node.pxe_gw,
+                                   'pxe_dns'             : pxe_dns})
+            node_remote_bash.close()
 
-    # generate local script for node
-    with open('/tmp/%s.local.sh' % node.hostname, "w") as node_local_bash:
-        node_local_bash.write(NODE_LOCAL_BASH %
-                               {'pwd'        : node.node_password,
-                                'hostname'   : node.hostname,
-                                'user'       : node.node_username,
-                                'role'       : node.role,
-                                'pool'       : node.xenserver_pool,
-                                'log'        : LOG_FILENAME,
-                                'hypervisor' : HYPERVISOR,
-                                'CS_COMMON'  : CS_COMMON,
-                                'CS_MGMT'    : CS_MGMT,
-                                'CS_AGENT'   : CS_AGENT})
-        node_local_bash.close()
+        # generate local script for node
+        with open('/tmp/%s.local.sh' % node.hostname, "w") as node_local_bash:
+            node_local_bash.write(NODE_LOCAL_BASH %
+                                 {'pwd'        : node.node_password,
+                                  'hostname'   : node.hostname,
+                                  'user'       : node.node_username,
+                                  'role'       : node.role,
+                                  'pool'       : node.xenserver_pool,
+                                  'log'        : LOG_FILENAME,
+                                  'hypervisor' : HYPERVISOR,
+                                  'CS_COMMON'  : CS_COMMON,
+                                  'CS_MGMT'    : CS_MGMT,
+                                  'CS_AGENT'   : CS_AGENT})
+            node_local_bash.close()
+
+
+    if node.role == "management" and MGMT_OS == 'centos':
+        # generate interface configuration
+        intf_files = '('
+        for intf in node.bond_interfaces:
+            intf_files += r'''"ifcfg-%s" ''' % intf
+            with open(("/tmp/%(hostname)s.ifcfg-%(intf)s" %
+                      {'hostname' : node.hostname,
+                       'intf'     : intf}), "w") as intf_conf:
+                intf_conf.write(CENTOS_ETH %
+                               {'device'    : intf,
+                                'bond_name' : node.bond_name})
+        mgmt_bond = node.management_bond
+        vlan = get_raw_value(mgmt_bond, 'vlan')
+        inet = get_raw_value(mgmt_bond, 'inet')
+
+        address = None
+        network = None
+        netmask = None
+        if inet == 'static':
+            address = get_raw_value(mgmt_bond, 'address')
+            network = get_raw_value(mgmt_bond, 'network')
+            netmask = get_raw_value(mgmt_bond, 'netmask')
+
+        intf_files += r'''"ifcfg-%s" ''' % node.bond_name
+        if vlan and (inet == 'dhcp'):
+            with open(("/tmp/%(hostname)s.ifcfg-%(intf)s" %
+                      {'hostname' : node.hostname,
+                       'intf'     : node.bond_name}), "w") as base_bond:
+                base_bond.write(CENTOS_BASE_BOND %
+                               {'bond_name' : node.bond_name})
+                base_bond.close()
+            intf_files += (r'''"ifcfg-%(bond_name)s.%(vlan)d" ''' %
+                          {'bond_name' : node.bond_name,
+                            'vlan'     : vlan})
+            with open(("/tmp/%(hostname)s.ifcfg-%(node_bond)s.%(vlan)d" %
+                      {'hostname'  : node.hostname,
+                       'node_bond' : node.bond_name,
+                       'vlan'      : vlan}), "w") as tagged_dhcp_bond:
+                tagged_dhcp_bond.write(CENTOS_TAGGED_DHCP_BOND %
+                                      {'bond_name' : node.bond_name,
+                                       'vlan'      : vlan,})
+                tagged_dhcp_bond.close()
+        elif vlan and (inet == 'static'):
+            with open(("/tmp/%(hostname)s.ifcfg-%(intf)s" %
+                      {'hostname' : node.hostname,
+                       'intf'     : node.bond_name}), "w") as base_bond:
+                base_bond.write(CENTOS_BASE_BOND %
+                               {'bond_name' : node.bond_name})
+                base_bond.close()
+            intf_files += (r'''"ifcfg-%(bond_name)s.%(vlan)d" ''' %
+                          {'bond_name' : node.bond_name,
+                            'vlan'     : vlan})
+            with open(("/tmp/%(hostname)s.ifcfg-%(node_bond)s.%(vlan)d" %
+                      {'hostname'  : node.hostname,
+                       'node_bond' : node.bond_name,
+                       'vlan'      : vlan}), "w") as tagged_static_bond:
+                tagged_static_bond.write(CENTOS_TAGGED_STATIC_BOND %
+                                        {'bond_name' : node.bond_name,
+                                         'vlan'      : vlan,
+                                         'address'   : address,
+                                         'network'   : network,
+                                         'netmask'   : netmask})
+                tagged_static_bond.close()
+        elif (not vlan) and (inet == 'dhcp'):
+            with open(("/tmp/%(hostname)s.ifcfg-%(intf)s" %
+                      {'hostname' : node.hostname,
+                       'intf'     : node.bond_name}), "w") as base_dhcp_bond:
+                base_dhcp_bond.write(CENTOS_BASE_DHCP_BOND %
+                                    {'bond_name' : node.bond_name})
+                base_dhcp_bond.close()
+        elif (not vlan) and (inet == 'static'):
+            with open(("/tmp/%(hostname)s.ifcfg-%(intf)s" %
+                      {'hostname' : node.hostname,
+                       'intf'     : node.bond_name}), "w") as base_static_bond:
+                base_static_bond.write(CENTOS_BASE_STATIC_BOND %
+                                      {'bond_name' : node.bond_name,
+                                       'address'   : address,
+                                       'network'   : network,
+                                       'netmask'   : netmask})
+                base_static_bond.close()
+
+        with open("/tmp/%(hostname)s.alias" % {'hostname' : node.hostname}, "w") as bond_alias:
+            bond_alias.write(CENTOS_BOND_ALIAS %
+                            {'bond_name' : node.bond_name})
+            bond_alias.close()
+        intf_files += ')'
+
+        # generate remote script
+        with open("/tmp/%(hostname)s.remote.sh" % {'hostname' : node.hostname}, "w") as centos_remote:
+            centos_remote.write(CENTOS_MGMT_REMOTE %
+                               {'bond_name'      : node.bond_name,
+                                'user'           : node.node_username,
+                                'mysql_root_pwd' : node.mysql_root_pwd,
+                                'cloud_db_pwd'   : node.cloud_db_pwd,
+                                'hostname'       : node.hostname,
+                                'role'           : node.role,
+                                'pxe_gw'         : node.pxe_gw})
+            centos_remote.close()
+
+        # generate local script
+        with open("/tmp/%(hostname)s.local.sh" % {'hostname' : node.hostname}, "w") as centos_local:
+            centos_local.write(CENTOS_MGMT_LOCAL %
+                              {'ifcfgs'        : intf_files,
+                               'role'          : node.role,
+                               'hostname'      : node.hostname,
+                               'pwd'           : node.node_password,
+                               'user'          : node.node_username,
+                               'log'           : LOG_FILENAME,
+                               'CS_COMMON_RPM' : CS_COMMON_RPM,
+                               'CS_MGMT_RPM'   : CS_MGMT_RPM,
+                               'CS_AWSAPI_RPM' : CS_AWSAPI_RPM})
+            centos_local.close()
+
 
     if HYPERVISOR == "xen" and node.role == "compute":
         # generate script for xen slaves
@@ -1609,19 +1920,37 @@ def deploy_to_all(config):
         'sudo rm /tmp/*.deb;'
         'sudo cp %(CS_COMMON)s /tmp/;'
         'sudo cp %(CS_MGMT)s /tmp/;'
-        'sudo cp %(CS_AGENT)s /tmp/' %
-       {'CS_COMMON' : CS_COMMON,
-        'CS_MGMT'   : CS_MGMT,
-        'CS_AGENT'  : CS_AGENT})
-    if not os.path.isfile("/tmp/%s" % CS_COMMON):
-       safe_print("%s is missing\n" % CS_COMMON)
+        'sudo cp %(CS_AGENT)s /tmp/;'
+        'sudo cp %(CS_COMMON_RPM)s /tmp/;'
+        'sudo cp %(CS_MGMT_RPM)s /tmp/;'
+        'sudo cp %(CS_AWSAPI_RPM)s /tmp/' %
+       {'CS_COMMON'     : CS_COMMON,
+        'CS_MGMT'       : CS_MGMT,
+        'CS_AGENT'      : CS_AGENT,
+        'CS_COMMON_RPM' : CS_COMMON_RPM,
+        'CS_MGMT_RPM'   : CS_MGMT_RPM,
+        'CS_AWSAPI_RPM' : CS_AWSAPI_RPM})
+
+    global HYPERVISOR
+    global MGMT_OS
+    global MASTER_NODES
+    global POOL_SIZES
+    global MANAGEMENT_NODE
+    HYPERVISOR = config['hypervisor']
+    MGMT_OS = config['management_os']
+
+    if (not os.path.isfile("/tmp/%s" % CS_COMMON_RPM)) and (not os.path.isfile("/tmp/%s" % CS_COMMON)):
+       safe_print("cloudstack common package is missing\n")
        return
-    if not os.path.isfile("/tmp/%s" % CS_MGMT):
-       safe_print("%s is missing\n" % CS_MGMT)
+    if (not os.path.isfile("/tmp/%s" % CS_MGMT_RPM)) and (not os.path.isfile("/tmp/%s" % CS_MGMT)):
+       safe_print("cloudstack management package is missing\n")
        return
-    if not os.path.isfile("/tmp/%s" % CS_AGENT):
-       safe_print("%s is missing\n" % CS_AGENT)
+    if (HYPERVISOR == 'kvm') and (not os.path.isfile("/tmp/%s" % CS_AGENT)):
+       safe_print("cloudstack agent package is missing\n")
        return
+    if (MGMT_OS == 'centos') and (not os.path.isfile("/tmp/%s" % CS_AWSAPI_RPM)):
+       safe_print("cloudstack awsapi package is missing\n")
+       
 
     safe_print("Installing sshpass to local node...\n")
     run_command_on_local(
@@ -1630,12 +1959,6 @@ def deploy_to_all(config):
         ' sudo apt-get -fy install --fix-missing;'
         ' sudo apt-get install -fy sshpass;'
         ' sudo rm %(log)s' % {'log' : LOG_FILENAME})
-
-    global HYPERVISOR
-    global MASTER_NODES
-    global POOL_SIZES
-    global MANAGEMENT_NODE
-    HYPERVISOR = config['hypervisor']
 
     slave_name_labels_dic = {}
     bond_ips_dic   = {}
@@ -1744,6 +2067,7 @@ def deploy_to_all(config):
                               'xenserver_pool'    : MASTER_NODES[pool].xenserver_pool})
             bondip_bash.close()
 
+
     # step 0: setup management node
     if MANAGEMENT_NODE:
         management_node_thread = threading.Thread(target=worker_setup_management)
@@ -1848,7 +2172,7 @@ if __name__ == '__main__':
                 config = yaml.load(config_file)
             deploy_to_all(config)
     else:
-        safe_print("This script supports Ubuntu 12.04 as the CloudStack management node.\n"
+        safe_print("This script supports Ubuntu 12.04, centos 6.5 or centos 6.6 as the CloudStack management node.\n"
                    "CloudStack compute node can be either Ubuntu 12.04 or XenServer 6.2.\n"
                    "Use -h for how to use this script.\n")
 

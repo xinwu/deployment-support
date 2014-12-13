@@ -1,3 +1,4 @@
+management_os: ubuntu
 hypervisor: xen
 mysql_root_pwd: bsn
 cloud_db_pwd: null
@@ -32,7 +33,10 @@ nodes:
     netmask: 255.255.255.0
     dns-nameservers: 172.16.54.2
   management_bond:
-    inet: dhcp
+    inet: static
+    address: 10.8.11.10
+    network: 10.8.11.0
+    netmask: 255.255.255.0
     vlan: null
 - hostname: 172.16.54.132
   host_name_label: xenserver1
