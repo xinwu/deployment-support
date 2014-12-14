@@ -1112,7 +1112,7 @@ DEVICE=%(bond_name)s
 BOOTPROTO=none
 ONBOOT=yes
 USERCTL=no
-BONDING_OPTS="mode=0 miimon=100 updelay=15000"
+BONDING_OPTS="mode=0 miimon=50 updelay=15000"
 '''
 
 CENTOS_BASE_STATIC_BOND=r'''
@@ -1120,7 +1120,7 @@ DEVICE=%(bond_name)s
 BOOTPROTO=none
 ONBOOT=yes
 USERCTL=no
-BONDING_OPTS="mode=0 miimon=100 updelay=15000"
+BONDING_OPTS="mode=0 miimon=50 updelay=15000"
 IPADDR=%(address)s
 NETWORK=%(network)s
 NETMASK=%(netmask)s
@@ -1131,7 +1131,7 @@ DEVICE=%(bond_name)s
 BOOTPROTO=dhcp
 ONBOOT=yes
 USERCTL=no
-BONDING_OPTS="mode=0 miimon=100 updelay=15000"
+BONDING_OPTS="mode=0 miimon=50 updelay=15000"
 '''
 
 CENTOS_BOND_ALIAS=r'''
@@ -1160,7 +1160,7 @@ VLAN=yes
 CENTOS_MGMT_REMOTE=r'''
 #!/bin/bash
 
-bond_name="%(bond_name)s"
+bond_intfs="%(bond_intfs)s"
 
 # install and config lldp
 cd /etc/yum.repos.d/;
@@ -1172,7 +1172,7 @@ yum clean metadata
 yum update -y
 yum -y install lldpd
 sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
-echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_name}\"" >> /etc/sysconfig/lldpd
+echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intfs}\"" >> /etc/sysconfig/lldpd
 /sbin/chkconfig --add lldpd
 /sbin/chkconfig lldpd on
 /sbin/service lldpd stop
@@ -1389,7 +1389,7 @@ def generate_interface_config(node):
                         '  bond-mode 0\n'
                         '  bond-slaves none\n'
                         '  bond-updelay 15000\n'
-                        '  bond-miimon 100\n\n' %
+                        '  bond-miimon 50\n\n' %
                        {'bond' : node.bond_name})
 
          address = None
@@ -1422,7 +1422,7 @@ def generate_interface_config(node):
                         '  bond-mode 0\n'
                         '  bond-slaves none\n'
                         '  bond-updelay 15000\n'
-                        '  bond-miimon 100\n\n' %
+                        '  bond-miimon 50\n\n' %
                        {'bond' : node.bond_name,
                         'inet' : inet})
          elif (not vlan) and (inet == 'static'):
@@ -1433,7 +1433,7 @@ def generate_interface_config(node):
                         '  bond-mode 0\n'
                         '  bond-slaves none\n'
                         '  bond-updelay 15000\n'
-                        '  bond-miimon 100\n\n' %
+                        '  bond-miimon 50\n\n' %
                        {'bond'           : node.bond_name,
                         'inet'           : inet,
                         'address'        : address,
@@ -1444,7 +1444,7 @@ def generate_interface_config(node):
                '  bond-mode 0\n'
                '  bond-slaves none\n'
                '  bond-updelay 15000\n'
-               '  bond-miimon 100\n\n' %
+               '  bond-miimon 50\n\n' %
               {'bond' : node.bond_name})
 
         for bridge in node.bridges:
@@ -1793,8 +1793,9 @@ def generate_command_for_node(node):
 
         # generate remote script
         with open("/tmp/%(hostname)s.remote.sh" % {'hostname' : node.hostname}, "w") as centos_remote:
+            intfs = ','.join(node.bond_interfaces)
             centos_remote.write(CENTOS_MGMT_REMOTE %
-                               {'bond_name'      : node.bond_name,
+                               {'bond_intfs'     : intfs,
                                 'user'           : node.node_username,
                                 'mysql_root_pwd' : node.mysql_root_pwd,
                                 'cloud_db_pwd'   : node.cloud_db_pwd,
