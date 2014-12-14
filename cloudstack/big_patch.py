@@ -1219,13 +1219,13 @@ sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600
 
 # install cloudstack dependencies
 yum install -y --skip-broken java-1.7.0-openjdk-devel.x86_64
-yum install -y --skip-broken jMySQL-python
-yum install -y --skip-broken jmysql-connector-java
-yum install -y --skip-broken jipmitool
-yum install -y --skip-broken jmkisofs
-yum install -y --skip-broken jpython-paramiko
-yum install -y --skip-broken jws-commons-util
-yum install -y --skip-broken jtomcat6 
+yum install -y --skip-broken MySQL-python
+yum install -y --skip-broken mysql-connector-java
+yum install -y --skip-broken ipmitool
+yum install -y --skip-broken mkisofs
+yum install -y --skip-broken python-paramiko
+yum install -y --skip-broken ws-commons-util
+yum install -y --skip-broken tomcat6 
 yum update -y
 
 # install cloudstack rpm
