@@ -2072,6 +2072,7 @@ def deploy_to_all(config):
        return
     if (MGMT_OS == 'centos') and (MANAGEMENT_NODE) and (not os.path.isfile("/tmp/%s" % CS_AWSAPI_RPM)):
        safe_print("cloudstack awsapi package is missing\n")
+       return
 
     # step 0: setup management node
     if MANAGEMENT_NODE:
