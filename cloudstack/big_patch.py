@@ -1214,6 +1214,8 @@ sed -i "/max_connections/d" /etc/my.cnf
 sed -i "/log-bin/d" /etc/my.cnf
 sed -i "/binlog-format/d" /etc/my.cnf
 sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600\nmax_connections=350\nlog-bin=mysql-bin\nbinlog-format=\'ROW\'" /etc/my.cnf
+/sbin/chkconfig --add mysqld
+/sbin/chkconfig mysqld on
 /sbin/service mysqld stop
 /sbin/service mysqld start
 
@@ -1245,6 +1247,7 @@ sed -i '/mysql/d' /etc/rc.local
 sed -i '/tomcat6/d' /etc/rc.local
 sed -i '/cloudstack/d' /etc/rc.local
 sed -i '/exit/d' /etc/rc.local
+sed -i '/default/d' /etc/rc.local
 echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
 echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
 echo "/sbin/service mysqld stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
@@ -1260,6 +1263,8 @@ chmod 755 /etc/rc.local
 
 # setup cloudstack management
 cloudstack-setup-management
+/sbin/chkconfig --add cloudstack-management
+/sbin/chkconfig cloudstack-management on
 /sbin/service cloudstack-management stop
 /sbin/service cloudstack-management start
 sleep 300
