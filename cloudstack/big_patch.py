@@ -1167,6 +1167,8 @@ cd /etc/yum.repos.d/;
 rm -f /etc/yum.repos.d/home:vbernat.repo.*
 rm -f /etc/yum.repos.d/home:vbernat.repo
 wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo;
+yum clean all
+yum clean metadata
 yum update -y
 yum -y install lldpd
 sed -i '/LLDPD_OPTIONS/d' /etc/sysconfig/lldpd
@@ -1225,6 +1227,9 @@ sed -i "/\[mysqld\]/a innodb_rollback_on_timeout=1\ninnodb_lock_wait_timeout=600
 /sbin/service mysqld start
 
 # install cloudstack dependencies
+yum clean all
+yum clean metadata
+yum update -y
 yum install -y --skip-broken java-1.7.0-openjdk-devel.x86_64
 yum install -y --skip-broken MySQL-python
 yum install -y --skip-broken mysql-connector-java
@@ -1233,6 +1238,8 @@ yum install -y --skip-broken mkisofs
 yum install -y --skip-broken python-paramiko
 yum install -y --skip-broken ws-commons-util
 yum install -y --skip-broken tomcat6 
+yum clean all
+yum clean metadata
 yum update -y
 
 # install cloudstack rpm
