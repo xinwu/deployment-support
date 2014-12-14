@@ -69,6 +69,7 @@ if [[ $? == 0 ]]; then
     rm -f /home/root/bcf/epel-release-5-4.noarch.rpm
     wget http://dl.fedoraproject.org/pub/epel/5/x86_64/epel-release-5-4.noarch.rpm -P /home/root/bcf/
     yum install -y /home/root/bcf/epel-release-5-4.noarch.rpm
+    yum update -y
 
     # install python 2.7
     yum install -y centos-release-SCL
