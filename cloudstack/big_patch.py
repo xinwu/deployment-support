@@ -2067,7 +2067,7 @@ def deploy_to_all(config):
     if (MANAGEMENT_NODE) and (not os.path.isfile("/tmp/%s" % CS_MGMT_RPM)) and (not os.path.isfile("/tmp/%s" % CS_MGMT)):
        safe_print("cloudstack management package is missing\n")
        return
-    if (HYPERVISOR == 'kvm') and (len(node_q) > 0) and (not os.path.isfile("/tmp/%s" % CS_AGENT)):
+    if (HYPERVISOR == 'kvm') and (node_q.qsize() > 0) and (not os.path.isfile("/tmp/%s" % CS_AGENT)):
        safe_print("cloudstack agent package is missing\n")
        return
     if (MGMT_OS == 'centos') and (MANAGEMENT_NODE) and (not os.path.isfile("/tmp/%s" % CS_AWSAPI_RPM)):
