@@ -1932,18 +1932,19 @@ def deploy_to_all(config):
     run_command_on_local(
         'sudo mkdir -p /tmp;'
         'sudo rm -f /tmp/*.deb;'
-        'sudo cp %(CS_COMMON)s /tmp/;'
-        'sudo cp %(CS_MGMT)s /tmp/;'
-        'sudo cp %(CS_AGENT)s /tmp/;'
-        'sudo cp %(CS_COMMON_RPM)s /tmp/;'
-        'sudo cp %(CS_MGMT_RPM)s /tmp/;'
-        'sudo cp %(CS_AWSAPI_RPM)s /tmp/' %
+        'sudo cp %(CS_COMMON)s /tmp/ >> %(log)s 2>&1;'
+        'sudo cp %(CS_MGMT)s /tmp/ >> %(log)s 2>&1;'
+        'sudo cp %(CS_AGENT)s /tmp/ >> %(log)s 2>&1;'
+        'sudo cp %(CS_COMMON_RPM)s /tmp/ >> %(log)s 2>&1;'
+        'sudo cp %(CS_MGMT_RPM)s /tmp/ >> %(log)s 2>&1;'
+        'sudo cp %(CS_AWSAPI_RPM)s /tmp/ >> %(log)s 2>&1' %
        {'CS_COMMON'     : CS_COMMON,
         'CS_MGMT'       : CS_MGMT,
         'CS_AGENT'      : CS_AGENT,
         'CS_COMMON_RPM' : CS_COMMON_RPM,
         'CS_MGMT_RPM'   : CS_MGMT_RPM,
-        'CS_AWSAPI_RPM' : CS_AWSAPI_RPM})
+        'CS_AWSAPI_RPM' : CS_AWSAPI_RPM,
+        'log'           : LOG_FILENAME})
 
     global HYPERVISOR
     global MGMT_OS
