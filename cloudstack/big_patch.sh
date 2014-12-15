@@ -75,6 +75,7 @@ if [[ $? == 0 ]]; then
     yum install -y centos-release-SCL
     yum install -y python27
     scl enable python27 "
+    yum install -y gcc
     easy_install pyyaml;
     easy_install subprocess32;
     rm -f /home/root/bcf/big_patch.py;
