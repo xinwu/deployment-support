@@ -1954,18 +1954,6 @@ def deploy_to_all(config):
     HYPERVISOR = config['hypervisor']
     MGMT_OS = config['management_os']
 
-    if (not os.path.isfile("/tmp/%s" % CS_COMMON_RPM)) and (not os.path.isfile("/tmp/%s" % CS_COMMON)):
-       safe_print("cloudstack common package is missing\n")
-       return
-    if (not os.path.isfile("/tmp/%s" % CS_MGMT_RPM)) and (not os.path.isfile("/tmp/%s" % CS_MGMT)):
-       safe_print("cloudstack management package is missing\n")
-       return
-    if (HYPERVISOR == 'kvm') and (not os.path.isfile("/tmp/%s" % CS_AGENT)):
-       safe_print("cloudstack agent package is missing\n")
-       return
-    if (MGMT_OS == 'centos') and (not os.path.isfile("/tmp/%s" % CS_AWSAPI_RPM)):
-       safe_print("cloudstack awsapi package is missing\n")
-
     slave_name_labels_dic = {}
     bond_ips_dic   = {}
     bond_masks_dic = {}
@@ -2073,6 +2061,17 @@ def deploy_to_all(config):
                               'xenserver_pool'    : MASTER_NODES[pool].xenserver_pool})
             bondip_bash.close()
 
+    if (MANAGEMENT_NODE or HYPERVISOR != 'xen') and (not os.path.isfile("/tmp/%s" % CS_COMMON_RPM)) and (not os.path.isfile("/tmp/%s" % CS_COMMON)):
+       safe_print("cloudstack common package is missing\n")
+       return
+    if (MANAGEMENT_NODE) and (not os.path.isfile("/tmp/%s" % CS_MGMT_RPM)) and (not os.path.isfile("/tmp/%s" % CS_MGMT)):
+       safe_print("cloudstack management package is missing\n")
+       return
+    if (HYPERVISOR == 'kvm') and (node_q) and (not os.path.isfile("/tmp/%s" % CS_AGENT)):
+       safe_print("cloudstack agent package is missing\n")
+       return
+    if (MGMT_OS == 'centos') and (MANAGEMENT_NODE) and (not os.path.isfile("/tmp/%s" % CS_AWSAPI_RPM)):
+       safe_print("cloudstack awsapi package is missing\n")
 
     # step 0: setup management node
     if MANAGEMENT_NODE:
