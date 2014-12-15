@@ -1186,6 +1186,10 @@ mkdir -p /export/primary
 mkdir -p /export/secondary
 chmod 755 /export/primary
 chmod 755 /export/secondary
+sed -i "/primary/d" /etc/exports
+sed -i "/secondary/d" /etc/exports
+echo "/export/primary *(rw,async,no_root_squash,no_subtree_check)" >> /etc/exports
+echo "/export/secondary *(rw,async,no_root_squash,no_subtree_check)" >> /etc/exports
 /usr/sbin/exportfs -a
 
 # update iptables rules
