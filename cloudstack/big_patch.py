@@ -1388,7 +1388,8 @@ def generate_interface_config(node):
                         '  iface %(bond)s inet manual\n'
                         '  bond-mode 0\n'
                         '  bond-slaves none\n'
-                        '  bond-miimon 50\n\n' %
+                        '  bond-updelay 15000\n'
+                        '  bond-miimon 100\n\n' %
                        {'bond' : node.bond_name})
 
          address = None
@@ -1420,7 +1421,8 @@ def generate_interface_config(node):
                         '  iface %(bond)s inet %(inet)s\n'
                         '  bond-mode 0\n'
                         '  bond-slaves none\n'
-                        '  bond-miimon 50\n\n' %
+                        '  bond-updelay 15000\n'
+                        '  bond-miimon 100\n\n' %
                        {'bond' : node.bond_name,
                         'inet' : inet})
          elif (not vlan) and (inet == 'static'):
@@ -1430,7 +1432,8 @@ def generate_interface_config(node):
                         '  netmask %(netmask)s\n'
                         '  bond-mode 0\n'
                         '  bond-slaves none\n'
-                        '  bond-miimon 50\n\n' %
+                        '  bond-updelay 15000\n'
+                        '  bond-miimon 100\n\n' %
                        {'bond'           : node.bond_name,
                         'inet'           : inet,
                         'address'        : address,
@@ -1440,7 +1443,8 @@ def generate_interface_config(node):
                '  iface %(bond)s inet manual\n'
                '  bond-mode 0\n'
                '  bond-slaves none\n'
-               '  bond-miimon 50\n\n' %
+               '  bond-updelay 15000\n'
+               '  bond-miimon 100\n\n' %
               {'bond' : node.bond_name})
 
         for bridge in node.bridges:
