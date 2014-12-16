@@ -1112,7 +1112,7 @@ DEVICE=%(bond_name)s
 BOOTPROTO=none
 ONBOOT=yes
 USERCTL=no
-BONDING_OPTS="mode=1 miimon=100"
+BONDING_OPTS="mode=0 miimon=100 updelay=15000"
 '''
 
 CENTOS_BASE_STATIC_BOND=r'''
@@ -1120,7 +1120,7 @@ DEVICE=%(bond_name)s
 BOOTPROTO=none
 ONBOOT=yes
 USERCTL=no
-BONDING_OPTS="mode=1 miimon=100"
+BONDING_OPTS="mode=0 miimon=100 updelay=15000"
 IPADDR=%(address)s
 NETWORK=%(network)s
 NETMASK=%(netmask)s
@@ -1131,7 +1131,7 @@ DEVICE=%(bond_name)s
 BOOTPROTO=dhcp
 ONBOOT=yes
 USERCTL=no
-BONDING_OPTS="mode=1 miimon=100"
+BONDING_OPTS="mode=0 miimon=100 updelay=15000"
 '''
 
 CENTOS_BOND_ALIAS=r'''
