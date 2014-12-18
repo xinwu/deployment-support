@@ -1298,24 +1298,24 @@ cloudstack-setup-databases cloud:%(cloud_db_pwd)s@localhost --deploy-as=root:%(m
 /sbin/service mysqld start
 
 # configure rc.local
-sed -i '/lldp/d' /etc/rc.local
-sed -i '/mysql/d' /etc/rc.local
-sed -i '/tomcat6/d' /etc/rc.local
-sed -i '/cloudstack/d' /etc/rc.local
-sed -i '/exit/d' /etc/rc.local
-sed -i '/default/d' /etc/rc.local
-echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service mysqld stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service mysqld start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service tomcat6 stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service tomcat6 start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service cloudstack-management stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service cloudstack-management start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "route del default" >> /etc/rc.local
-echo "route add default gw %(pxe_gw)s" >> /etc/rc.local
-echo "exit 0" >> /etc/rc.local
-chmod 755 /etc/rc.local
+sed -i '/lldp/d' /etc/rc.d/rc.local
+sed -i '/mysql/d' /etc/rc.d/rc.local
+sed -i '/tomcat6/d' /etc/rc.d/rc.local
+sed -i '/cloudstack/d' /etc/rc.d/rc.local
+sed -i '/exit/d' /etc/rc.d/rc.local
+sed -i '/default/d' /etc/rc.d/rc.local
+echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service mysqld stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service mysqld start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service tomcat6 stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service tomcat6 start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service cloudstack-management stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service cloudstack-management start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "route del default" >> /etc/rc.d/rc.local
+echo "route add default gw %(pxe_gw)s" >> /etc/rc.d/rc.local
+echo "exit 0" >> /etc/rc.d/rc.local
+chmod 777 /etc/rc.d/rc.local
 
 # setup cloudstack management
 cloudstack-setup-management
@@ -1399,21 +1399,21 @@ yum install -y --skip-broken jakarta-commons-daemon-jsvc
 /bin/rpm -Uvh /home/%(user)s/bcf/cloudstack-agent-4.5.0-SNAPSHOT.el6.x86_64.rpm
 
 # use pxe gw as default gw
-sed -i '/route/d' /etc/rc.local
-sed -i '/sleep/d' /etc/rc.local
-sed -i '/while/d' /etc/rc.local
-sed -i '/done/d' /etc/rc.local
-sed -i '/exit/d' /etc/rc.local
-sed -i '/lldp/d' /etc/rc.local
-echo -e "sleep 60" >> /etc/rc.local
-echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo -e "route del default\nwhile [[ \$? == 0 ]]; do\n    route del default\ndone" >> /etc/rc.local
-echo "route add default gw %(pxe_gw)s" >> /etc/rc.local
-sed -i '/libvirtd/d' /etc/rc.local
-echo "/sbin/service libvirtd stop /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "/sbin/service libvirtd start /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.local
-echo "exit 0" >> /etc/rc.local
+sed -i '/route/d' /etc/rc.d/rc.local
+sed -i '/sleep/d' /etc/rc.d/rc.local
+sed -i '/while/d' /etc/rc.d/rc.local
+sed -i '/done/d' /etc/rc.d/rc.local
+sed -i '/exit/d' /etc/rc.d/rc.local
+sed -i '/lldp/d' /etc/rc.d/rc.local
+echo -e "sleep 60" >> /etc/rc.d/rc.local
+echo "/etc/init.d/lldpd stop >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/etc/init.d/lldpd start >> /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo -e "route del default\nwhile [[ \$? == 0 ]]; do\n    route del default\ndone" >> /etc/rc.d/rc.local
+echo "route add default gw %(pxe_gw)s" >> /etc/rc.d/rc.local
+sed -i '/libvirtd/d' /etc/rc.d/rc.local
+echo "/sbin/service libvirtd stop /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "/sbin/service libvirtd start /home/%(user)s/bcf/%(role)s.log 2>&1" >> /etc/rc.d/rc.local
+echo "exit 0" >> /etc/rc.d/rc.local
 chmod 777 /etc/rc.local
 
 reboot
