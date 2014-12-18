@@ -8,7 +8,7 @@
 # BCF: 2.0.1 or higher
 # installation node: ubuntu 12.04, centos 6.5 or centos 6.6
 # management node: ubuntu 12.04, centos 6.5 or centos 6.6
-# compute node: ubuntu 12.04 or xenserver 6.2
+# compute node: ubuntu 12.04 centos6.5, centos 6.6 or xenserver 6.2
 # 
 # To prepare installation, on installation node, please download deb packages if it is ubuntu
 # cloudstack-common_4.5.0-snapshot_all.deb,
@@ -18,6 +18,7 @@
 # cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # cloudstack-management-4.5.0-SNAPSHOT.el6.x86_64.rpm
+# cloudstack-agent-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # and put them under the same directory as this script.
 #
 # please also download example.yaml and make necessary modifications

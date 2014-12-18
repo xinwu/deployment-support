@@ -1,5 +1,5 @@
 management_os: ubuntu
-hypervisor: kvm
+compute_os: xenserver
 mysql_root_pwd: bsn
 cloud_db_pwd: null
 default_pxe_interface:
@@ -61,8 +61,9 @@ nodes:
   - name: cs-mgmt
     inet: static
     address: 10.8.11.11
+    network: 10.8.11.0
     netmask: 255.255.255.0
-    gateway: 10.8.11.11
+    gateway: 10.8.11.1
     vlan: 6
   - name: brbond1-52
     inet: manual
