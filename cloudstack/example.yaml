@@ -40,9 +40,27 @@ nodes:
     vlan: null
 - hostname: 172.16.54.132
   host_name_label: xenserver1
+  xenserver_pool: pool1
+  pxe_interface:
+    interface: eth0
+    inet: static
+    address: 172.16.54.132
+    netmask: 255.255.255.0
+    dns-nameservers: 172.16.54.2
+  bridges:
+  - name: cs-mgmt
+    inet: static
+    address: 10.8.11.10
+    network: 10.8.11.0
+    netmask: 255.255.255.0
+    gateway: 10.8.11.1
+    vlan: null
+  - name: cs-guest
+    inet: dhcp
+    vlan: 10
 - hostname: 172.16.54.134
   host_name_label: xenserver2
-  xenserver_ppol: pool2
+  xenserver_pool: pool2
   pxe_interface:
     interface: eth0
     inet: static
