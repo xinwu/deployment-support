@@ -2203,6 +2203,7 @@ def deploy_to_all(config):
     run_command_on_local(
         'sudo mkdir -p /tmp;'
         'sudo rm -f /tmp/*.deb;'
+        'sudo rm -f /tmp/*.sh;'
         'sudo cp %(CS_COMMON)s /tmp/ >> %(log)s 2>&1;'
         'sudo cp %(CS_MGMT)s /tmp/ >> %(log)s 2>&1;'
         'sudo cp %(CS_AGENT)s /tmp/ >> %(log)s 2>&1;'
@@ -2261,6 +2262,7 @@ def deploy_to_all(config):
             node_config['cloud_db_pwd'] = UNDEF
 
         node = Node(node_config)
+        run_command_on_local('sudo rm -rf /tmp/%(hostname)s*' % {'hostname' : node.hostname})
         if node.role == "management":
             MANAGEMENT_NODE = node
         else:
