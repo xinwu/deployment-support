@@ -2380,7 +2380,6 @@ def deploy_to_all(config):
        safe_print("cloudstack awsapi package is missing\n")
        return
 
-    return
     # step 0: setup management node
     if MANAGEMENT_NODE:
         management_node_thread = threading.Thread(target=worker_setup_management)
