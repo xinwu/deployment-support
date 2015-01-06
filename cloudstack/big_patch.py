@@ -1224,13 +1224,13 @@ echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intfs}\"" >> /etc/sysconfig
 
 # put vhd-util
 mkdir -p /opt/cloud/bin
-cp /home/${user}/bcf/vhd-util /opt/cloud/bin/
+cp /home/%(user)s/bcf/vhd-util /opt/cloud/bin/
 chmod 777 /opt/cloud/bin/vhd-util
 mkdir -p /opt/xensource/bin
-cp /home/${user}/bcf/vhd-util /opt/xensource/bin/
+cp /home/%(user)s/bcf/vhd-util /opt/xensource/bin/
 chmod 777 /opt/xensource/bin/vhd-util
 mkdir -p /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver
-cp /home/${user}/bcf/vhd-util /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
+cp /home/%(user)s/bcf/vhd-util /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
 chmod 777 /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/vhd-util
 
 # install and config NFS
@@ -1354,13 +1354,13 @@ yum install -y --skip-broken qemu-kvm
 
 # put vhd-util
 mkdir -p /opt/cloud/bin
-cp /home/${user}/bcf/vhd-util /opt/cloud/bin/
+cp /home/%(user)s/bcf/vhd-util /opt/cloud/bin/
 chmod 777 /opt/cloud/bin/vhd-util
 mkdir -p /opt/xensource/bin
-cp /home/${user}/bcf/vhd-util /opt/xensource/bin/
+cp /home/%(user)s/bcf/vhd-util /opt/xensource/bin/
 chmod 777 /opt/xensource/bin/vhd-util
 mkdir -p /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver
-cp /home/${user}/bcf/vhd-util /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
+cp /home/%(user)s/bcf/vhd-util /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
 chmod 777 /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/vhd-util
 
 # config libvirt
@@ -2380,6 +2380,7 @@ def deploy_to_all(config):
        safe_print("cloudstack awsapi package is missing\n")
        return
 
+    return
     # step 0: setup management node
     if MANAGEMENT_NODE:
         management_node_thread = threading.Thread(target=worker_setup_management)
