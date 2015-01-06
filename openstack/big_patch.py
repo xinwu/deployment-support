@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.0.6'
+SCRIPT_VERSION = '1.1.0'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -34,12 +34,18 @@ MAX_THREADS = 20
 PYTHON_FILES_TO_PATCH = []
 
 # path to neutron tar.gz URL and local filename for offline use
-HORIZON_TGZ_PATH = ('https://github.com/bigswitch/horizon/archive/'
-                    'stable/icehouse-bcf-2.0.0.tar.gz',
-                    'horizon_stable_icehouse.tar.gz')
-NEUTRON_TGZ_PATH = ('https://github.com/bigswitch/neutron/archive/'
-                    'stable/icehouse-bcf-2.0.0.tar.gz',
-                    'neutron_stable_icehouse.tar.gz')
+HORIZON_TGZ_PATH = {
+    'icehouse': ('https://github.com/bigswitch/horizon/archive/'
+                 'stable/icehouse-bcf-2.0.0.tar.gz',
+                 'horizon_stable_icehouse.tar.gz'),
+    'juno': None
+}
+NEUTRON_TGZ_PATH = {
+    'icehouse': ('https://github.com/bigswitch/neutron/archive/'
+                 'stable/icehouse-bcf-2.0.0.tar.gz',
+                 'neutron_stable_icehouse.tar.gz'),
+    'juno': None
+}
 
 # paths to extract from tgz to local horizon install. Don't include
 # slashes on folders because * copying is not used.
@@ -394,8 +400,10 @@ class StandaloneEnvironment(Environment):
 
 
 class ConfigDeployer(object):
-    def __init__(self, environment, patch_python_files=True):
+    def __init__(self, environment, openstack_release,
+                 patch_python_files=True):
         self.env = environment
+        self.os_release = openstack_release.lower()
         self.patch_python_files = patch_python_files
         self.patch_file_cache = {}
         if any([not self.env.bigswitch_auth,
@@ -406,7 +414,10 @@ class ConfigDeployer(object):
         if self.patch_python_files:
             if self.env.offline_mode:
                 print 'Loading offline files...'
-                for patch in (NEUTRON_TGZ_PATH, HORIZON_TGZ_PATH):
+                for patch in (NEUTRON_TGZ_PATH[self.os_release],
+                              HORIZON_TGZ_PATH[self.os_release]):
+                    if not patch:
+                        continue
                     try:
                         with open(os.path.join(os.path.dirname(__file__),
                                   patch[1]), 'r') as fh:
@@ -420,8 +431,8 @@ class ConfigDeployer(object):
             else:
                 print 'Downloading patch files...'
                 for patch in PYTHON_FILES_TO_PATCH + [
-                        ('', '', NEUTRON_TGZ_PATH[0]),
-                        ('', '', HORIZON_TGZ_PATH[0])]:
+                        ('', '', NEUTRON_TGZ_PATH[self.os_release][0]),
+                        ('', '', HORIZON_TGZ_PATH[self.os_release][0])]:
                     url = patch[2]
                     try:
                         body = urllib2.urlopen(url).read()
@@ -552,11 +563,11 @@ class ConfigDeployer(object):
         # Find where python libs are installed
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
         # we need to replace all of neutron plugins dir in CentOS
-        if netaddr_path:
+        if NEUTRON_TGZ_PATH[self.os_release] and netaddr_path:
             python_lib_dir = "/".join(netaddr_path.split("/")[:-1]) + "/"
             target_neutron_path = python_lib_dir + 'neutron'
             f = tempfile.NamedTemporaryFile(delete=True)
-            f.write(self.patch_file_cache[NEUTRON_TGZ_PATH[0]])
+            f.write(self.patch_file_cache[NEUTRON_TGZ_PATH[self.os_release][0]])
             f.flush()
             nfile = '~/neutron.tar.gz'
             resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
@@ -584,11 +595,11 @@ class ConfigDeployer(object):
         resp, errors = self.env.run_command_on_node(
             node,
             "updatedb && locate openstack_dashboard/dashboards/admin/dashboard.py | grep -v pyc")
-        if (not errors and resp.splitlines()
+        if (HORIZON_TGZ_PATH[self.os_release] and not errors and resp.splitlines()
                 and 'openstack_dashboard/dashboards/admin/' in resp.splitlines()[0]):
             first = resp.splitlines()[0]
             f = tempfile.NamedTemporaryFile(delete=True)
-            f.write(self.patch_file_cache[HORIZON_TGZ_PATH[0]])
+            f.write(self.patch_file_cache[HORIZON_TGZ_PATH[self.os_release][0]])
             f.flush()
             nfile = '~/horizon.tar.gz'
             resp, errors = self.env.copy_file_to_node(node, f.name, nfile)
@@ -665,7 +676,6 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error applying puppet configuration to %s:\n%s"
                             % (node, errors))
-
 
         # run a few last sanity checks
         self.env.run_command_on_node(node, "service rabbitmq-server start")
@@ -1715,6 +1725,8 @@ if __name__ == '__main__':
     print "Big Patch Version %s:%s" % (BRANCH_ID, SCRIPT_VERSION)
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
+    parser.add_argument("-r", "--openstack-release", required=True,
+                        help="Name of OpenStack release (Juno or Icehouse).")
     group.add_argument("-i", "--stand-alone", action='store_true',
                        help="Configure the server running this script "
                             "(root privileges required).")
@@ -1813,5 +1825,6 @@ if __name__ == '__main__':
     if args.ignore_interface_errors:
         environment.check_interface_errors = False
     deployer = ConfigDeployer(environment,
-                              patch_python_files=not args.skip_file_patching)
+                              patch_python_files=not args.skip_file_patching,
+                              openstack_release=args.openstack_release)
     deployer.deploy_to_all()
