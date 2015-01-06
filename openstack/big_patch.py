@@ -430,9 +430,12 @@ class ConfigDeployer(object):
                     self.patch_file_cache[patch[0]] = contents
             else:
                 print 'Downloading patch files...'
-                for patch in PYTHON_FILES_TO_PATCH + [
-                        ('', '', NEUTRON_TGZ_PATH[self.os_release][0]),
-                        ('', '', HORIZON_TGZ_PATH[self.os_release][0])]:
+                to_download = PYTHON_FILES_TO_PATCH
+                for lib in (NEUTRON_TGZ_PATH[self.os_release],
+                            HORIZON_TGZ_PATH[self.os_release]):
+                    if lib:
+                        to_download.append(('', '', lib[0]))
+                for patch in to_download:
                     url = patch[2]
                     try:
                         body = urllib2.urlopen(url).read()
