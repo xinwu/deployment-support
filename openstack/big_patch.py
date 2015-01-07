@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.0'
+SCRIPT_VERSION = '1.1.1'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -44,7 +44,9 @@ NEUTRON_TGZ_PATH = {
     'icehouse': ('https://github.com/bigswitch/neutron/archive/'
                  'stable/icehouse-bcf-2.0.0.tar.gz',
                  'neutron_stable_icehouse.tar.gz'),
-    'juno': None
+    'juno': ('https://github.com/bigswitch/neutron/archive/'
+             'stable/juno.tar.gz',
+             'neutron_stable_juno.tar.gz')
 }
 
 # paths to extract from tgz to local horizon install. Don't include
