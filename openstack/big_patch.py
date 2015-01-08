@@ -1504,16 +1504,16 @@ auto bond0
           path    => '/etc/apt/sources.list.d/universe.list',
           mode    => 0644,
           notify => Exec['lldpdinstall'],
-          content => "
-deb http://mirrors.us.kernel.org/ubuntu/ precise universe
-deb http://mirrors.us.kernel.org/ubuntu/ precise-updates universe
-deb http://mirrors.us.kernel.org/ubuntu/ precise-backports main restricted universe multiverse
-deb http://mirrors.us.kernel.org/ubuntu/ precise-security universe",
+          content => "deb http://download.opensuse.org/repositories/home:/vbernat/xUbuntu_12.04/\n",
         }
     if ! $offline_mode {
         exec{"lldpdinstall":
             onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-            command => "rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update; apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
+            command => "
+              wget http://download.opensuse.org/repositories/home:vbernat/xUbuntu_12.04/Release.key;
+              sudo apt-key add - < Release.key;
+              rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update;
+              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
             path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
@@ -1731,7 +1731,7 @@ file{'lldpclioptions':
     mode   => 0644,
     path   => '/etc/lldpd.conf',
     content => "configure lldp tx-interval ${lldp_transmit_interval}
-                configure system hostname ${lldp_hostname}",
+                configure system hostname ${lldp_hostname}\n",
     notify => Exec['lldpdrestart'],
 }
 '''  # noqa
