@@ -1499,21 +1499,20 @@ auto bond0
        command => '/etc/init.d/networking restart',
        notify => Exec['addbondtobridge'],
     }
-    file {'sources':
-          ensure  => file,
-          path    => '/etc/apt/sources.list.d/universe.list',
-          mode    => 0644,
-          notify => Exec['lldpdinstall'],
-          content => "deb http://download.opensuse.org/repositories/home:/vbernat/xUbuntu_12.04/\n",
-        }
     if ! $offline_mode {
         exec{"lldpdinstall":
             onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-            command => "
-              wget http://download.opensuse.org/repositories/home:vbernat/xUbuntu_12.04/Release.key;
+            command => '
+              # default to 12.04
+              export urelease=12.04;
+              [ "$(lsb_release -r | tr -d -c 0-9)" = "1410" ] && export urelease=14.10;
+              [ "$(lsb_release -r | tr -d -c 0-9)" = "1404" ] && export urelease=14.04;
+              wget "http://download.opensuse.org/repositories/home:vbernat/xUbuntu_$urelease/Release.key";
               sudo apt-key add - < Release.key;
+              echo "deb http://download.opensuse.org/repositories/home:/vbernat/xUbuntu_$urelease/ /"\
+                  > /etc/apt/sources.list.d/universe.list;
               rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update;
-              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd",
+              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd',
             path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
