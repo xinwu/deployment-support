@@ -1501,7 +1501,6 @@ auto bond0
     }
     if ! $offline_mode {
         exec{"lldpdinstall":
-            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
             command => 'bash -c \'
               # default to 12.04
               export urelease=12.04;
