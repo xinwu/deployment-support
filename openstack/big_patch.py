@@ -1502,7 +1502,7 @@ auto bond0
     if ! $offline_mode {
         exec{"lldpdinstall":
             onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-            command => '
+            command => 'bash -c \'
               # default to 12.04
               export urelease=12.04;
               [ "$(lsb_release -r | tr -d -c 0-9)" = "1410" ] && export urelease=14.10;
@@ -1512,7 +1512,7 @@ auto bond0
               echo "deb http://download.opensuse.org/repositories/home:/vbernat/xUbuntu_$urelease/ /"\
                   > /etc/apt/sources.list.d/universe.list;
               rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update;
-              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd',
+              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd\'',
             path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
