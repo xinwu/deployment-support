@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.2'
+SCRIPT_VERSION = '1.1.3'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -497,14 +497,6 @@ class ConfigDeployer(object):
             ).lower(),
             'offline_mode': str(self.env.offline_mode).lower()
         }
-        # explicitly configure lldpd with hostname returned by 'uname -n' to
-        # match the name OpenStack uses
-        resp, errors = self.env.run_command_on_node(
-            node, "uname -n")
-        if not resp or errors:
-            raise Exception("Error: Could not determine hostname of node %s."
-                            "\n%s. %s" % (node, errors, resp))
-        puppet_settings['lldp_hostname'] = resp
         if bond_interfaces:
             for bondint in bond_interfaces:
                 resp, errors = self.env.run_command_on_node(
@@ -827,7 +819,6 @@ $bond_updelay = '15000'
 # time in seconds between lldp transmissions
 $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
-$lldp_hostname = %(lldp_hostname)s
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -1523,6 +1514,17 @@ auto bond0
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
     }
+    file{"lldlcliwrapper":
+        ensure => file,
+        mode   => 0755,
+        path   => '/usr/bin/lldpclinamewrap',
+        content =>'#!/bin/bash
+# this script forces lldpd to use the same hostname that openstack uses
+(sleep 2 && echo "configure system hostname `uname -n`" | lldpcli &)
+lldpcli $@
+',
+        notify => Exec['lldpdrestart'],
+    }
     exec{"triggerinstall":
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
         command => 'echo',
@@ -1533,7 +1535,7 @@ auto bond0
         ensure => file,
         mode   => 0644,
         path   => '/etc/default/lldpd',
-        content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
+        content => "DAEMON_ARGS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces} -L /usr/bin/lldpclinamewrap'\n",
         notify => Exec['lldpdrestart'],
     }
     exec {"openvswitchrestart":
@@ -1728,8 +1730,7 @@ file{'lldpclioptions':
     ensure => file,
     mode   => 0644,
     path   => '/etc/lldpd.conf',
-    content => "configure lldp tx-interval ${lldp_transmit_interval}
-                configure system hostname ${lldp_hostname}\n",
+    content => "configure lldp tx-interval ${lldp_transmit_interval}",
     notify => Exec['lldpdrestart'],
 }
 '''  # noqa
