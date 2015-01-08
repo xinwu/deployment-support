@@ -708,7 +708,7 @@ else
     cp /home/${user_name}/bcf/vhd-util /opt/cloud/bin/
     chmod 777 /opt/cloud/bin/vhd-util
     mkdir -p /opt/xensource/bin
-    cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin
+    cp /home/${user_name}/bcf/vhd-util /opt/xensource/bin/
     chmod 777 /opt/xensource/bin/vhd-util
 
     # install lldp
@@ -1222,6 +1222,17 @@ echo "LLDPD_OPTIONS=\"-S 5c:16:c7:00:00:00 -I ${bond_intfs}\"" >> /etc/sysconfig
 /sbin/service lldpd stop
 /sbin/service lldpd start
 
+# put vhd-util
+mkdir -p /opt/cloud/bin
+cp /home/%(user)s/bcf/vhd-util /opt/cloud/bin/
+chmod 777 /opt/cloud/bin/vhd-util
+mkdir -p /opt/xensource/bin
+cp /home/%(user)s/bcf/vhd-util /opt/xensource/bin/
+chmod 777 /opt/xensource/bin/vhd-util
+mkdir -p /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver
+cp /home/%(user)s/bcf/vhd-util /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
+chmod 777 /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/vhd-util
+
 # install and config NFS
 yum -y install nfs*
 /sbin/service rpcbind start
@@ -1341,6 +1352,17 @@ yum install -y --skip-broken libvirt
 yum install -y --skip-broken python-virtinst
 yum install -y --skip-broken qemu-kvm
 
+# put vhd-util
+mkdir -p /opt/cloud/bin
+cp /home/%(user)s/bcf/vhd-util /opt/cloud/bin/
+chmod 777 /opt/cloud/bin/vhd-util
+mkdir -p /opt/xensource/bin
+cp /home/%(user)s/bcf/vhd-util /opt/xensource/bin/
+chmod 777 /opt/xensource/bin/vhd-util
+mkdir -p /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver
+cp /home/%(user)s/bcf/vhd-util /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
+chmod 777 /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/vhd-util
+
 # config libvirt
 sed -i '/listen_tls/d' /etc/libvirt/libvirtd.conf
 sed -i '/listen_tcp/d' /etc/libvirt/libvirtd.conf
@@ -1434,6 +1456,11 @@ echo -e "Copy bonding.conf to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(hostname)s.alias %(user)s@%(hostname)s:/etc/modprobe.d/bonding.conf >> %(log)s 2>&1
 echo -e "Copy %(CS_COMMON_RPM)s to node %(hostname)s\n"
 sshpass -p %(pwd)s scp /tmp/%(CS_COMMON_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_COMMON_RPM)s >> %(log)s 2>&1
+if [[ ! -f /tmp/vhd-util ]]; then
+    wget http://download.cloud.com.s3.amazonaws.com/tools/vhd-util -P /tmp/
+fi
+echo -e "Copy vhd-util to node %(hostname)s\n"
+sshpass -p %(pwd)s scp /tmp/vhd-util %(user)s@%(hostname)s:/home/%(user)s/bcf/ >> %(log)s 2>&1
 if [[ "%(role)s" == "management" ]]; then
     echo -e "Copy %(CS_MGMT_RPM)s to node %(hostname)s\n"
     sshpass -p %(pwd)s scp /tmp/%(CS_MGMT_RPM)s %(user)s@%(hostname)s:/home/%(user)s/bcf/%(CS_MGMT_RPM)s >> %(log)s 2>&1
