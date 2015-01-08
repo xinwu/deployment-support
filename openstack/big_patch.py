@@ -432,7 +432,7 @@ class ConfigDeployer(object):
                     self.patch_file_cache[patch[0]] = contents
             else:
                 print 'Downloading patch files...'
-                to_download = PYTHON_FILES_TO_PATCH
+                to_download = list(PYTHON_FILES_TO_PATCH)
                 for lib in (NEUTRON_TGZ_PATH[self.os_release],
                             HORIZON_TGZ_PATH[self.os_release]):
                     if lib:
