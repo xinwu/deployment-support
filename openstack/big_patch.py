@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.1'
+SCRIPT_VERSION = '1.1.2'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -497,6 +497,14 @@ class ConfigDeployer(object):
             ).lower(),
             'offline_mode': str(self.env.offline_mode).lower()
         }
+        # explicitly configure lldpd with hostname returned by 'uname -n' to
+        # match the name OpenStack uses
+        resp, errors = self.env.run_command_on_node(
+            node, "uname -n")
+        if not resp or errors:
+            raise Exception("Error: Could not determine hostname of node %s."
+                            "\n%s. %s" % (node, errors, resp))
+        puppet_settings['lldp_hostname'] = resp
         if bond_interfaces:
             for bondint in bond_interfaces:
                 resp, errors = self.env.run_command_on_node(
@@ -819,6 +827,7 @@ $bond_updelay = '15000'
 # time in seconds between lldp transmissions
 $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
+$lldp_hostname = %(lldp_hostname)s
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -1721,7 +1730,8 @@ file{'lldpclioptions':
     ensure => file,
     mode   => 0644,
     path   => '/etc/lldpd.conf',
-    content => "configure lldp tx-interval ${lldp_transmit_interval}\n",
+    content => "configure lldp tx-interval ${lldp_transmit_interval}
+                configure system hostname ${lldp_hostname}",
     notify => Exec['lldpdrestart'],
 }
 '''  # noqa
