@@ -1107,6 +1107,7 @@ SLAVE=yes
 USERCTL=no
 ONBOOT=yes
 BOOTPROTO=none
+NM_CONTROLLED=no
 '''
 
 CENTOS_BASE_BOND=r'''
@@ -1115,6 +1116,7 @@ BOOTPROTO=none
 ONBOOT=yes
 USERCTL=no
 BONDING_OPTS="mode=0 miimon=50 updelay=15000"
+NM_CONTROLLED=no
 '''
 
 CENTOS_BASE_BRIDGE_BOND=r'''
@@ -1124,6 +1126,7 @@ ONBOOT=yes
 USERCTL=no
 BONDING_OPTS="mode=0 miimon=50 updelay=15000"
 BRIDGE=%(bridge_name)s
+NM_CONTROLLED=no
 '''
 
 CENTOS_TAGGED_BRIDGE_BOND=r'''
@@ -1133,6 +1136,7 @@ ONBOOT=yes
 USERCTL=no
 VLAN=yes
 BRIDGE=%(bridge_name)s
+NM_CONTROLLED=no
 '''
 
 CENTOS_STATIC_BRIDGE=r'''
@@ -1147,6 +1151,7 @@ IPADDR=%(address)s
 NETWORK=%(network)s
 NETMASK=%(netmask)s
 GATEWAY=%(gateway)s
+NM_CONTROLLED=no
 '''
 
 CENTOS_DHCP_BRIDGE=r'''
@@ -1157,6 +1162,7 @@ BOOTPROTO=dhcp
 IPV6INIT=no
 IPV6_AUTOCONF=no
 DELAY=5
+NM_CONTROLLED=no
 '''
 
 CENTOS_BASE_STATIC_BOND=r'''
@@ -1168,6 +1174,7 @@ BONDING_OPTS="mode=0 miimon=50 updelay=15000"
 IPADDR=%(address)s
 NETWORK=%(network)s
 NETMASK=%(netmask)s
+NM_CONTROLLED=no
 '''
 
 CENTOS_BASE_DHCP_BOND=r'''
@@ -1176,6 +1183,7 @@ BOOTPROTO=dhcp
 ONBOOT=yes
 USERCTL=no
 BONDING_OPTS="mode=0 miimon=50 updelay=15000"
+NM_CONTROLLED=no
 '''
 
 CENTOS_BOND_ALIAS=r'''
@@ -1191,6 +1199,7 @@ IPADDR=%(address)s
 NETWORK=%(network)s
 NETMASK=%(netmask)s
 VLAN=yes
+NM_CONTROLLED=no
 '''
 
 CENTOS_TAGGED_DHCP_BOND=r'''
@@ -1199,6 +1208,7 @@ BOOTPROTO=dhcp
 ONBOOT=yes
 USERCTL=no
 VLAN=yes
+NM_CONTROLLED=no
 '''
 
 CENTOS_MGMT_REMOTE=r'''
