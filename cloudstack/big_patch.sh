@@ -5,7 +5,7 @@
 #
 # This script is used to set up cloud stack management node
 # and compute nodes with Big Cloud Fabric. The requirements are:
-# BCF: 2.5 or 2.6
+# BCF 2.5
 # installation node: ubuntu 12.04, centos 6.5 or centos 6.6
 # management node: ubuntu 12.04, centos 6.5 or centos 6.6
 # compute node: ubuntu 12.04 centos6.5, centos 6.6 or xenserver 6.2
