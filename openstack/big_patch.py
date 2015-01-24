@@ -908,10 +908,10 @@ if $operatingsystem == 'RedHat' {
   }
 }
 
-$nova_services = 'rabbitmq-server nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute apache2 httpd'
+$nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute apache2 httpd'
 exec{"restartnovaservices":
     refreshonly=> true,
-    command => "bash -c 'pkill rabbitmq-server;sleep 1; pkill -U rabbitmq; sleep 2; for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
+    command => "bash -c 'for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
     path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 }
 exec{'ensurecoroclone':
@@ -1586,12 +1586,6 @@ allow neutron_t etc_t:file create;
         command => "systemctl daemon-reload",
         path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
         notify => Exec['restartneutronservices']
-    }
-    exec{"rabbitrestart":
-        refreshonly => true,
-        command => "sleep 5; service rabbitmq-server restart",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-        subscribe => Exec['restartnovaservices'],
     }
     exec {"networkingrestart":
        refreshonly => true,
