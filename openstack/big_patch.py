@@ -99,6 +99,7 @@ class Environment(object):
     extra_template_params = {}
     offline_mode = False
     check_interface_errors = True
+    debug = False
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
         raise NotImplementedError()
@@ -230,6 +231,8 @@ class ConfigEnvironment(Environment):
         return resp, errors
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
+        if self.debug:
+            print "[Node %s] Running command: %s" % (node, command)
         resp, errors = TimedCommand(
             ["ssh", '-oStrictHostKeyChecking=no',
              '-o LogLevel=quiet', "root@%s" % node, command]
@@ -290,6 +293,8 @@ class FuelEnvironment(Environment):
         return resp, errors
 
     def run_command_on_node(self, node, command, timeout=60, retries=0):
+        if self.debug:
+            print "[Node %s] Running command: %s" % (node, command)
         resp, errors = TimedCommand(
             ["ssh", '-oStrictHostKeyChecking=no',
              '-o LogLevel=quiet', "root@%s" % node, command]
@@ -1766,6 +1771,8 @@ if __name__ == '__main__':
                              "prerequisites on the individual nodes.")
     parser.add_argument('--ignore-interface-errors', action='store_true',
                         help="Suppress warnings about interface errors.")
+    parser.add_argument('--debug', action='store_true',
+                        help="Show commands being executed on nodes.")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1826,6 +1833,7 @@ if __name__ == '__main__':
     else:
         parser.error('You must specify the Fuel environment, the config '
                      'file, or standalone mode.')
+    environment.debug = args.debug
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     environment.set_neutron_id(neutron_id)
