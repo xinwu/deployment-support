@@ -684,6 +684,8 @@ class ConfigDeployer(object):
 
         # run a few last sanity checks
         self.env.run_command_on_node(node, "service rabbitmq-server start")
+        self.env.run_command_on_node(node, "rabbitmqctl stop_app")
+        self.env.run_command_on_node(node, "rabbitmqctl start_app")
         resp, errors = self.env.run_command_on_node(
             node, ("rabbitmqctl cluster_status | grep partitions | " +
                    r"""grep -v '\[\]'"""))
