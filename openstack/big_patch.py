@@ -689,15 +689,19 @@ class ConfigDeployer(object):
 
         # run a few last sanity checks
         self.env.run_command_on_node(node, "service rabbitmq-server start")
-        self.env.run_command_on_node(node, "rabbitmqctl stop_app")
-        self.env.run_command_on_node(node, "rabbitmqctl start_app")
         resp, errors = self.env.run_command_on_node(
             node, ("rabbitmqctl cluster_status | grep partitions | " +
                    r"""grep -v '\[\]'"""))
         if 'partitions' in resp:
-            print ("Warning: RabbitMQ partition detected on node %s: %s "
-                   "Restart rabbitmq-server on each node in the parition."
-                   % (node, resp))
+            self.env.run_command_on_node(node, "rabbitmqctl stop_app")
+            self.env.run_command_on_node(node, "rabbitmqctl start_app")
+            resp, errors = self.env.run_command_on_node(
+                node, ("rabbitmqctl cluster_status | grep partitions | " +
+                       r"""grep -v '\[\]'"""))
+            if 'partitions' in resp:
+                print ("Warning: RabbitMQ partition detected on node %s: %s "
+                       "Restart rabbitmq-server on each node in the parition."
+                       % (node, resp))
 
         # check for certificates generated in the future (due to clock change)
         # or expired certs
