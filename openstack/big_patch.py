@@ -1448,7 +1448,7 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => "bash -c 'for int in $(/usr/bin/ovs-appctl bond/list | grep -v slaves | awk -F \' \' \'{ print $1 }\'); do ovs-vsctl --if-exists del-port $int; done'",
+  command => 'bash -c "for int in $(/usr/bin/ovs-appctl bond/list | grep -v slaves | awk -F \' \' \'{ print $1 }\'); do ovs-vsctl --if-exists del-port $int; done"',
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   require => Exec['lldpdinstall'],
   onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_name}\"'",
