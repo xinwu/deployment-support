@@ -1383,7 +1383,7 @@ if $operatingsystem == 'Ubuntu'{
       notify => Exec['restartneutronservices'],
     }
 }
-if $operatingsystem == 'CentOS'{
+if ($operatingsystem == 'CentOS') and ($operatingsystemrelease =~ /^6.*/) {
     file {'keystone26':
       path   => '/usr/lib/python2.6/site-packages/keystone-signing',
       ensure => 'directory',
@@ -1531,17 +1531,6 @@ auto bond0
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
     }
-    file{"lldlcliwrapper":
-        ensure => file,
-        mode   => 0755,
-        path   => '/usr/bin/lldpclinamewrap',
-        content =>'#!/bin/bash
-# this script forces lldpd to use the same hostname that openstack uses
-(sleep 2 && echo "configure system hostname `uname -n`" | lldpcli &)
-lldpcli $@
-',
-        notify => Exec['lldpdrestart'],
-    }
     exec{"triggerinstall":
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
         command => 'echo',
@@ -1561,7 +1550,46 @@ lldpcli $@
        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
 }
+file{"lldlcliwrapper":
+    ensure => file,
+    mode   => 0755,
+    path   => '/usr/bin/lldpclinamewrap',
+    content =>'#!/bin/bash
+# this script forces lldpd to use the same hostname that openstack uses
+(sleep 2 && echo "configure system hostname `uname -n`" | lldpcli &)
+lldpcli $@
+',
+    notify => Exec['lldpdrestart'],
+}
 if $operatingsystem == 'RedHat' {
+    if ! $offline_mode {
+        exec {'lldpdinstall':
+           onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
+           command => 'bash -c \'
+               export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/RedHat_RHEL-6/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/RHEL_7/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               cd /root/;
+               wget "$url" -O lldpd.rpm;
+               rpm -i lldpd.rpm\'',
+           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           notify => File['redhatlldpdconfig'],
+        }
+    } else {
+        exec {'lldpdinstall':
+           onlyif => "bash -c '! ls /etc/init.d/lldpd'",
+           command => "echo noop",
+           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           notify => File['redhatlldpdconfig'],
+        }
+    }
+    file{'redhatlldpdconfig':
+        ensure => file,
+        mode   => 0644,
+        path   => '/etc/sysconfig/lldpd',
+        content => "LLDPD_OPTIONS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces} -L /usr/bin/lldpclinamewrap'\n",
+        notify => Exec['lldpdrestart'],
+    }
     file{'selinux_allow_certs':
        ensure => file,
        mode => 0644,
@@ -1658,7 +1686,13 @@ if $operatingsystem == 'CentOS' {
     if ! $offline_mode {
         exec {'lldpdinstall':
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
-           command => "bash -c 'cd /etc/yum.repos.d/; wget http://download.opensuse.org/repositories/home:vbernat/CentOS_CentOS-6/home:vbernat.repo; yum -y install lldpd'",
+           command => 'bash -c \'
+               export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/CentOS_CentOS-6/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/CentOS_7/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               cd /root/;
+               wget "$url" -O lldpd.rpm;
+               rpm -i lldpd.rpm\'',
            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
            notify => File['centoslldpdconfig'],
         }
@@ -1674,7 +1708,7 @@ if $operatingsystem == 'CentOS' {
         ensure => file,
         mode   => 0644,
         path   => '/etc/sysconfig/lldpd',
-        content => "LLDPD_OPTIONS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces}'\n",
+        content => "LLDPD_OPTIONS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces} -L /usr/bin/lldpclinamewrap'\n",
         notify => Exec['lldpdrestart'],
     }
     exec {"networkingrestart":
