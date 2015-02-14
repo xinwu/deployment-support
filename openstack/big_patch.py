@@ -1442,7 +1442,36 @@ exec {"cleanup_neutron":
               echo 'delete from subnets where network_id NOT IN (select id from networks);' | $MYSQL_COM;
              "
 }
+if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat'{
+    file{'selinux_allow_certs':
+       ensure => file,
+       mode => 0644,
+       path => '/root/neutroncerts.te',
+       content => '
+module neutroncerts 1.0;
 
+require {
+        type neutron_t;
+        type etc_t;
+        class dir create;
+        class file create;
+}
+
+#============= neutron_t ==============
+allow neutron_t etc_t:dir create;
+allow neutron_t etc_t:file create;
+',
+       notify => Exec["selinuxcompile"],
+    }
+    exec {"selinuxcompile":
+       refreshonly => true,
+       command => "bash -c 'semanage permissive -a neutron_t;
+                   checkmodule -M -m -o /root/neutroncerts.mod /root/neutroncerts.te;
+                   semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
+                   semodule -i /root/neutroncerts.pp' ||:",
+        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    }
+}
 '''  # noqa
 
     bond_and_lldpd_configuration = r'''
@@ -1589,34 +1618,6 @@ if $operatingsystem == 'RedHat' {
         path   => '/etc/sysconfig/lldpd',
         content => "LLDPD_OPTIONS='-S 5c:16:c7:00:00:00 -I ${bond_interfaces} -L /usr/bin/lldpclinamewrap'\n",
         notify => Exec['lldpdrestart'],
-    }
-    file{'selinux_allow_certs':
-       ensure => file,
-       mode => 0644,
-       path => '/root/neutroncerts.te',
-       content => '
-module neutroncerts 1.0;
-
-require {
-        type neutron_t;
-        type etc_t;
-        class dir create;
-        class file create;
-}
-
-#============= neutron_t ==============
-allow neutron_t etc_t:dir create;
-allow neutron_t etc_t:file create;
-',
-       notify => Exec["selinuxcompile"],
-    }
-    exec {"selinuxcompile":
-       refreshonly => true,
-       command => "bash -c 'semanage permissive -a neutron_t;
-                   checkmodule -M -m -o /root/neutroncerts.mod /root/neutroncerts.te;
-                   semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
-                   semodule -i /root/neutroncerts.pp' ||:",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
     ini_setting{"neutron_service":
         path => "/usr/lib/systemd/system/neutron-server.service",
