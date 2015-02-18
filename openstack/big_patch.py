@@ -1639,11 +1639,6 @@ if $operatingsystem == 'RedHat' {
        require => [Exec['loadbond'], File['bondmembers'], Exec['deleteovsbond']],
        notify => Exec['addbondtobridge'],
     }
-    exec{"lldpdinstall":
-        onlyif => "bash -c '! ls /etc/init.d/lldpd'",
-        command => "ls",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    }
     file{'bondmembers':
         require => [Exec['loadbond']],
         ensure => file,
