@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.5'
+SCRIPT_VERSION = '1.1.6'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -339,17 +339,33 @@ class FuelEnvironment(Environment):
         if node not in self.nodes:
             raise Exception('No node in fuel environment %s' % node)
         trans = self.node_settings[node]['network_scheme']['transformations']
+        bond_bridge = self._get_bond_bridge(trans)
         for t in trans:
             if t.get('action') == 'add-bond':
+                # skip the bond if it's not on the bridge with br-prv
+                if bond_bridge and t.get('bridge') != bond_bridge:
+                    continue
                 return t.get('interfaces', [])
         print 'Node %s has no bond interfaces.' % node
         return []
+
+    def _get_bond_bridge(self, transformations):
+        # there may be multiple bonds so we have to look for the one with
+        # the private network attached, which is the one we are interested in
+        for t in trans:
+            if (t.get('action') == 'add-patch'
+                    and 'br-prv' in t.get('bridges', [])):
+                return (set(t.get('bridges')) - set(['br-prv']))[0]
 
     def get_node_phy_bridge(self, node):
         bridge = None
         if node not in self.nodes:
             raise Exception('No node in fuel environment %s' % node)
         trans = self.node_settings[node]['network_scheme']['transformations']
+        # first try looking for br-prv
+        bridge = self._get_bond_bridge(trans)
+        if bridge:
+            return bridge
         for t in trans:
             if t.get('action') == 'add-bond':
                 bridge = t.get('bridge')
@@ -825,7 +841,6 @@ $bond_interfaces = '%(bond_interfaces)s'
 $network_vlan_ranges = '%(network_vlan_ranges)s'
 $bond_int0 = '%(bond_int0)s'
 $bond_int1 = '%(bond_int1)s'
-$bond_name = 'ovs-bond0'
 $phy_bridge = '%(physical_bridge)s'
 $ovs_bridge_mappings = '%(bridge_mappings)s'
 $neutron_restart_refresh_only = '%(neutron_restart_refresh_only)s'
@@ -1482,10 +1497,10 @@ exec {"loadbond":
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
-  command => "bash -c 'for int in \$(/usr/bin/ovs-appctl bond/list | grep -v slaves | awk -F '\"' ' '{ print \$1 }'\"'); do ovs-vsctl --if-exists del-port \$int; done'",
+  command => "bash -c 'for int in \$(/usr/bin/ovs-appctl bond/list | grep -v slaves | grep \"${bond_int0}\" | awk -F '\"' ' '{ print \$1 }'\"'); do ovs-vsctl --if-exists del-port \$int; done'",
   path    => "/usr/local/bin/:/bin/:/usr/bin",
   require => Exec['lldpdinstall'],
-  onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_name}\"'",
+  onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
   notify => Exec['networkingrestart']
 }
 exec {"clearint0":
