@@ -352,10 +352,10 @@ class FuelEnvironment(Environment):
     def _get_bond_bridge(self, transformations):
         # there may be multiple bonds so we have to look for the one with
         # the private network attached, which is the one we are interested in
-        for t in trans:
+        for t in transformations:
             if (t.get('action') == 'add-patch'
                     and 'br-prv' in t.get('bridges', [])):
-                return (set(t.get('bridges')) - set(['br-prv']))[0]
+                return list(set(t.get('bridges')) - set(['br-prv']))[0]
 
     def get_node_phy_bridge(self, node):
         bridge = None
