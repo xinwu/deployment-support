@@ -228,8 +228,8 @@ class SSHEnvironment(Environment):
                 "Error: Received permission error on node %s. Verify that "
                 "the SSH password is correct or that the ssh key being used is "
                 "authorized on that host.")
-        if errors:
-            print ("Warning: Errors when checking connectivity for node "
+        if not resp.strip() and errors:
+            print ("Warning: Errors when checking SSH connectivity for node "
                    "%s:\n%s" % (node, errors))
 
 
