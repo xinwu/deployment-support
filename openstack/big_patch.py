@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.8'
+SCRIPT_VERSION = '1.1.9'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -209,12 +209,28 @@ class SSHEnvironment(Environment):
                 self.sshpass_detected = True
         if shell:
             sshcomm = ' '.join(sshcomm)
+        self.ensure_connectiviy(node)
         resp, errors = TimedCommand(sshcomm).run(timeout, retries, shell=shell)
-        if self.ssh_password and "Permission denied, please try again." in errors:
-            print ("Warning: Received permission error. Please verify that "
-                   "the SSH password you entered is correct for node %s"
-                   % node)
         return resp, errors
+
+    def ensure_connectivity(self, node):
+        # This might be worth caching if many SSH calls are made to each node.
+        sshcomm = [
+            "ssh", '-oStrictHostKeyChecking=no',
+            "%s@%s" % (self.ssh_user, node),
+            "echo hello"
+        ]
+        if self.ssh_password:
+            sshcomm = ['sshpass', '-p', self.ssh_password] + sshcomm
+        resp, errors = TimedCommand(sshcomm).run()
+        if "Permission denied, please try again." in errors:
+            raise Exception(
+                "Error: Received permission error on node %s. Verify that "
+                "the SSH password is correct or that the ssh key being used is "
+                "authorized on that host.")
+        if errors:
+            print ("Warning: Errors when checking connectivity for node "
+                   "%s:\n%s" % (node, errors))
 
 
 class ConfigEnvironment(SSHEnvironment):
