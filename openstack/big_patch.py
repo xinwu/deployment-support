@@ -1548,6 +1548,7 @@ bond-master bond0
 
 auto bond0
     iface bond0 inet manual
+    address 0.0.0.0
     bond-mode ${bond_mode}
     bond-xmit_hash_policy 1
     bond-miimon 50
@@ -1558,7 +1559,18 @@ auto bond0
     exec {"networkingrestart":
        refreshonly => true,
        require => [Exec['loadbond'], File['bondmembers'], Exec['deleteovsbond'], Exec['lldpdinstall']],
-       command => '/etc/init.d/networking restart',
+       command => "bash -c '
+         # 1404+ doesnt allow init script full network restart
+         if [[ \$(lsb_release -r | tr -d -c 0-9) = 14* ]]; then
+             ifdown ${bond_int0}
+             ifdown ${bond_int1}
+             ifdown bond0
+             ifup ${bond_int0} &
+             ifup ${bond_int1} &
+             ifup bond0 &
+         else
+             /etc/init.d/networking restart
+         fi'",
        notify => Exec['addbondtobridge'],
     }
     if ! $offline_mode {
