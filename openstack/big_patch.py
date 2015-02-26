@@ -209,7 +209,7 @@ class SSHEnvironment(Environment):
                 self.sshpass_detected = True
         if shell:
             sshcomm = ' '.join(sshcomm)
-        self.ensure_connectiviy(node)
+        self.ensure_connectivity(node)
         resp, errors = TimedCommand(sshcomm).run(timeout, retries, shell=shell)
         return resp, errors
 
