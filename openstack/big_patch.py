@@ -69,12 +69,14 @@ class TimedCommand(object):
         self.resp = None
         self.errors = None
 
-    def run(self, timeout=60, retries=0):
+    def run(self, timeout=60, retries=0, shell=False):
+        # if shell is True, the incoming command is expected to be a string
+        # that has been properly escaped.
         def target():
             try:
                 self.process = subprocess.Popen(
                     self.cmd, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
+                    stderr=subprocess.PIPE, shell=shell)
             except Exception as e:
                 self.errors = 'Error opening process "%s": %s' % (self.cmd, e)
                 return
@@ -108,7 +110,7 @@ class Environment(object):
     debug = False
     bond_mode = 2
 
-    def run_command_on_node(self, node, command, timeout=60, retries=0):
+    def run_command_on_node(self, node, command, timeout=60, retries=0, shell=False):
         raise NotImplementedError()
 
     def copy_file_to_node(self, node, local_path, remote_path):
@@ -156,10 +158,10 @@ class Environment(object):
         self.offline_mode = offline_mode
 
     def get_node_python_package_path(self, node, package):
-        com = ('python -c "import %s;import os;print '
-               'os.path.dirname(%s.__file__)"'
+        com = ("\"python -c 'import %s;import os;print "
+               "os.path.dirname(%s.__file__)'\""
                % (package, package))
-        resp, errors = self.run_command_on_node(node, com)
+        resp, errors = self.run_command_on_node(node, com, shell=True)
         if errors or not resp.strip() or len(resp.strip().splitlines()) > 1:
             if 'ImportError' in errors:
                 return False
@@ -179,13 +181,14 @@ class SSHEnvironment(Environment):
         super(SSHEnvironment, self).__init__(*args, **kwargs)
 
     def copy_file_to_node(self, node, local_path, remote_path):
-        resp, errors = TimedCommand(
-            ["scp", '-o LogLevel=quiet', local_path,
-             "%s@%s:%s" % (self.ssh_user, node, remote_path)]
-        ).run(timeout=180)
+        sshcomm = ["scp", '-o LogLevel=quiet', local_path,
+                   "%s@%s:%s" % (self.ssh_user, node, remote_path)]
+        if self.ssh_password:
+            sshcomm = ['sshpass', '-p', self.ssh_password] + sshcomm
+        resp, errors = TimedCommand(sshcomm).run(timeout=180)
         return resp, errors
 
-    def run_command_on_node(self, node, command, timeout=60, retries=0):
+    def run_command_on_node(self, node, command, timeout=60, retries=0, shell=False):
         if self.debug:
             print "[Node %s] Running command: %s" % (node, command)
         sshcomm = [
@@ -203,7 +206,9 @@ class SSHEnvironment(Environment):
                         "Error running 'sshpass'. 'sshpass' must be installed "
                         "to use password based authentication.\n%s" % errors)
                 self.sshpass_detected = True
-        resp, errors = TimedCommand(sshcomm).run(timeout, retries)
+        if shell:
+            sshcomm = ' '.join(sshcomm)
+        resp, errors = TimedCommand(sshcomm).run(timeout, retries, shell=shell)
         return resp, errors
 
 
@@ -768,7 +773,7 @@ class ConfigDeployer(object):
 
         # check pbr prereq
         resp, errors = self.env.run_command_on_node(
-            node, "python -c 'import pbr'")
+            node, "\"python -c 'import pbr'\"", shell=True)
         if errors.strip():
             print ("Warning: python pbr library missing on node %s. "
                    "Neutron processes may not start." % node)
