@@ -689,10 +689,6 @@ class ConfigDeployer(object):
                 "yum -y remove facter && gem install puppet facter "
                 "--no-ri --no-rdoc")
             self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
-            self.env.run_command_on_node(node, "yum -y install python-pip")
-            self.env.run_command_on_node(node, "yum -y install python-pbr")
-            self.env.run_command_on_node(node, "apt-get install python-pip")
-            self.env.run_command_on_node(node, "pip install pbr")
             resp, errors = self.env.run_command_on_node(
                 node, "puppet module install puppetlabs-inifile --force", 30, 2)
             if errors:
@@ -770,13 +766,6 @@ class ConfigDeployer(object):
         if not resp.strip():
             print ("Warning: lldpd process not running on node %s. "
                    "Automatic port groups will not be formed." % node)
-
-        # check pbr prereq
-        resp, errors = self.env.run_command_on_node(
-            node, "\"python -c 'import pbr'\"", shell=True)
-        if errors.strip():
-            print ("Warning: python pbr library missing on node %s. "
-                   "Neutron processes may not start." % node)
 
         # check bond interface speeds match
         if bond_interfaces and self.env.check_interface_errors:
