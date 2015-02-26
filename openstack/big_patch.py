@@ -188,7 +188,8 @@ class SSHEnvironment(Environment):
         resp, errors = TimedCommand(sshcomm).run(timeout=180)
         return resp, errors
 
-    def run_command_on_node(self, node, command, timeout=60, retries=0, shell=False):
+    def run_command_on_node(self, node, command, timeout=60, retries=0,
+                            shell=False):
         if self.debug:
             print "[Node %s] Running command: %s" % (node, command)
         sshcomm = [
@@ -209,6 +210,10 @@ class SSHEnvironment(Environment):
         if shell:
             sshcomm = ' '.join(sshcomm)
         resp, errors = TimedCommand(sshcomm).run(timeout, retries, shell=shell)
+        if self.ssh_password and "Permission denied, please try again." in errors:
+            print ("Warning: Received permission error. Please verify that "
+                   "the SSH password you entered is correct for node %s"
+                   % node)
         return resp, errors
 
 
@@ -1572,6 +1577,7 @@ auto bond0
              /etc/init.d/networking restart
          fi'",
        notify => Exec['addbondtobridge'],
+       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
     }
     if ! $offline_mode {
         exec{"lldpdinstall":
