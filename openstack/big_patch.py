@@ -194,10 +194,10 @@ class SSHEnvironment(Environment):
             command
         ]
         if self.ssh_password:
-            sshcomm = ['sshpass', '-p %s' % self.ssh_password] + sshcomm
+            sshcomm = ['sshpass', '-p', self.ssh_password] + sshcomm
             if not self.sshpass_detected:
                 # we need to see if sshpass is installed
-                resp, errors = TimedCommand(['sshpass -h']).run()
+                resp, errors = TimedCommand(['sshpass', '-h']).run()
                 if errors:
                     raise Exception(
                         "Error running 'sshpass'. 'sshpass' must be installed "
