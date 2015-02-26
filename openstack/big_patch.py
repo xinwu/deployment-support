@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.6'
+SCRIPT_VERSION = '1.1.7'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -71,9 +71,13 @@ class TimedCommand(object):
 
     def run(self, timeout=60, retries=0):
         def target():
-            self.process = subprocess.Popen(
-                self.cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+            try:
+                self.process = subprocess.Popen(
+                    self.cmd, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+            except Exception as e:
+                self.errors = 'Error opening process "%s": %s' % (self.cmd, e)
+                return
             self.resp, self.errors = self.process.communicate()
 
         thread = threading.Thread(target=target)
@@ -165,11 +169,50 @@ class Environment(object):
         return resp.strip()
 
 
-class ConfigEnvironment(Environment):
+class SSHEnvironment(Environment):
+    # shared SSH stuff for config based deployments and fuel deployments
+
+    def __init__(self, *args, **kwargs):
+        self.ssh_user = 'root'
+        self.ssh_password = None
+        self.sshpass_detected = False
+        super(SSHEnvironment, self).__init__(*args, **kwargs)
+
+    def copy_file_to_node(self, node, local_path, remote_path):
+        resp, errors = TimedCommand(
+            ["scp", '-o LogLevel=quiet', local_path,
+             "%s@%s:%s" % (self.ssh_user, node, remote_path)]
+        ).run(timeout=180)
+        return resp, errors
+
+    def run_command_on_node(self, node, command, timeout=60, retries=0):
+        if self.debug:
+            print "[Node %s] Running command: %s" % (node, command)
+        sshcomm = [
+            "ssh", '-oStrictHostKeyChecking=no',
+            '-o LogLevel=quiet', "%s@%s" % (self.ssh_user, node),
+            command
+        ]
+        if self.ssh_password:
+            sshcomm = ['sshpass', '-p %s' % self.ssh_password] + sshcomm
+            if not self.sshpass_detected:
+                # we need to see if sshpass is installed
+                resp, errors = TimedCommand(['sshpass -h']).run()
+                if errors:
+                    raise Exception(
+                        "Error running 'sshpass'. 'sshpass' must be installed "
+                        "to use password based authentication.\n%s" % errors)
+                self.sshpass_detected = True
+        resp, errors = TimedCommand(sshcomm).run(timeout, retries)
+        return resp, errors
+
+
+class ConfigEnvironment(SSHEnvironment):
 
     network_vlan_ranges = None
 
     def __init__(self, yaml_string, skip_nodes=[], specific_nodes=[]):
+        super(ConfigEnvironment, self).__init__()
         try:
             self.settings = yaml.load(yaml_string)
         except Exception as e:
@@ -227,28 +270,14 @@ class ConfigEnvironment(Environment):
                             % node)
         return phy_br
 
-    def copy_file_to_node(self, node, local_path, remote_path):
-        resp, errors = TimedCommand(
-            ["scp", '-o LogLevel=quiet', local_path, "root@%s:%s" % (node, remote_path)]
-        ).run(timeout=180)
-        return resp, errors
 
-    def run_command_on_node(self, node, command, timeout=60, retries=0):
-        if self.debug:
-            print "[Node %s] Running command: %s" % (node, command)
-        resp, errors = TimedCommand(
-            ["ssh", '-oStrictHostKeyChecking=no',
-             '-o LogLevel=quiet', "root@%s" % node, command]
-        ).run(timeout, retries)
-        return resp, errors
-
-
-class FuelEnvironment(Environment):
+class FuelEnvironment(SSHEnvironment):
 
     def __init__(self, environment_id, skip_nodes=[], specific_nodes=[]):
         self.node_settings = {}
         self.nodes = []
         self.settings = {}
+        super(FuelEnvironment, self).__init__()
         try:
             print "Retrieving general Fuel settings..."
             output, errors = TimedCommand(
@@ -290,26 +319,9 @@ class FuelEnvironment(Environment):
         for node in self.nodes:
             self.node_settings[node] = self.get_node_config(node)
 
-    def copy_file_to_node(self, node, local_path, remote_path):
-        resp, errors = TimedCommand(["scp", '-o LogLevel=quiet', local_path,
-                                     "root@%s:%s" % (node, remote_path)]).run()
-        return resp, errors
-
-    def run_command_on_node(self, node, command, timeout=60, retries=0):
-        if self.debug:
-            print "[Node %s] Running command: %s" % (node, command)
-        resp, errors = TimedCommand(
-            ["ssh", '-oStrictHostKeyChecking=no',
-             '-o LogLevel=quiet', "root@%s" % node, command]
-        ).run(timeout, retries)
-        return resp, errors
-
     def get_node_config(self, node):
         print "Retrieving Fuel configuration for node %s..." % node
-        resp, errors = TimedCommand(["ssh", '-oStrictHostKeyChecking=no',
-                                     '-o LogLevel=quiet',
-                                     "root@%s" % node,
-                                     "cat", "/etc/astute.yaml"]).run()
+        resp, errors = self.run_command_on_node(node, 'cat /etc/astute.yaml')
         if errors or not resp:
             raise Exception("Error retrieving config for node %s:\n%s\n"
                             "Is the node online?"
@@ -1838,6 +1850,13 @@ if __name__ == '__main__':
     remote.add_argument('--specific-nodes',
                         help="Comma-separate list of nodes to deploy to. All "
                              "others will be skipped.")
+    remote.add_argument('--ssh-user', default='root',
+                        help="User to use when connecting to remote nodes "
+                             "via SSH. Default is 'root'.")
+    remote.add_argument('--ssh-password', default=None,
+                        help="Password to use when connecting to remote nodes "
+                             "via SSH. By default no password is used under "
+                             "the assumption that SSH keys are setup.")
     local = parser.add_argument_group(
         'standalone-deployment', 'Arguments for standalone deployments')
     local.add_argument('--network-vlan-ranges',
@@ -1891,6 +1910,9 @@ if __name__ == '__main__':
     else:
         parser.error('You must specify the Fuel environment, the config '
                      'file, or standalone mode.')
+    if not args.stand_alone:
+        environment.ssh_user = args.ssh_user
+        environment.ssh_password = args.ssh_password
     allowed_bond_modes = {'xor': 2, 'round-robin': 0}
     if args.bond_mode not in allowed_bond_modes:
         parser.error('Unsupported bond mode: "%s". Supported modes: "%s"'
