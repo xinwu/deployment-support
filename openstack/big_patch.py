@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.7'
+SCRIPT_VERSION = '1.1.8'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
