@@ -689,6 +689,10 @@ class ConfigDeployer(object):
                 "yum -y remove facter && gem install puppet facter "
                 "--no-ri --no-rdoc")
             self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
+            # stdlib is missing on 1404. install it and don't worry about return.
+            # connectivity issues should be caught in the inifile install
+            self.env.run_command_on_node(
+                node, "puppet module install puppetlabs-stdlib --force", 30, 2)
             resp, errors = self.env.run_command_on_node(
                 node, "puppet module install puppetlabs-inifile --force", 30, 2)
             if errors:
