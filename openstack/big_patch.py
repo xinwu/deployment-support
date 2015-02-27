@@ -915,7 +915,7 @@ exec{"neutronserverrestart":
 if $operatingsystem == 'Ubuntu' {
   exec{"restartneutronservices":
       refreshonly => $neutron_restart_refresh_only,
-      command => "/etc/init.d/neutron-plugin-openvswitch-agent restart ||:;",
+      command => "/usr/sbin/service neutron-plugin-openvswitch-agent restart ||:;",
       notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
   }
 }
