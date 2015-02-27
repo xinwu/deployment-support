@@ -1554,6 +1554,11 @@ if $operatingsystem == 'Ubuntu' {
        line => 'bonding',
        notify => Exec['loadbond'],
     }
+    file_line { 'includebond':
+       path => '/etc/network/interfaces',
+       line => 'source /etc/network/interfaces.d/*',
+       notify => Exec['loadbond'],
+    }
     file {'bondmembers':
         ensure => file,
         path => '/etc/network/interfaces.d/bond',
@@ -1581,6 +1586,8 @@ auto bond0
        refreshonly => true,
        require => [Exec['loadbond'], File['bondmembers'], Exec['deleteovsbond'], Exec['lldpdinstall']],
        command => "bash -c '
+         sed -i s/auto bond0//g /etc/network/interfaces
+         sed -i s/iface bond0/iface bond0old/g /etc/network/interfaces
          # 1404+ doesnt allow init script full network restart
          if [[ \$(lsb_release -r | tr -d -c 0-9) = 14* ]]; then
              ifdown ${bond_int0}
