@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.9'
+SCRIPT_VERSION = '1.1.10'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -890,7 +890,6 @@ if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat'{
     $neutron_conf_path = "/etc/neutron/plugin.ini"
 }
 
-$neutron_ovs_conf_path = "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 if ($operatingsystem == 'Ubuntu') and ($operatingsystemrelease =~ /^14.*/) {
     $neutron_ovs_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
 } else {
