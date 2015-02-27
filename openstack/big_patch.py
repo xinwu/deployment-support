@@ -1616,9 +1616,12 @@ auto bond0
               wget "http://download.opensuse.org/repositories/home:vbernat/xUbuntu_$urelease/Release.key";
               sudo apt-key add - < Release.key;
               echo "deb http://download.opensuse.org/repositories/home:/vbernat/xUbuntu_$urelease/ /"\
-                  > /etc/apt/sources.list.d/universe.list;
+                  > /etc/apt/sources.list.d/lldpd.list;
               rm /var/lib/dpkg/lock ||:; rm /var/lib/apt/lists/lock ||:; apt-get update;
-              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd\'',
+              apt-get -o Dpkg::Options::=--force-confdef install --allow-unauthenticated -y lldpd;
+              if [[ $(lsb_release -r | tr -d -c 0-9) = 14* ]]; then
+                  apt-get install -y ifenslave-2.6
+              fi\'',
             path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
