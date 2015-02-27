@@ -889,11 +889,12 @@ if $operatingsystem == 'Ubuntu'{
 if $operatingsystem == 'CentOS' or $operatingsystem == 'RedHat'{
     $neutron_conf_path = "/etc/neutron/plugin.ini"
 }
-$neutron_base_conf_path = "/etc/neutron/neutron.conf"
 
 $neutron_ovs_conf_path = "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 if ($operatingsystem == 'Ubuntu') and ($operatingsystemrelease =~ /^14.*/) {
     $neutron_ovs_conf_path = "/etc/neutron/plugins/ml2/ml2_conf.ini"
+} else {
+    $neutron_base_conf_path = "/etc/neutron/neutron.conf"
 }
 $neutron_l3_conf_path = '/etc/neutron/l3_agent.ini'
 $neutron_dhcp_conf_path = '/etc/neutron/dhcp_agent.ini'
