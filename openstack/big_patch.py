@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.10'
+SCRIPT_VERSION = '1.1.11'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -1928,6 +1928,9 @@ if __name__ == '__main__':
     else:
         skip_nodes = []
     neutron_id = args.neutron_cluster_name
+    if not re.compile("^([A-Za-z0-9\.\-\_]+)*$").match(neutron_id):
+        parser.error('--neutron-cluster-name can only contain alphanumeric '
+                     'characters, hypens and underscores.')
     if args.fuel_environment:
         neutron_id = '%s-%s' % (neutron_id, args.fuel_environment)
         environment = FuelEnvironment(args.fuel_environment,
