@@ -222,7 +222,7 @@ class SSHEnvironment(Environment):
         ]
         if self.ssh_password:
             sshcomm = ['sshpass', '-p', self.ssh_password] + sshcomm
-        resp, errors = TimedCommand(sshcomm).run(30, 2)
+        resp, errors = TimedCommand(sshcomm).run(60, 4)
         if "Permission denied, please try again." in errors:
             raise Exception(
                 "Error: Received permission error on node %s. Verify that "
