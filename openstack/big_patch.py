@@ -1242,9 +1242,26 @@ ini_setting {"ovs_bridge_mappings":
   ensure  => present,
   notify => Exec['restartneutronservices'],
 }
+ini_setting {"Bovs_bridge_mappings":
+  path    => $neutron_ovs_conf_path,
+  section => 'OVS',
+  setting => 'bridge_mappings',
+  value   => $ovs_bridge_mappings,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+}
 ini_setting {"ovs_vlan_ranges":
   path    => $neutron_ovs_conf_path,
   section => 'ovs',
+  setting => 'network_vlan_ranges',
+  value   => $network_vlan_ranges,
+  ensure  => present,
+  notify => Exec['restartneutronservices'],
+  require => File[$conf_dirs],
+}
+ini_setting {"Bovs_vlan_ranges":
+  path    => $neutron_ovs_conf_path,
+  section => 'OVS',
   setting => 'network_vlan_ranges',
   value   => $network_vlan_ranges,
   ensure  => present,
