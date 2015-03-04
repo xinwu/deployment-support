@@ -558,7 +558,7 @@ class ConfigDeployer(object):
         # Bail if the configs aren't consistent because we don't want to
         # guess parsing order.
         names = map(
-            lambda x: x.split(':')[-1].replace(' ', '').replace('host='),
+            lambda x: x.split(':')[-1].replace(' ', '').replace('host=', ''),
             resp.strip().splitlines())
         if len(set(names)) != len(names):
             raise Exception("The neutron configuration files have "
@@ -910,7 +910,7 @@ $bond_updelay = '15000'
 $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
 $bond_mode = %(bond_mode)s
-$lldp_advertised_name = %(lldp_advertised_name)s
+$lldp_advertised_name = '%(lldp_advertised_name)s'
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
