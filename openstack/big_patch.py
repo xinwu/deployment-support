@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.11'
+SCRIPT_VERSION = '1.1.12'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -544,6 +544,32 @@ class ConfigDeployer(object):
         except Exception as e:
             error_log.append((node, str(e)))
 
+    def get_lldp_advertisement_hostname(self, node):
+        # Determine what name lldpd should advertise for the hostname.
+        # We need to match whatever the neutron agents are configured to
+        # use. If they don't have anything configured, they will use the
+        # result of 'uname -n' so we will use the same so we default to the
+        # same.
+        resp, errors = self.env.run_command_on_node(
+            node, "grep -R -e '^host\s*=' /etc/neutron/")
+        if errors:
+            raise Exception("error determining agent hostname information "
+                            "on %s:\n%s" % (node, errors))
+        # Bail if the configs aren't consistent because we don't want to
+        # guess parsing order.
+        names = map(
+            lambda x: x.split(':')[-1].replace(' ', '').replace('host='),
+            resp.strip().splitlines())
+        if len(set(names)) != len(names):
+            raise Exception("The neutron configuration files have "
+                            "multiple differing 'host' values. Please make "
+                            "them consistent so the correct value can be "
+                            "chosen for the LLDP fabric advertisements. "
+                            "Detected values:\n%s" % resp)
+        if names:
+            return names[0]
+        return '`uname -n`'
+
     def deploy_to_node(self, node, node_information):
         print "Applying configuration to %s..." % node
         bond_interfaces = self.env.get_node_bond_interfaces(node)
@@ -589,6 +615,9 @@ class ConfigDeployer(object):
                 except:
                     # ignore errors trying to parse
                     pass
+
+            lldp_name = self.get_lldp_advertisement_hostname(node)
+            puppet_settings['lldp_advertised_name'] = lldp_name
             puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
                 node)
             physnets = self.env.network_vlan_ranges.split(',')
@@ -829,7 +858,7 @@ class PuppetTemplate(object):
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
             'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
             'neutron_path': '', 'neutron_restart_refresh_only': '',
-            'offline_mode': '', 'bond_mode': ''
+            'offline_mode': '', 'bond_mode': '', 'lldp_advertised_name': ''
         }
         self.files_to_replace = []
         for key in settings:
@@ -881,6 +910,7 @@ $bond_updelay = '15000'
 $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
 $bond_mode = %(bond_mode)s
+$lldp_advertised_name = %(lldp_advertised_name)s
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -1656,11 +1686,11 @@ file{"lldlcliwrapper":
     ensure => file,
     mode   => 0755,
     path   => '/usr/bin/lldpclinamewrap',
-    content =>'#!/bin/bash
+    content =>"#!/bin/bash
 # this script forces lldpd to use the same hostname that openstack uses
-(sleep 2 && echo "configure system hostname `uname -n`" | lldpcli &)
-lldpcli $@
-',
+(sleep 2 && echo "configure system hostname ${lldp_advertised_name}" | lldpcli &)
+lldpcli \$@
+",
     notify => Exec['lldpdrestart'],
 }
 if $operatingsystem == 'RedHat' {
