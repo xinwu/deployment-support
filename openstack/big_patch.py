@@ -560,7 +560,7 @@ class ConfigDeployer(object):
         names = map(
             lambda x: x.split(':')[-1].replace(' ', '').replace('host=', ''),
             resp.strip().splitlines())
-        if len(set(names)) != len(names):
+        if len(set(names)) > 1:
             raise Exception("The neutron configuration files have "
                             "multiple differing 'host' values. Please make "
                             "them consistent so the correct value can be "
@@ -1688,7 +1688,7 @@ file{"lldlcliwrapper":
     path   => '/usr/bin/lldpclinamewrap',
     content =>"#!/bin/bash
 # this script forces lldpd to use the same hostname that openstack uses
-(sleep 2 && echo "configure system hostname ${lldp_advertised_name}" | lldpcli &)
+(sleep 2 && echo \"configure system hostname ${lldp_advertised_name}\" | lldpcli &)
 lldpcli \$@
 ",
     notify => Exec['lldpdrestart'],
