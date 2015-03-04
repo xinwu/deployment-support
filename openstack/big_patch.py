@@ -662,7 +662,7 @@ class ConfigDeployer(object):
                             % (node, errors))
 
         # run a few last sanity checks
-        self.check_rabbit_cluster_parition_free(node)
+        self.check_rabbit_cluster_partition_free(node)
         self.cert_validity_check(node)
         self.check_lldpd_running(node)
         self.check_bond_int_speeds_match(node, bond_interfaces)
