@@ -604,35 +604,7 @@ class ConfigDeployer(object):
             'bond_mode': self.env.bond_mode
         }
         if bond_interfaces:
-            for bondint in bond_interfaces:
-                resp, errors = self.env.run_command_on_node(
-                    node, "ifconfig %s" % bondint)
-                if not resp:
-                    raise Exception("Error: bond member '%s' on node '%s' was "
-                                    "not found.\n%s" % (bondint, node, errors))
-                if 'inet addr' in resp:
-                    raise Exception("Error: bond member '%s' on node '%s' has "
-                                    "an IP address configured. Interfaces must"
-                                    " not be in use.\nAddress: %s"
-                                    % (bondint, node, resp))
-                # warn on interface errors
-                try:
-                    tx = re.findall("TX packets:\d+ errors:(\d+) "
-                                    "dropped:\d+ overruns:(\d+) "
-                                    "carrier:(\d+)", resp)[0]
-                    rx = re.findall("RX packets:\d+ errors:(\d+) "
-                                    "dropped:\d+ overruns:(\d+) "
-                                    "frame:(\d+)", resp)[0]
-                    if (self.env.check_interface_errors
-                            and any(map(int, rx + tx))):
-                        print ("[Node %s] Warning: errors detected on bond "
-                               "interface %s. Verify cabling and check error "
-                               "rates using ifconfig.\n%s" %
-                               (node, bondint, resp))
-                except:
-                    # ignore errors trying to parse
-                    pass
-
+            self.check_health_of_bond_interfaces(node, bond_interfaces)
             lldp_name = self.get_lldp_advertisement_hostname(node)
             puppet_settings['lldp_advertised_name'] = lldp_name
             puppet_settings['physical_bridge'] = self.env.get_node_phy_bridge(
@@ -664,7 +636,49 @@ class ConfigDeployer(object):
                 full_path = os.path.join(node_path, rel_path)
                 contents = self.patch_file_cache[url]
                 ptemplate.add_replacement_file(full_path, contents)
-        pbody = ptemplate.get_string()
+        self.push_manifest_to_node(node, ptemplate.get_string())
+
+        # install neutron files from our fork
+        self.copy_neutron_files_to_node(node)
+
+        # patch openstack_dashboard if available
+        self.patch_horizon_if_installed(node)
+
+        if not self.env.offline_mode:
+            self.install_puppet_prereqs(node)
+        log_name = ("log_for_generated_manifest-%s.log" %
+                    time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime()))
+        resp, errors = self.env.run_command_on_node(
+            node, ("puppet apply %s --debug -l ~/%s" % (remotefile, log_name)),
+            300, 2)
+        if not errors:
+            # with puppet, stderr goes to log
+            errors, caterror = self.env.run_command_on_node(
+                node, ("grep 'Puppet (err):' ~/%s" % log_name))
+        errors = self.eliminate_harmless_facter_errors(errors)
+        if errors:
+            raise Exception("error applying puppet configuration to %s:\n%s"
+                            % (node, errors))
+
+        # run a few last sanity checks
+        self.check_rabbit_cluster_parition_free(node)
+        self.cert_validity_check(node)
+        self.check_lldpd_running(node)
+        self.check_bond_int_speeds_match(node, bond_interfaces)
+
+        # aggregate node information to compare across other nodes
+        node_info = {}
+        # collect connection string for comparison with other neutron servers
+        connection_string = self.get_neutron_connection_string(node)
+        if connection_string:
+            node_info['neutron_connection'] = connection_string
+        # collect static lldpd names to make sure they are all unique
+        if ptemplate.settings['lldp_advertised_name'] != '`uname -n`':
+            node_info['lldp_name'] = ptemplate.settings['lldp_advertised_name']
+        nodes_information.append((node, node_info))
+        print "Configuration applied to %s." % node
+
+    def push_manifest_to_node(self, node, pbody):
         f = tempfile.NamedTemporaryFile(delete=True)
         f.write(pbody)
         f.flush()
@@ -674,6 +688,132 @@ class ConfigDeployer(object):
             raise Exception("error pushing puppet manifest to %s:\n%s"
                             % (node, errors))
 
+    def install_puppet_prereqs(self, node):
+        self.env.run_command_on_node(
+            node,
+            "yum -y remove facter && gem install puppet facter "
+            "--no-ri --no-rdoc")
+        self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
+        # stdlib is missing on 1404. install it and don't worry about return.
+        # connectivity issues should be caught in the inifile install
+        self.env.run_command_on_node(
+            node, "puppet module install puppetlabs-stdlib --force", 30, 2)
+        resp, errors = self.env.run_command_on_node(
+            node, "puppet module install puppetlabs-inifile --force", 30, 2)
+        if errors:
+            raise Exception("error installing puppet prereqs on %s:\n%s"
+                            % (node, errors))
+
+    def eliminate_harmless_facter_errors(self, errors):
+        # ignore bug in facter
+        actual_errors = []
+        errors = errors.splitlines()
+        for e in errors:
+            # ignore some warnings from facter that don't matter
+            if "Device" in e and "does not exist." in e:
+                continue
+            if "Unable to add resolve nil for fact" in e:
+                continue
+            if "ls: cannot access /dev/s" in e:
+                continue
+            actual_errors.append(e)
+        return '\n'.join(actual_errors)
+
+    def check_rabbit_cluster_partition_free(self, node):
+        self.env.run_command_on_node(node, "service rabbitmq-server start")
+        resp, errors = self.env.run_command_on_node(
+            node, ("rabbitmqctl cluster_status | grep partitions | " +
+                   r"""grep -v '\[\]'"""))
+        if 'partitions' in resp:
+            self.env.run_command_on_node(node, "rabbitmqctl stop_app")
+            self.env.run_command_on_node(node, "rabbitmqctl start_app")
+            resp, errors = self.env.run_command_on_node(
+                node, ("rabbitmqctl cluster_status | grep partitions | " +
+                       r"""grep -v '\[\]'"""))
+            if 'partitions' in resp:
+                print ("Warning: RabbitMQ partition detected on node %s: %s "
+                       "Restart rabbitmq-server on each node in the parition."
+                       % (node, resp))
+
+    def check_lldpd_running(self, node):
+        # check for lldpd
+        resp = self.env.run_command_on_node(
+            node, ('ps -ef | grep lldpd | grep -v grep'))[0]
+        if not resp.strip():
+            print ("Warning: lldpd process not running on node %s. "
+                   "Automatic port groups will not be formed." % node)
+
+    def check_bond_int_speeds_match(self, node, bond_interfaces):
+        # check bond interface speeds match
+        if bond_interfaces and self.env.check_interface_errors:
+            speeds = {}
+            for iface in bond_interfaces:
+                resp, errors = self.env.run_command_on_node(
+                    node, "ethtool %s | grep Speed" % iface)
+                resp = resp.strip()
+                if resp:
+                    speeds[iface] = resp
+            if len(set(speeds.values())) > 1:
+                print ("Warning: bond interface speeds do not match on node "
+                       "%s. Were the correct interfaces chosen?\nSpeeds: %s"
+                       % (node, speeds))
+
+    def cert_validity_check(self, node):
+        # check for certificates generated in the future (due to clock change)
+        # or expired certs
+        certs = []
+        resp, errors = self.env.run_command_on_node(
+            node, ("cat /etc/keystone/keystone.conf | grep -e '^ca_certs' "
+                   "| awk -F '=' '{ print $2 }'"))
+        certs += resp.split(',') if resp else ['/etc/keystone/ssl/certs/ca.pem']
+        resp, errors = self.env.run_command_on_node(
+            node, ("cat /etc/keystone/keystone.conf | grep -e '^certfile' "
+                   "| awk -F '=' '{ print $2 }'"))
+        certs.append(
+            resp if resp else '/etc/keystone/ssl/certs/signing_cert.pem')
+        for cert in certs:
+            cert = cert.strip()
+            resp, errors = self.env.run_command_on_node(
+                node, ("openssl verify %s" % cert))
+            if 'expired' in resp or 'not yet valid' in resp:
+                print ("Warning: the certificate %s being used by keystone is "
+                       "not valid for the current time. If the clocks on the "
+                       "servers are correct, the certificates will need to be "
+                       "deleted and then regenerated using the "
+                       "'keystone-manage pki_setup' command.\n"
+                       "Details: %s" % (cert, resp))
+
+    def check_health_of_bond_interfaces(self, node, bond_interfaces):
+        for bondint in bond_interfaces:
+            resp, errors = self.env.run_command_on_node(
+                node, "ifconfig %s" % bondint)
+            if not resp:
+                raise Exception("Error: bond member '%s' on node '%s' was "
+                                "not found.\n%s" % (bondint, node, errors))
+            if 'inet addr' in resp:
+                raise Exception("Error: bond member '%s' on node '%s' has "
+                                "an IP address configured. Interfaces must"
+                                " not be in use.\nAddress: %s"
+                                % (bondint, node, resp))
+            # warn on interface errors
+            try:
+                tx = re.findall("TX packets:\d+ errors:(\d+) "
+                                "dropped:\d+ overruns:(\d+) "
+                                "carrier:(\d+)", resp)[0]
+                rx = re.findall("RX packets:\d+ errors:(\d+) "
+                                "dropped:\d+ overruns:(\d+) "
+                                "frame:(\d+)", resp)[0]
+                if (self.env.check_interface_errors
+                        and any(map(int, rx + tx))):
+                    print ("[Node %s] Warning: errors detected on bond "
+                           "interface %s. Verify cabling and check error "
+                           "rates using ifconfig.\n%s" %
+                           (node, bondint, resp))
+            except:
+                # ignore errors trying to parse
+                pass
+
+    def copy_neutron_files_to_node(self, node):
         # Find where python libs are installed
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
         # we need to replace all of neutron plugins dir in CentOS
@@ -705,10 +845,16 @@ class ConfigDeployer(object):
                 raise Exception("error installing neutron to %s:\n%s"
                                 % (node, errors))
 
-        # patch openstack_dashboard if available
+    def patch_horizon_if_installed(self, node):
+        # try to find horizon. locate command isn't available on redhat so
+        # we make a guess at a well-known location in that case.
         resp, errors = self.env.run_command_on_node(
             node,
-            "updatedb && locate openstack_dashboard/dashboards/admin/dashboard.py | grep -v pyc")
+            ("updatedb 2>/dev/null && "
+             "locate openstack_dashboard/dashboards/admin/dashboard.py "
+             "| grep -v pyc || "
+             "ls /usr/share/openstack-dashboard/openstack_dashboard/"
+             "dashboards/admin/dashboard.py"))
         if (HORIZON_TGZ_PATH[self.os_release] and not errors and resp.splitlines()
                 and 'openstack_dashboard/dashboards/admin/' in resp.splitlines()[0]):
             first = resp.splitlines()[0]
@@ -749,120 +895,6 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing horizon to %s:\n%s"
                                 % (node, errors))
-
-        if not self.env.offline_mode:
-            self.env.run_command_on_node(
-                node,
-                "yum -y remove facter && gem install puppet facter "
-                "--no-ri --no-rdoc")
-            self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
-            # stdlib is missing on 1404. install it and don't worry about return.
-            # connectivity issues should be caught in the inifile install
-            self.env.run_command_on_node(
-                node, "puppet module install puppetlabs-stdlib --force", 30, 2)
-            resp, errors = self.env.run_command_on_node(
-                node, "puppet module install puppetlabs-inifile --force", 30, 2)
-            if errors:
-                raise Exception("error installing puppet prereqs on %s:\n%s"
-                                % (node, errors))
-        log_name = ("log_for_generated_manifest-%s.log" %
-                    time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime()))
-        resp, errors = self.env.run_command_on_node(
-            node, ("puppet apply %s --debug -l ~/%s" % (remotefile, log_name)),
-            300, 2)
-        if not errors:
-            # with puppet, stderr goes to log
-            errors, caterror = self.env.run_command_on_node(
-                node, ("grep 'Puppet (err):' ~/%s" % log_name))
-        # ignore bug in facter
-        actual_errors = []
-        errors = errors.splitlines()
-        for e in errors:
-            # ignore some warnings from facter that don't matter
-            if "Device" in e and "does not exist." in e:
-                continue
-            if "Unable to add resolve nil for fact" in e:
-                continue
-            if "ls: cannot access /dev/s" in e:
-                continue
-            actual_errors.append(e)
-        errors = '\n'.join(actual_errors)
-        if errors:
-            raise Exception("error applying puppet configuration to %s:\n%s"
-                            % (node, errors))
-
-        # run a few last sanity checks
-        self.env.run_command_on_node(node, "service rabbitmq-server start")
-        resp, errors = self.env.run_command_on_node(
-            node, ("rabbitmqctl cluster_status | grep partitions | " +
-                   r"""grep -v '\[\]'"""))
-        if 'partitions' in resp:
-            self.env.run_command_on_node(node, "rabbitmqctl stop_app")
-            self.env.run_command_on_node(node, "rabbitmqctl start_app")
-            resp, errors = self.env.run_command_on_node(
-                node, ("rabbitmqctl cluster_status | grep partitions | " +
-                       r"""grep -v '\[\]'"""))
-            if 'partitions' in resp:
-                print ("Warning: RabbitMQ partition detected on node %s: %s "
-                       "Restart rabbitmq-server on each node in the parition."
-                       % (node, resp))
-
-        # check for certificates generated in the future (due to clock change)
-        # or expired certs
-        certs = []
-        resp, errors = self.env.run_command_on_node(
-            node, ("cat /etc/keystone/keystone.conf | grep -e '^ca_certs' "
-                   "| awk -F '=' '{ print $2 }'"))
-        certs += resp.split(',') if resp else ['/etc/keystone/ssl/certs/ca.pem']
-        resp, errors = self.env.run_command_on_node(
-            node, ("cat /etc/keystone/keystone.conf | grep -e '^certfile' "
-                   "| awk -F '=' '{ print $2 }'"))
-        certs.append(
-            resp if resp else '/etc/keystone/ssl/certs/signing_cert.pem')
-        for cert in certs:
-            cert = cert.strip()
-            resp, errors = self.env.run_command_on_node(
-                node, ("openssl verify %s" % cert))
-            if 'expired' in resp or 'not yet valid' in resp:
-                print ("Warning: the certificate %s being used by keystone is "
-                       "not valid for the current time. If the clocks on the "
-                       "servers are correct, the certificates will need to be "
-                       "deleted and then regenerated using the "
-                       "'keystone-manage pki_setup' command.\n"
-                       "Details: %s" % (cert, resp))
-
-        # check for lldpd
-        resp, errors = self.env.run_command_on_node(
-            node, ('ps -ef | grep lldpd | grep -v grep'))
-        if not resp.strip():
-            print ("Warning: lldpd process not running on node %s. "
-                   "Automatic port groups will not be formed." % node)
-
-        # check bond interface speeds match
-        if bond_interfaces and self.env.check_interface_errors:
-            speeds = {}
-            for iface in bond_interfaces:
-                resp, errors = self.env.run_command_on_node(
-                    node, "ethtool %s | grep Speed" % iface)
-                resp = resp.strip()
-                if resp:
-                    speeds[iface] = resp
-            if len(set(speeds.values())) > 1:
-                print ("Warning: bond interface speeds do not match on node "
-                       "%s. Were the correct interfaces chosen?\nSpeeds: %s"
-                       % (node, speeds))
-
-        # aggregate node information to compare across other nodes
-        node_info = {}
-        # collect connection string for comparison with other neutron servers
-        connection_string = self.get_neutron_connection_string(node)
-        if connection_string:
-            node_info['neutron_connection'] = connection_string
-        # collect static lldpd names to make sure they are all unique
-        if ptemplate.settings['lldp_advertised_name'] != '`uname -n`':
-            node_info['lldp_name'] = ptemplate.settings['lldp_advertised_name']
-        nodes_information.append((node, node_info))
-        print "Configuration applied to %s." % node
 
     def get_neutron_connection_string(self, node):
         neutron_running = self.env.run_command_on_node(
