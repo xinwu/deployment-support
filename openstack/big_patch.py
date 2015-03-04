@@ -636,7 +636,6 @@ class ConfigDeployer(object):
                 full_path = os.path.join(node_path, rel_path)
                 contents = self.patch_file_cache[url]
                 ptemplate.add_replacement_file(full_path, contents)
-        self.push_manifest_to_node(node, ptemplate.get_string())
 
         # install neutron files from our fork
         self.copy_neutron_files_to_node(node)
@@ -646,6 +645,8 @@ class ConfigDeployer(object):
 
         if not self.env.offline_mode:
             self.install_puppet_prereqs(node)
+
+        remotefile = self.push_manifest_to_node(node, ptemplate.get_string())
         log_name = ("log_for_generated_manifest-%s.log" %
                     time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime()))
         resp, errors = self.env.run_command_on_node(
@@ -679,6 +680,7 @@ class ConfigDeployer(object):
         print "Configuration applied to %s." % node
 
     def push_manifest_to_node(self, node, pbody):
+        # pushes a puppet string to a remote node and returns the remote fname
         f = tempfile.NamedTemporaryFile(delete=True)
         f.write(pbody)
         f.flush()
@@ -687,6 +689,7 @@ class ConfigDeployer(object):
         if errors:
             raise Exception("error pushing puppet manifest to %s:\n%s"
                             % (node, errors))
+        return remotefile
 
     def install_puppet_prereqs(self, node):
         self.env.run_command_on_node(
