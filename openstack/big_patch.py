@@ -859,7 +859,7 @@ class ConfigDeployer(object):
         if connection_string:
             node_info['neutron_connection'] = connection_string
         # collect static lldpd names to make sure they are all unique
-        if ptemplate.settings['lldp_advertised_name'] != '`uname -n':
+        if ptemplate.settings['lldp_advertised_name'] != '`uname -n`':
             node_info['lldp_name'] = ptemplate.settings['lldp_advertised_name']
         nodes_information.append((node, node_info))
         print "Configuration applied to %s." % node
