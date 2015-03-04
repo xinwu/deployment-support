@@ -512,10 +512,10 @@ class ConfigDeployer(object):
     def deploy_to_all(self):
         thread_list = collections.deque()
         errors = []
-        node_information = []
+        nodes_information = []
         for node in self.env.nodes:
             t = threading.Thread(target=self.deploy_to_node_catch_errors,
-                                 args=(node, errors, node_information))
+                                 args=(node, errors, nodes_information))
             thread_list.append(t)
             t.start()
             if len(thread_list) >= MAX_THREADS:
@@ -523,14 +523,31 @@ class ConfigDeployer(object):
                 top.join()
         for thread in thread_list:
             thread.join()
+        # sanity checks across collected info
+        # make sure neutron servers are all pointing to the same DB
         conn_strings = [info['neutron_connection']
-                        for (node, info) in node_information]
+                        for (node, info) in nodes_information
+                        if info.get('neutron_connection')]
         if len(set(conn_strings)) > 1:
             strings_with_nodes = ["%s: %s" % (node, info['neutron_connection'])
-                                  for (node, info) in node_information]
+                                  for (node, info) in nodes_information
+                                  if info.get('neutron_connection')]
             print ("Warning: different neutron connection strings detected on "
                    "neutron server nodes. They should all reference the same "
                    "database.\nConnections:\n%s" % "\n".join(strings_with_nodes))
+        # make sure they are all using unique lldpd hostname values
+        node_names = [(node, info['lldp_name'])
+                      for (node, info) in nodes_information
+                      if info.get('lldp_name')]
+        lldp_names = map(lambda x: x[1], node_names)
+        if len(set(lldp_names)) != len(lldp_names):
+            print ("Warning: multiple nodes are using the same neutron host "
+                   "identifiers, which will result in them being placed into "
+                   "the same fabric port group. This will prevent traffic "
+                   "from being forwarded correctly to either node. Here are "
+                   "the neutron host IDs for each node.\n%s" % '\n'.join(
+                       ['%s => %s' % pair for pair in node_names]))
+
         if errors:
             print "Encountered errors while deploying patch to nodes."
             for node, error in errors:
@@ -538,9 +555,9 @@ class ConfigDeployer(object):
         else:
             print "Deployment Complete!"
 
-    def deploy_to_node_catch_errors(self, node, error_log, node_information):
+    def deploy_to_node_catch_errors(self, node, error_log, nodes_information):
         try:
-            self.deploy_to_node(node, node_information)
+            self.deploy_to_node(node, nodes_information)
         except Exception as e:
             error_log.append((node, str(e)))
 
@@ -570,7 +587,7 @@ class ConfigDeployer(object):
             return names[0]
         return '`uname -n`'
 
-    def deploy_to_node(self, node, node_information):
+    def deploy_to_node(self, node, nodes_information):
         print "Applying configuration to %s..." % node
         bond_interfaces = self.env.get_node_bond_interfaces(node)
         puppet_settings = {
@@ -835,7 +852,19 @@ class ConfigDeployer(object):
                        "%s. Were the correct interfaces chosen?\nSpeeds: %s"
                        % (node, speeds))
 
-        # collect connection string for comparison with other nodes
+        # aggregate node information to compare across other nodes
+        node_info = {}
+        # collect connection string for comparison with other neutron servers
+        connection_string = self.get_neutron_connection_string(node)
+        if connection_string:
+            node_info['neutron_connection'] = connection_string
+        # collect static lldpd names to make sure they are all unique
+        if ptemplate.settings['lldp_advertised_name'] != '`uname -n':
+            node_info['lldp_name'] = ptemplate.settings['lldp_advertised_name']
+        nodes_information.append((node, node_info))
+        print "Configuration applied to %s." % node
+
+    def get_neutron_connection_string(self, node):
         neutron_running = self.env.run_command_on_node(
             node, 'ps -ef | grep neutron-server | grep -v grep')[0].strip()
         if neutron_running:
@@ -843,10 +872,7 @@ class ConfigDeployer(object):
                 node, ("grep -R -e '^connection' /etc/neutron/neutron.conf")
             )[0].strip()
             if resp:
-                node_information.append(
-                    (node, {'neutron_connection': resp.replace(' ', '')})
-                )
-        print "Configuration applied to %s." % node
+                return resp.replace(' ', '')
 
 
 class PuppetTemplate(object):
