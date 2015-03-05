@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.12'
+SCRIPT_VERSION = '1.1.13'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -898,6 +898,11 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing horizon to %s:\n%s"
                                 % (node, errors))
+            # force a restart of http now even though the puppet manifest
+            # is supposed to. the redhat httpd process can take a long time
+            # so it may be timing out when puppet tries since puppet forks
+            # the restarts into the background.
+            self.env.run_command_on_node(node, "service httpd restart")
 
     def get_neutron_connection_string(self, node):
         neutron_running = self.env.run_command_on_node(
