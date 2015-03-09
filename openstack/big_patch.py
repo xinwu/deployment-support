@@ -359,10 +359,10 @@ class FuelEnvironment(SSHEnvironment):
         physnets = self.node_settings[node][
             'quantum_settings']['L2']['phys_nets']
         for physnet in physnets:
-            range = physnets[physnet]['vlan_range']
-            if not range:
+            vrange = physnets[physnet]['vlan_range']
+            if not vrange:
                 continue
-            net_vlans.append('%s:%s' % (physnet, range))
+            net_vlans.append('%s:%s' % (physnet, vrange))
         return ','.join(net_vlans)
 
     def get_node_bond_interfaces(self, node):
@@ -449,7 +449,8 @@ class StandaloneEnvironment(Environment):
             ['bash', '-lc', "cp %s %s" % (local_path, remote_path)]).run()
         return resp, errors
 
-    def run_command_on_node(self, node, command, timeout=60, retries=0):
+    def run_command_on_node(self, node, command, timeout=60, retries=0,
+                            shell=False):
         resp, errors = TimedCommand(['bash', '-lc', command]).run(timeout,
                                                                   retries)
         return resp, errors
@@ -476,7 +477,7 @@ class ConfigDeployer(object):
                         continue
                     try:
                         with open(os.path.join(os.path.dirname(__file__),
-                                  patch[1]), 'r') as fh:
+                                               patch[1]), 'r') as fh:
                             contents = fh.read()
                     except Exception as e:
                         raise Exception("Could not load offline archive of %s."
@@ -819,7 +820,8 @@ class ConfigDeployer(object):
             # move the extraced plugins to the neutron dir
             extract += 'yes | cp -rfp "$TGT/neutron" "%s/../";' % target_neutron_path
             # grab the commit marker
-            extract += 'yes | cp -rfp "$TGT/LAST_NON_MERGE_COMMIT" "%s/../neutron/";' % target_neutron_path
+            extract += ('yes | cp -rfp "$TGT/LAST_NON_MERGE_COMMIT" '
+                        '"%s/../neutron/";' % target_neutron_path)
             # cleanup old pyc files
             extract += 'find "%s" -name "*.pyc" -exec rm -rf {} \;' % target_neutron_path
             resp, errors = self.env.run_command_on_node(
