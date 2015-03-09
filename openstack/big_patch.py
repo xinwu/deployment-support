@@ -25,14 +25,6 @@ SCRIPT_VERSION = '1.1.13'
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
 
-# each entry is a 3-tuple naming the python package,
-# the relative path inside the package, and the source URL
-# e.g.
-#  ('neutron', 'plugins/bigswitch/plugin.py',
-#   'https://raw.githubusercontent.com/bigswitch/neutron/'
-#   'stable/icehouse/neutron/plugins/bigswitch/plugin.py'),
-PYTHON_FILES_TO_PATCH = []
-
 # path to neutron tar.gz URL and local filename for offline use
 HORIZON_TGZ_PATH = {
     'icehouse': ('https://github.com/bigswitch/horizon/archive/'
@@ -494,13 +486,11 @@ class ConfigDeployer(object):
                     self.patch_file_cache[patch[0]] = contents
             else:
                 print 'Downloading patch files...'
-                to_download = list(PYTHON_FILES_TO_PATCH)
                 for lib in (NEUTRON_TGZ_PATH[self.os_release],
                             HORIZON_TGZ_PATH[self.os_release]):
-                    if lib:
-                        to_download.append(('', '', lib[0]))
-                for patch in to_download:
-                    url = patch[2]
+                    if not lib:
+                        continue
+                    url = lib[0]
                     try:
                         body = urllib2.urlopen(url).read()
                     except Exception as e:
@@ -625,23 +615,13 @@ class ConfigDeployer(object):
         ptemplate = PuppetTemplate(puppet_settings)
         ptemplate.settings['neutron_path'] = (
             self.env.get_node_python_package_path(node, 'neutron'))
+
         if self.patch_python_files:
-            for package, rel_path, url in PYTHON_FILES_TO_PATCH:
-                node_path = self.env.get_node_python_package_path(node,
-                                                                  package)
-                # package is not installed on this node
-                # FIXME: Skipping 2.6 to workaround issues with CentOS
-                if not node_path or '2.6' in node_path:
-                    continue
-                full_path = os.path.join(node_path, rel_path)
-                contents = self.patch_file_cache[url]
-                ptemplate.add_replacement_file(full_path, contents)
+            # install neutron files from our fork
+            self.copy_neutron_files_to_node(node)
 
-        # install neutron files from our fork
-        self.copy_neutron_files_to_node(node)
-
-        # patch openstack_dashboard if available
-        self.patch_horizon_if_installed(node)
+            # patch openstack_dashboard if available
+            self.patch_horizon_if_installed(node)
 
         if not self.env.offline_mode:
             self.install_puppet_prereqs(node)
@@ -926,7 +906,6 @@ class PuppetTemplate(object):
             'neutron_path': '', 'neutron_restart_refresh_only': '',
             'offline_mode': '', 'bond_mode': '', 'lldp_advertised_name': ''
         }
-        self.files_to_replace = []
         for key in settings:
             self.settings[key] = settings[key]
 
@@ -939,25 +918,7 @@ class PuppetTemplate(object):
         if self.settings['bond_interfaces']:
             manifest += self.bond_and_lldpd_configuration
 
-        # inject all replacement files
-        for path, contents in self.files_to_replace:
-            escaped = contents.replace("\\", "\\\\").replace("'", "\\'")
-            manifest += ("\nfile {'%(path)s':\nensure => file,"
-                         "\npath => '%(path)s',\nmode => 0755,"
-                         "\nnotify => Exec['restartneutronservices'],"
-                         "\nrequire => Exec['neutronfilespresent'],"
-                         "\ncontent => '%(escaped_content)s'\n}" %
-                         {'path': path, 'escaped_content': escaped})
         return manifest
-
-    def add_replacement_file(self, path, contents):
-        """Adds a file that needs to be replaced.
-
-        Path specifies the location on the server and contents will be the
-        contents loaded into the file.
-        """
-        self.files_to_replace.append((path, contents))
-        return self
 
     main_body = r"""
 $neutron_id = '%(neutron_id)s'
@@ -998,11 +959,6 @@ $neutron_main_conf_path = "/etc/neutron/neutron.conf"
 $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
 
 
-exec{'neutronfilespresent':
-    onlyif => "python -c 'import neutron, os; print os.path.dirname(neutron.__file__)' && python -c 'import neutron, os; print os.path.dirname(neutron.__file__)' | xargs -I {} ls {}/plugins/bigswitch",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-    command => "echo",
-}
 # stop neutron server instances if there is no connection string configured
 exec{"neutronserverrestart":
     refreshonly => true,
