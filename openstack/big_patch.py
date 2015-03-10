@@ -1051,7 +1051,7 @@ $bond_mode = %(bond_mode)s
 $lldp_advertised_name = '%(lldp_advertised_name)s'
 
 # all of the exec statements use this path
-$path = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+$binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -1077,7 +1077,7 @@ $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
 exec{"neutronserverrestart":
     refreshonly => true,
     command => 'bash -c \'grep -R "connection\s*=" /etc/neutron/* | grep -v "#" && service neutron-server restart || service neutron-server stop ||:\'',
-    path    => $path,
+    path    => $binpath,
 }
 if $operatingsystem == 'Ubuntu' {
   $restart_nagent_comm = "service neutron-plugin-openvswitch-agent restart ||:;"
@@ -1096,7 +1096,7 @@ exec{"restartneutronservices":
     refreshonly => $neutron_restart_refresh_only,
     command => $restart_nagent_comm,
     notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']],
-    path    => $path,
+    path    => $binpath,
 }
 
 # this is an additional check to make sure the openvswitch-agent is running. it
@@ -1106,22 +1106,22 @@ exec{"restartneutronservices":
 exec{"checkagent":
     refreshonly => true,
     command => "[ $(ps -ef | grep openvswitch-agent | wc -l) -eq 0 ] && service neutron-openvswitch-agent restart ||:;",
-    path    => $path,
+    path    => $binpath,
 }
 exec{"neutronl3restart":
     refreshonly => true,
     command => "service neutron-l3-agent restart ||:;",
-    path    => $path,
+    path    => $binpath,
 }
 exec{"neutronmetarestart":
     refreshonly => true,
     command => "service neutron-metadata-agent restart ||:;",
-    path    => $path,
+    path    => $binpath,
 }
 exec{"neutrondhcprestart":
     refreshonly => true,
     command => "service neutron-dhcp-agent restart ||:;",
-    path    => $path,
+    path    => $binpath,
 }
 
 # several other openstack services to restart since we interrupt network connectivity.
@@ -1130,7 +1130,7 @@ $nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-
 exec{"restartnovaservices":
     refreshonly=> true,
     command => "bash -c 'for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
-    path    => $path
+    path    => $binpath
 }
 
 # this configures coroclone on systems where it is available (Fuel) to allow
@@ -1138,7 +1138,7 @@ exec{"restartnovaservices":
 exec{'ensurecoroclone':
     refreshonly=> true,
     command => 'bash -c \'crm configure clone clone_p_neutron-dhcp-agent p_neutron-dhcp-agent meta interleave="true" is-managed="true" target-role="Started"; crm configure clone clone_p_neutron-l3-agent p_neutron-l3-agent meta interleave="true" is-managed="true" target-role="Started"; echo 1\'',
-    path    => $path
+    path    => $binpath
 }
 
 # basic conf directories
@@ -1155,7 +1155,7 @@ file {$conf_dirs:
 # modify the same thing
 exec{'ensureovsagentconfig':
     command => "bash -c 'mkdir -p /etc/neutron/plugins/openvswitch/; ln -s /etc/neutron/neutron.conf $neutron_ovs_conf_path; echo 0'",
-    path => $path
+    path => $binpath
 }
 
 
@@ -1163,7 +1163,7 @@ exec{'ensureovsagentconfig':
 # it below. This can probably be replaced with a 'file' type
 exec{"heatconfexists":
     command => "bash -c 'mkdir /etc/heat/; touch /etc/heat/heat.conf; echo done'",
-    path    => $path
+    path    => $binpath
 }
 
 # use password for deferred authentication method for heat
@@ -1184,7 +1184,7 @@ $heat_services = 'heat-api heat-engine heat-api-cfn'
 exec{"restartheatservices":
     refreshonly=> true,
     command => "bash -c 'for s in ${heat_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
-    path    => $path
+    path    => $binpath
 }
 
 
@@ -1237,7 +1237,7 @@ $MYSQL_DB='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -
 $MYSQL_COM="mysql -u `$MYSQL_USER` -p`$MYSQL_PASS` -h `$MYSQL_HOST` `$MYSQL_DB`"
 exec {"cleanup_neutron":
   onlyif => ["which mysql", "echo 'show tables' | $MYSQL_COM"],
-  path => $path,
+  path => $binpath,
   command => "echo 'delete ports, floatingips from ports INNER JOIN floatingips on floatingips.floating_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
               echo 'delete ports, routers from ports INNER JOIN routers on routers.gw_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
               echo 'delete from ports where network_id NOT in (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
@@ -1277,7 +1277,7 @@ allow neutron_t etc_t:file create;
                    checkmodule -M -m -o /root/neutroncerts.mod /root/neutroncerts.te;
                    semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
                    semodule -i /root/neutroncerts.pp' ||:",
-        path    => $path,
+        path    => $binpath,
     }
 }
 '''  # noqa
@@ -1285,26 +1285,26 @@ allow neutron_t etc_t:file create;
     bond_and_lldpd_configuration = r'''
 exec {"loadbond":
    command => 'modprobe bonding',
-   path    => $path,
+   path    => $binpath,
    unless => "lsmod | grep bonding",
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
   command => "bash -c 'for int in \$(/usr/bin/ovs-appctl bond/list | grep -v slaves | grep \"${bond_int0}\" | awk -F '\"' ' '{ print \$1 }'\"'); do ovs-vsctl --if-exists del-port \$int; done'",
-  path    => $path,
+  path    => $binpath,
   require => Exec['lldpdinstall'],
   onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
   notify => Exec['networkingrestart']
 }
 exec {"clearint0":
   command => "ovs-vsctl --if-exists del-port $bond_int0",
-  path    => $path,
+  path    => $binpath,
   require => Exec['lldpdinstall'],
   onlyif => "ovs-vsctl show | grep 'Port \"${bond_int0}\"'",
 }
 exec {"clearint1":
   command => "ovs-vsctl --if-exists del-port $bond_int1",
-  path    => $path,
+  path    => $binpath,
   require => Exec['lldpdinstall'],
   onlyif => "ovs-vsctl show | grep 'Port \"${bond_int1}\"'",
 }
@@ -1362,7 +1362,7 @@ auto bond0
              /etc/init.d/networking restart
          fi'",
        notify => Exec['addbondtobridge'],
-       path    => $path,
+       path    => $binpath,
     }
     if ! $offline_mode {
         exec{"lldpdinstall":
@@ -1380,14 +1380,14 @@ auto bond0
               if [[ $(lsb_release -r | tr -d -c 0-9) = 14* ]]; then
                   apt-get install -y ifenslave-2.6
               fi\'',
-            path    => $path,
+            path    => $binpath,
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
     } else {
         exec{"lldpdinstall":
             onlyif => "bash -c '! ls /etc/init.d/lldpd'",
             command => "echo noop",
-            path    => $path,
+            path    => $binpath,
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
     }
@@ -1395,7 +1395,7 @@ auto bond0
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
         command => 'echo',
         notify => Exec['lldpdinstall'],
-        path    => $path,
+        path    => $binpath,
     }
     file{'ubuntulldpdconfig':
         ensure => file,
@@ -1407,7 +1407,7 @@ auto bond0
     exec {"openvswitchrestart":
        refreshonly => true,
        command => '/etc/init.d/openvswitch-switch restart',
-       path    => $path,
+       path    => $binpath,
     }
 }
 file{"lldlcliwrapper":
@@ -1432,14 +1432,14 @@ if $operatingsystem == 'RedHat' {
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
-           path    => $path,
+           path    => $binpath,
            notify => File['redhatlldpdconfig'],
         }
     } else {
         exec {'lldpdinstall':
            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
            command => "echo noop",
-           path    => $path,
+           path    => $binpath,
            notify => File['redhatlldpdconfig'],
         }
     }
@@ -1461,7 +1461,7 @@ if $operatingsystem == 'RedHat' {
     exec{"reloadservicedef":
         refreshonly => true,
         command => "systemctl daemon-reload",
-        path    => $path,
+        path    => $binpath,
         notify => Exec['restartneutronservices']
     }
     exec {"networkingrestart":
@@ -1505,7 +1505,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
     exec {"openvswitchrestart":
        refreshonly => true,
        command => 'service openvswitch restart',
-       path    => $path,
+       path    => $binpath,
     }
 
 }
@@ -1520,14 +1520,14 @@ if $operatingsystem == 'CentOS' {
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
-           path    => $path,
+           path    => $binpath,
            notify => File['centoslldpdconfig'],
         }
     } else {
         exec {'lldpdinstall':
            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
            command => "echo noop",
-           path    => $path,
+           path    => $binpath,
            notify => File['centoslldpdconfig'],
         }
     }
@@ -1578,17 +1578,17 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
     exec {"openvswitchrestart":
        refreshonly => true,
        command => '/etc/init.d/openvswitch restart',
-       path    => $path,
+       path    => $binpath,
     }
 }
 exec {"ensurebridge":
   command => "ovs-vsctl --may-exist add-br ${phy_bridge}",
-  path    => $path,
+  path    => $binpath,
 }
 exec {"addbondtobridge":
    command => "ovs-vsctl --may-exist add-port ${phy_bridge} bond0",
    onlyif => "/sbin/ifconfig bond0 && ! ovs-ofctl show ${phy_bridge} | grep '(bond0)'",
-   path    => $path,
+   path    => $binpath,
    notify => Exec['openvswitchrestart'],
    require => Exec['ensurebridge'],
 }
@@ -1596,7 +1596,7 @@ exec{'lldpdrestart':
     refreshonly => true,
     require => Exec['lldpdinstall'],
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
-    path    => $path,
+    path    => $binpath,
 }
 file{'lldpclioptions':
     ensure => file,
