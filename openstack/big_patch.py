@@ -1011,7 +1011,8 @@ class PuppetTemplate(object):
         # lowercase sections because we don't know which one the previous tool
         # might have used.
         body = []
-        body.append('ini_setting{"ini_%s":' % ('lower' + setting))
+        ident = re.sub(r'\W+', '', path + setting)
+        body.append('ini_setting{"ini_%s":' % ('lower' + ident))
         body.append('  path    => "%s",' % path)
         body.append('  section => "%s",' % section.lower())
         body.append('  setting => "%s",' % setting)
@@ -1025,7 +1026,8 @@ class PuppetTemplate(object):
             body.append('  require => %s,' % require)
         body.append('}')
         lower_case = "\n".join(body)
-        body[0] = 'ini_setting{"ini_%s":' % ('upper' + setting)
+        # swap out the idenifier and the section with the uppercase version
+        body[0] = 'ini_setting{"ini_%s":' % ('upper' + ident)
         body[2] = '  section => "%s",' % section.upper()
         upper_case = "\n".join(body)
         return "\n".join([lower_case, upper_case])
