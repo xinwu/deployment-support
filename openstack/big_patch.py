@@ -20,7 +20,7 @@ except:
 
 # Arbitrary identifier printed in output to make tracking easy
 BRANCH_ID = 'master'
-SCRIPT_VERSION = '1.1.13'
+SCRIPT_VERSION = '1.1.14'
 
 # Maximum number of threads to deploy to nodes concurrently
 MAX_THREADS = 20
@@ -916,13 +916,122 @@ class PuppetTemplate(object):
         manifest = self.main_body % self.settings
         if self.settings['neutron_path']:
             manifest += self.neutron_body % self.settings
+            manifest += self.generate_all_ini_settings()
         # only setup bond stuff if interfaces are defined
         if self.settings['bond_interfaces']:
             manifest += self.bond_and_lldpd_configuration
 
         return manifest
 
+    def generate_all_ini_settings(self):
+        """ This defines the majority of the ini settings used by puppet """
+
+        # make smaller function to take up less space
+        gen_ini = self.generate_ini_setting
+        results = [
+            gen_ini('DEFAULT', 'dhcp_agents_per_network', 2),
+            gen_ini('DEFAULT', 'api_workers', 0),
+            gen_ini('DEFAULT', 'rpc_workers', 0),
+            gen_ini('DEFAULT', 'core_plugin', 'ml2'),
+            # TODO: make this config driven for t6 to enable our l3 plugin
+            gen_ini('DEFAULT', 'service_plugins', 'router'),
+            gen_ini('DEFAULT', 'agent_down_time', '75'),
+            gen_ini('DEFAULT', 'rpc_conn_pool_size', '4'),
+            gen_ini('DEFAULT', 'rpc_thread_pool_size', '4'),
+            gen_ini('DEFAULT', 'allow_automatic_l3agent_failover', 'True'),
+            gen_ini('DATABASE', 'max_overflow', '30'),
+            gen_ini('DATABASE', 'max_pool_size', '15'),
+            gen_ini('AGENT', 'report_interval', '30'),
+            gen_ini('AGENT', 'report_interval', '30',
+                    path='$neutron_conf_path'),
+            gen_ini('AGENT', 'root_helper',
+                    'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
+                    path='$neutron_conf_path'),
+            gen_ini(
+                'SECURITYGROUP', 'firewall_driver',
+                'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
+                path='$neutron_conf_path'),
+            gen_ini('ml2', 'type_drivers', 'vlan',
+                    path='$neutron_conf_path'),
+            gen_ini('ml2', 'tenant_network_types', 'vlan',
+                    path='$neutron_conf_path'),
+            # TODO: change the value of this to 'openvswitch,bsn_ml2' once the
+            # switch to bsnstacklib is done
+            gen_ini('ml2', 'mechanism_drivers', 'openvswitch,bigswitch',
+                    path='$neutron_conf_path'),
+            gen_ini('ml2_type_vlan', 'network_vlan_ranges',
+                    '$network_vlan_ranges', path='$neutron_conf_path'),
+            gen_ini('ovs', 'bridge_mappings', '$ovs_bridge_mappings',
+                    path='$neutron_ovs_conf_path'),
+            gen_ini('ovs', 'network_vlan_ranges', '$network_vlan_ranges',
+                    path='$neutron_ovs_conf_path'),
+            gen_ini('ovs', 'enable_tunneling', 'False',
+                    path='$neutron_ovs_conf_path'),
+            gen_ini('ovs', 'ovs_enable_tunneling', 'False',
+                    path='$neutron_ovs_conf_path'),
+            gen_ini('AGENT', 'tunnel_types', value=None, ensure='absent'),
+            gen_ini('OVS', 'tunnel_bridge', value=None, ensure='absent'),
+            gen_ini('restproxy', 'neutron_id', '$neutron_id',
+                    path='$neutron_conf_path'),
+            gen_ini('restproxy', 'servers', '$bigswitch_servers',
+                    path='$neutron_conf_path'),
+            gen_ini('restproxy', 'server_auth', '$bigswitch_serverauth',
+                    path='$neutron_conf_path'),
+            gen_ini('restproxy', 'auto_sync_on_failure', 'True',
+                    path='$neutron_conf_path'),
+            gen_ini('restproxy', 'consistency_interval', '60',
+                    path='$neutron_conf_path'),
+            gen_ini('restproxy', 'ssl_cert_directory',
+                    '$bigswitch_ssl_cert_directory',
+                    path='$neutron_conf_path'),
+
+            # TODO: make this dependent on T6 so it will use IVSInterfaceDriver
+            # instead
+            gen_ini(
+                'DEFAULT', 'interface_driver',
+                'neutron.agent.linux.interface.OVSInterfaceDriver',
+                path='$neutron_dhcp_conf_path'),
+            # don't specify bridge for external networks so they are treated like
+            # a normal VLAN network
+            gen_ini(
+                'DEFAULT', 'external_network_bridge', '',
+                path='$neutron_l3_conf_path'),
+            gen_ini(
+                'DEFAULT', 'handle_internal_only_routers', 'True',
+                path='$neutron_l3_conf_path'),
+        ]
+        return "\n".join(results)
+
+    def generate_ini_setting(self, section, setting, value,
+                             path='$neutron_main_conf_path', ensure='present',
+                             notify="Exec['restartneutronservices']",
+                             require="File[$conf_dirs]"):
+        # Unfortunately ini_setting is case sensitive for sections and
+        # openstack is not. That means we have to set both uppercase and
+        # lowercase sections because we don't know which one the previous tool
+        # might have used.
+        body = []
+        body.append('ini_setting{"ini_%s":' % ('lower' + setting))
+        body.append('  path    => "%s",' % path)
+        body.append('  section => "%s",' % section.lower())
+        body.append('  setting => "%s",' % setting)
+        if value is not None:
+            body.append('  value   => "%s",' % value)
+        if ensure:
+            body.append('  ensure  => %s,' % ensure)
+        if notify:
+            body.append('  notify  => %s,' % notify)
+        if require:
+            body.append('  require => %s,' % require)
+        body.append('}')
+        lower_case = "\n".join(body)
+        body[0] = 'ini_setting{"ini_%s":' % ('upper' + setting)
+        body[2] = '  section => "%s",' % section.upper()
+        upper_case = "\n".join(body)
+        return "\n".join([lower_case, upper_case])
+
     main_body = r"""
+# all of these values are set by the puppet template class above
 $neutron_id = '%(neutron_id)s'
 $bigswitch_serverauth = '%(bigswitch_serverauth)s'
 $bigswitch_servers = '%(bigswitch_servers)s'
@@ -940,6 +1049,9 @@ $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
 $bond_mode = %(bond_mode)s
 $lldp_advertised_name = '%(lldp_advertised_name)s'
+
+# all of the exec statements use this path
+$path = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 """  # noqa
     neutron_body = r'''
 if $operatingsystem == 'Ubuntu'{
@@ -961,83 +1073,72 @@ $neutron_main_conf_path = "/etc/neutron/neutron.conf"
 $bigswitch_ssl_cert_directory = '/etc/neutron/plugins/ml2/ssl'
 
 
-# stop neutron server instances if there is no connection string configured
+# stop neutron server and start it only if there is an SQL connection string defined
 exec{"neutronserverrestart":
     refreshonly => true,
     command => 'bash -c \'grep -R "connection\s*=" /etc/neutron/* | grep -v "#" && service neutron-server restart || service neutron-server stop ||:\'',
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    path    => $path,
 }
 if $operatingsystem == 'Ubuntu' {
-  exec{"restartneutronservices":
-      refreshonly => $neutron_restart_refresh_only,
-      command => "/usr/sbin/service neutron-plugin-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
-  }
+  $restart_nagent_comm = "service neutron-plugin-openvswitch-agent restart ||:;"
 }
 if $operatingsystem == 'CentOS' {
-  exec{"restartneutronservices":
-      refreshonly => $neutron_restart_refresh_only,
-      command => "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
-  }
-  exec{"checkagent":
-      refreshonly => true,
-      command => "[ $(ps -ef | grep openvswitch-agent | wc -l) -eq 0 ] && service neutron-openvswitch-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  }
+  # the old version of centos openvswitch version had issues after the bond changes and required a restart as well
+  $restart_nagent_comm = "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;"
 }
 if $operatingsystem == 'RedHat' {
-  exec{"restartneutronservices":
-      refreshonly => $neutron_restart_refresh_only,
-      command => "/usr/sbin/service neutron-openvswitch-agent restart ||:;",
-      notify => [Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']]
-  }
-  exec{"neutronl3restart":
-      refreshonly => true,
-      command => "/usr/sbin/service neutron-l3-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  }
-  exec{"neutronmetarestart":
-      refreshonly => true,
-      command => "/usr/sbin/service neutron-metadata-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  }
-  exec{"neutrondhcprestart":
-      refreshonly => true,
-      command => "/usr/sbin/service neutron-dhcp-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-  }
-} else {
-  exec{"neutronl3restart":
-      refreshonly => true,
-      command => "/etc/init.d/neutron-l3-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-      onlyif => "ls /etc/init.d/neutron-l3-agent"
-  }
-  exec{"neutronmetarestart":
-      refreshonly => true,
-      command => "/etc/init.d/neutron-metadata-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-      onlyif => "ls /etc/init.d/neutron-metadata-agent"
-  }
-  exec{"neutrondhcprestart":
-      refreshonly => true,
-      command => "/etc/init.d/neutron-dhcp-agent restart ||:;",
-      path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
-      onlyif => "ls /etc/init.d/neutron-dhcp-agent"
-  }
+  $restart_nagent_comm = "service neutron-openvswitch-agent restart ||:;"
 }
 
+# main restart event triggered by all ini setting changes and file contents changes.
+# Restarts the rest of the openstack services as well
+exec{"restartneutronservices":
+    refreshonly => $neutron_restart_refresh_only,
+    command => $restart_nagent_comm,
+    notify => [Exec['checkagent'], Exec['neutrondhcprestart'], Exec['neutronl3restart'], Exec['neutronserverrestart'], Exec['neutronmetarestart'], Exec['restartnovaservices'], Exec['ensurecoroclone']],
+    path    => $path,
+}
+
+# this is an additional check to make sure the openvswitch-agent is running. it
+# was necessary on older versions of redhat because the agent would fail to
+# restart the first time while all of the other services were being restarted.
+# it may no longer be necessary on RHEL 7
+exec{"checkagent":
+    refreshonly => true,
+    command => "[ $(ps -ef | grep openvswitch-agent | wc -l) -eq 0 ] && service neutron-openvswitch-agent restart ||:;",
+    path    => $path,
+}
+exec{"neutronl3restart":
+    refreshonly => true,
+    command => "service neutron-l3-agent restart ||:;",
+    path    => $path,
+}
+exec{"neutronmetarestart":
+    refreshonly => true,
+    command => "service neutron-metadata-agent restart ||:;",
+    path    => $path,
+}
+exec{"neutrondhcprestart":
+    refreshonly => true,
+    command => "service neutron-dhcp-agent restart ||:;",
+    path    => $path,
+}
+
+# several other openstack services to restart since we interrupt network connectivity.
+# this is done asynchronously with the & operator and we only wait 5 seconds before continuing.
 $nova_services = 'nova-conductor nova-cert nova-consoleauth nova-scheduler nova-compute apache2 httpd'
 exec{"restartnovaservices":
     refreshonly=> true,
     command => "bash -c 'for s in ${nova_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+    path    => $path
 }
+
+# this configures coroclone on systems where it is available (Fuel) to allow
+# the dhcp agent and l3 agent to run on multiple nodes.
 exec{'ensurecoroclone':
     refreshonly=> true,
     command => 'bash -c \'crm configure clone clone_p_neutron-dhcp-agent p_neutron-dhcp-agent meta interleave="true" is-managed="true" target-role="Started"; crm configure clone clone_p_neutron-l3-agent p_neutron-l3-agent meta interleave="true" is-managed="true" target-role="Started"; echo 1\'',
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+    path    => $path
 }
 
 # basic conf directories
@@ -1050,19 +1151,26 @@ file {$conf_dirs:
     require => Exec['ensureovsagentconfig']
 }
 
-# ovs agent file may no be present, if so link to main conf so this script can
+# ovs agent file may not be present, if so link to main conf so this script can
 # modify the same thing
 exec{'ensureovsagentconfig':
     command => "bash -c 'mkdir -p /etc/neutron/plugins/openvswitch/; ln -s /etc/neutron/neutron.conf $neutron_ovs_conf_path; echo 0'",
-    path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+    path => $path
 }
 
+
+# make sure the head conf directory exists before we try to set an ini value in
+# it below. This can probably be replaced with a 'file' type
 exec{"heatconfexists":
     command => "bash -c 'mkdir /etc/heat/; touch /etc/heat/heat.conf; echo done'",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+    path    => $path
 }
+
 # use password for deferred authentication method for heat
-# so users don't need extra roles.
+# so users don't need extra roles to use heat. with this method it just uses
+# the user's current token so it's not good for long lived templates that could
+# take longer to setup than the token lasts, but its fine for our network
+# templates because they always finish within seconds.
 ini_setting {"heat_deferred_auth_method":
   path => '/etc/heat/heat.conf',
   section  => 'DEFAULT',
@@ -1076,55 +1184,9 @@ $heat_services = 'heat-api heat-engine heat-api-cfn'
 exec{"restartheatservices":
     refreshonly=> true,
     command => "bash -c 'for s in ${heat_services}; do (sudo service \$s restart &); (sudo service openstack-\$s restart &); echo \$s; done; sleep 5'",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
+    path    => $path
 }
 
-# use two DHCP agents per network for redundancy
-ini_setting {"dhcpnodespernetwork":
-  path    => $neutron_main_conf_path,
-  section => 'DEFAULT',
-  setting => 'dhcp_agents_per_network',
-  value   => '2',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-
-# limit API workers for semaphore
-ini_setting {"apiworkers":
-  path    => $neutron_main_conf_path,
-  section => 'DEFAULT',
-  setting => 'api_workers',
-  value   => '0',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-# limit RPC workers because they are experimental
-ini_setting {"rpcworkers":
-  path    => $neutron_main_conf_path,
-  section => 'DEFAULT',
-  setting => 'rpc_workers',
-  value   => '0',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-# make sure ml2 is core plugin
-ini_setting {"ml2core":
-  path    => $neutron_main_conf_path,
-  section => 'DEFAULT',
-  setting => 'core_plugin',
-  value   => 'ml2',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-# enable l3
-ini_setting {"serviceplugins":
-  path    => $neutron_main_conf_path,
-  section => 'DEFAULT',
-  setting => 'service_plugins',
-  value   => 'router',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
 
 # reference ml2 ini from init script
 file{'neutron_init_config':
@@ -1134,353 +1196,6 @@ file{'neutron_init_config':
   content =>"NEUTRON_PLUGIN_CONFIG='${neutron_conf_path}'\n",
   notify => Exec['restartneutronservices'],
 }
-
-
-# setup ml2 ini
-ini_setting { "roothelper":
-  path    => $neutron_conf_path,
-  section => 'agent',
-  setting => 'root_helper',
-  value   => 'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting { "secgroup":
-  path    => $neutron_conf_path,
-  section => 'securitygroup',
-  setting => 'firewall_driver',
-  value   => 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting {"type_drivers":
-  path    => $neutron_conf_path,
-  section => 'ml2',
-  setting => 'type_drivers',
-  value   => 'vlan',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting {"tenant_network_types":
-  path    => $neutron_conf_path,
-  section => 'ml2',
-  setting => 'tenant_network_types',
-  value   => 'vlan',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting {"mechanism_drivers":
-  path    => $neutron_conf_path,
-  section => 'ml2',
-  setting => 'mechanism_drivers',
-  value   => 'openvswitch,bigswitch',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting {"vlan_ranges":
-  path    => $neutron_conf_path,
-  section => 'ml2_type_vlan',
-  setting => 'network_vlan_ranges',
-  value   => $network_vlan_ranges,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting {"ovs_bridge_mappings":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'bridge_mappings',
-  value   => $ovs_bridge_mappings,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"Bovs_bridge_mappings":
-  path    => $neutron_ovs_conf_path,
-  section => 'OVS',
-  setting => 'bridge_mappings',
-  value   => $ovs_bridge_mappings,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"ovs_vlan_ranges":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'network_vlan_ranges',
-  value   => $network_vlan_ranges,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"Bovs_vlan_ranges":
-  path    => $neutron_ovs_conf_path,
-  section => 'OVS',
-  setting => 'network_vlan_ranges',
-  value   => $network_vlan_ranges,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"big_enable_tunneling":
-  path    => $neutron_ovs_conf_path,
-  section => 'OVS',
-  setting => 'enable_tunneling',
-  value   => 'False',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"enable_tunneling":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'enable_tunneling',
-  value   => 'False',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"ovs_big_enable_tunneling":
-  path    => $neutron_ovs_conf_path,
-  section => 'OVS',
-  setting => 'ovs_enable_tunneling',
-  value   => 'False',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"ovs_enable_tunneling":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'ovs_enable_tunneling',
-  value   => 'False',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"report_interval_main":
-  path    => $neutron_main_conf_path,
-  section => 'AGENT',
-  setting => 'report_interval',
-  value => 30,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"report_interval":
-  path    => $neutron_conf_path,
-  section => 'AGENT',
-  setting => 'report_interval',
-  value => 30,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"report_interval_main_lower":
-  path    => $neutron_main_conf_path,
-  section => 'agent',
-  setting => 'report_interval',
-  value => 30,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"report_interval_lower":
-  path    => $neutron_conf_path,
-  section => 'agent',
-  setting => 'report_interval',
-  value => 30,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"ovs_big_tunnel_types":
-  path    => $neutron_ovs_conf_path,
-  section => 'AGENT',
-  setting => 'tunnel_types',
-  ensure  => absent,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"ovs_tunnel_types":
-  path    => $neutron_ovs_conf_path,
-  section => 'agent',
-  setting => 'tunnel_types',
-  ensure  => absent,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"Ctbridge":
-  path    => $neutron_ovs_conf_path,
-  section => 'OVS',
-  setting => 'tunnel_bridge',
-  ensure  => absent,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"tbridge":
-  path    => $neutron_ovs_conf_path,
-  section => 'ovs',
-  setting => 'tunnel_bridge',
-  ensure  => absent,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"Bagentdown":
-  path    => $neutron_base_conf_path,
-  section => 'DEFAULT',
-  setting => 'agent_down_time',
-  value   => '75',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"agentdown":
-  path    => $neutron_base_conf_path,
-  section => 'DEFAULT',
-  setting => 'agent_down_time',
-  value   => '75',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"Bdbpoolover":
-  path    => $neutron_base_conf_path,
-  section => 'DATABASE',
-  setting => 'max_overflow',
-  value   => '30',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"dbpoolover":
-  path    => $neutron_base_conf_path,
-  section => 'database',
-  setting => 'max_overflow',
-  value   => '30',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"Brpcpoolc":
-  path    => $neutron_conf_path,
-  section => 'DEFAULT',
-  setting => 'rpc_conn_pool_size',
-  value   => '4',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"rpcpoolc":
-  path    => $neutron_conf_path,
-  section => 'DEFAULT',
-  setting => 'rpc_conn_pool_size',
-  value   => '4',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"Brpcpool":
-  path    => $neutron_conf_path,
-  section => 'DEFAULT',
-  setting => 'rpc_thread_pool_size',
-  value   => '4',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"rpcpool":
-  path    => $neutron_conf_path,
-  section => 'DEFAULT',
-  setting => 'rpc_thread_pool_size',
-  value   => '4',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"Bdbpool":
-  path    => $neutron_base_conf_path,
-  section => 'DATABASE',
-  setting => 'max_pool_size',
-  value   => '15',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"dbpool":
-  path    => $neutron_base_conf_path,
-  section => 'database',
-  setting => 'max_pool_size',
-  value   => '15',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"auto_failover":
-  path    => $neutron_conf_path,
-  section => 'DEFAULT',
-  setting => 'allow_automatic_l3agent_failover',
-  value   => 'True',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-ini_setting {"neutron_id":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'neutron_id',
-  value   => $neutron_id,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting {"bigswitch_servers":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'servers',
-  value   => $bigswitch_servers,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting { "bigswitch_auth":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'server_auth',
-  value   => $bigswitch_serverauth,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting { "bigswitch_auto_sync":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'auto_sync_on_failure',
-  value   => 'True',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-ini_setting { "bigswitch_consistency_interval":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'consistency_interval',
-  value   => '60',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
-ini_setting { "bigswitch_ssl":
-  path    => $neutron_conf_path,
-  section => 'restproxy',
-  setting => 'ssl_cert_directory',
-  value   => $bigswitch_ssl_cert_directory,
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-  require => File[$conf_dirs],
-}
-
 
 
 file { 'ssl_dir':
@@ -1514,34 +1229,6 @@ if ($operatingsystem == 'CentOS') and ($operatingsystemrelease =~ /^6.*/) {
       notify => Exec['restartneutronservices'],
     }
 }
-#configure dhcp agent
-ini_setting {"dhcp_int_driver":
-  path    => $neutron_dhcp_conf_path,
-  section => 'DEFAULT',
-  setting => 'interface_driver',
-  value   => 'neutron.agent.linux.interface.OVSInterfaceDriver',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-
-#configure l3 agent
-ini_setting {"ext_net_bridge":
-  path    => $neutron_l3_conf_path,
-  section => 'DEFAULT',
-  setting => 'external_network_bridge',
-  value   => '',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
-
-ini_setting {"handle_internal_only":
-  path    => $neutron_l3_conf_path,
-  section => 'DEFAULT',
-  setting => 'handle_internal_only_routers',
-  value   => 'True',
-  ensure  => present,
-  notify => Exec['restartneutronservices'],
-}
 
 $MYSQL_USER='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F ":" \'{ print $1 }\''
 $MYSQL_PASS='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -F "//" \'{ print $2 }\' | awk -F ":" \'{ print $2 }\' | awk -F "@" \'{ print $1 }\''
@@ -1550,7 +1237,7 @@ $MYSQL_DB='cat /etc/neutron/neutron.conf | grep "mysql://" | grep -v "#" | awk -
 $MYSQL_COM="mysql -u `$MYSQL_USER` -p`$MYSQL_PASS` -h `$MYSQL_HOST` `$MYSQL_DB`"
 exec {"cleanup_neutron":
   onlyif => ["which mysql", "echo 'show tables' | $MYSQL_COM"],
-  path => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+  path => $path,
   command => "echo 'delete ports, floatingips from ports INNER JOIN floatingips on floatingips.floating_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
               echo 'delete ports, routers from ports INNER JOIN routers on routers.gw_port_id = ports.id where ports.network_id NOT IN (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
               echo 'delete from ports where network_id NOT in (select network_id from ml2_network_segments where network_type=\"vlan\");' | $MYSQL_COM;
@@ -1590,7 +1277,7 @@ allow neutron_t etc_t:file create;
                    checkmodule -M -m -o /root/neutroncerts.mod /root/neutroncerts.te;
                    semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
                    semodule -i /root/neutroncerts.pp' ||:",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+        path    => $path,
     }
 }
 '''  # noqa
@@ -1598,26 +1285,26 @@ allow neutron_t etc_t:file create;
     bond_and_lldpd_configuration = r'''
 exec {"loadbond":
    command => 'modprobe bonding',
-   path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+   path    => $path,
    unless => "lsmod | grep bonding",
    notify => Exec['deleteovsbond'],
 }
 exec {"deleteovsbond":
   command => "bash -c 'for int in \$(/usr/bin/ovs-appctl bond/list | grep -v slaves | grep \"${bond_int0}\" | awk -F '\"' ' '{ print \$1 }'\"'); do ovs-vsctl --if-exists del-port \$int; done'",
-  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  path    => $path,
   require => Exec['lldpdinstall'],
   onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
   notify => Exec['networkingrestart']
 }
 exec {"clearint0":
   command => "ovs-vsctl --if-exists del-port $bond_int0",
-  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  path    => $path,
   require => Exec['lldpdinstall'],
   onlyif => "ovs-vsctl show | grep 'Port \"${bond_int0}\"'",
 }
 exec {"clearint1":
   command => "ovs-vsctl --if-exists del-port $bond_int1",
-  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  path    => $path",
   require => Exec['lldpdinstall'],
   onlyif => "ovs-vsctl show | grep 'Port \"${bond_int1}\"'",
 }
@@ -1675,7 +1362,7 @@ auto bond0
              /etc/init.d/networking restart
          fi'",
        notify => Exec['addbondtobridge'],
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+       path    => $path,
     }
     if ! $offline_mode {
         exec{"lldpdinstall":
@@ -1693,14 +1380,14 @@ auto bond0
               if [[ $(lsb_release -r | tr -d -c 0-9) = 14* ]]; then
                   apt-get install -y ifenslave-2.6
               fi\'',
-            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+            path    => $path,
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
     } else {
         exec{"lldpdinstall":
             onlyif => "bash -c '! ls /etc/init.d/lldpd'",
             command => "echo noop",
-            path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+            path    => $path,
             notify => [Exec['networkingrestart'], File['ubuntulldpdconfig']],
         }
     }
@@ -1708,7 +1395,7 @@ auto bond0
         onlyif => 'bash -c "! ls /etc/init.d/lldpd"',
         command => 'echo',
         notify => Exec['lldpdinstall'],
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+        path    => $path,
     }
     file{'ubuntulldpdconfig':
         ensure => file,
@@ -1720,7 +1407,7 @@ auto bond0
     exec {"openvswitchrestart":
        refreshonly => true,
        command => '/etc/init.d/openvswitch-switch restart',
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+       path    => $path,
     }
 }
 file{"lldlcliwrapper":
@@ -1745,14 +1432,14 @@ if $operatingsystem == 'RedHat' {
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
-           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           path    => $path,
            notify => File['redhatlldpdconfig'],
         }
     } else {
         exec {'lldpdinstall':
            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
            command => "echo noop",
-           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           path    => $path,
            notify => File['redhatlldpdconfig'],
         }
     }
@@ -1774,7 +1461,7 @@ if $operatingsystem == 'RedHat' {
     exec{"reloadservicedef":
         refreshonly => true,
         command => "systemctl daemon-reload",
-        path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+        path    => $path,
         notify => Exec['restartneutronservices']
     }
     exec {"networkingrestart":
@@ -1818,7 +1505,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
     exec {"openvswitchrestart":
        refreshonly => true,
        command => 'service openvswitch restart',
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+       path    => $path,
     }
 
 }
@@ -1833,14 +1520,14 @@ if $operatingsystem == 'CentOS' {
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
-           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           path    => $path,
            notify => File['centoslldpdconfig'],
         }
     } else {
         exec {'lldpdinstall':
            onlyif => "bash -c '! ls /etc/init.d/lldpd'",
            command => "echo noop",
-           path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+           path    => $path,
            notify => File['centoslldpdconfig'],
         }
     }
@@ -1891,17 +1578,17 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
     exec {"openvswitchrestart":
        refreshonly => true,
        command => '/etc/init.d/openvswitch restart',
-       path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+       path    => $path,
     }
 }
 exec {"ensurebridge":
   command => "ovs-vsctl --may-exist add-br ${phy_bridge}",
-  path    => "/usr/local/bin/:/bin/:/usr/bin",
+  path    => $path,
 }
 exec {"addbondtobridge":
    command => "ovs-vsctl --may-exist add-port ${phy_bridge} bond0",
    onlyif => "/sbin/ifconfig bond0 && ! ovs-ofctl show ${phy_bridge} | grep '(bond0)'",
-   path    => "/usr/local/bin/:/bin/:/usr/bin",
+   path    => $path,
    notify => Exec['openvswitchrestart'],
    require => Exec['ensurebridge'],
 }
@@ -1909,7 +1596,7 @@ exec{'lldpdrestart':
     refreshonly => true,
     require => Exec['lldpdinstall'],
     command => "rm /var/run/lldpd.socket ||:;/etc/init.d/lldpd restart",
-    path    => "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin",
+    path    => $path,
 }
 file{'lldpclioptions':
     ensure => file,
