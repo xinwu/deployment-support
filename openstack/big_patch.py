@@ -1304,7 +1304,7 @@ exec {"clearint0":
 }
 exec {"clearint1":
   command => "ovs-vsctl --if-exists del-port $bond_int1",
-  path    => $path",
+  path    => $path,
   require => Exec['lldpdinstall'],
   onlyif => "ovs-vsctl show | grep 'Port \"${bond_int1}\"'",
 }
