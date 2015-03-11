@@ -11,9 +11,9 @@
 # compute node: ubuntu 12.04 centos6.5, centos 6.6 or xenserver 6.2
 # 
 # To prepare installation, on installation node, please download deb packages if it is ubuntu
-# cloudstack-common_4.5.0-snapshot_all.deb,
-# cloudstack-management_4.5.0-snapshot_all.deb,
-# cloudstack-agent_4.5.0-snapshot_all.deb
+# cloudstack-common_4.5.0_all.deb,
+# cloudstack-management_4.5.0_all.deb,
+# cloudstack-agent_4.5.0_all.deb
 # or rpm packages if it is centos
 # cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
@@ -24,7 +24,7 @@
 # please also download example.yaml and make necessary modifications
 # according to your physical setup.
 #
-# Usage: bash big_patch.sh example.yaml
+# Usage: bash big_patch.sh example.yaml -d
 
 # check configuration file
 if [[ -z "$*" ]]; then
@@ -32,11 +32,24 @@ if [[ -z "$*" ]]; then
     exit 1
 fi
 config=$1
+developing=false
+if [[ $# == 2 ]]; then
+    if [[ $1 == '-d' ]]; then
+        config=$2
+        developing=true
+    elif [[ $2 == '-d' ]]; then
+        config=$1
+        developing=true
+    else
+        config=$1
+    fi
+fi
 if [[ ! -f ${config} ]]; then
     echo "Configuration file does not exist"
     exit 1
 fi
 echo "Configuration file is ${config}"
+
 mkdir -p /home/root/bcf
 cp ${config} /home/root/bcf/
 
@@ -52,7 +65,11 @@ if [[ $? == 0 ]]; then
     sudo pip install futures subprocess32
     rm -f /home/root/bcf/big_patch.py
     wget --no-check-certificate https://raw.githubusercontent.com/bigswitch/deployment-support/master/cloudstack/big_patch.py -P /home/root/bcf
-    python /home/root/bcf/big_patch.py -c /home/root/bcf/${config}
+    if [[ $developing == true ]]; then
+        python /home/root/bcf/big_patch.py -c /home/root/bcf/${config}
+    else
+        python /home/root/bcf/big_patch.py -c /home/root/bcf/${config}
+    fi
     exit 0
 fi
 

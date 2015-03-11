@@ -9,9 +9,9 @@
 # compute node: ubuntu 12.04, centos 6.5, centos 6.6 or xenserver 6.2
 # 
 # To prepare installation, on installation node, please download deb packages if it is ubuntu
-# cloudstack-common_4.5.0-snapshot_all.deb,
-# cloudstack-management_4.5.0-snapshot_all.deb,
-# cloudstack-agent_4.5.0-snapshot_all.deb
+# cloudstack-common_4.5.0_all.deb,
+# cloudstack-management_4.5.0_all.deb,
+# cloudstack-agent_4.5.0_all.deb
 # or rpm packages if it is centos
 # cloudstack-common-4.5.0-SNAPSHOT.el6.x86_64.rpm
 # cloudstack-awsapi-4.5.0-SNAPSHOT.el6.x86_64.rpm
@@ -106,10 +106,11 @@ UNDEF = ''
 
 # cloud stack packages
 CS_VERSION = '4.5.0'
+SNAPSHOT = ''
 CS_URL    = ('http://jenkins.bigswitch.com/job/cloudstack_ihplus_4.5/lastSuccessfulBuild/artifact')
-CS_COMMON = ('cloudstack-common_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
-CS_MGMT   = ('cloudstack-management_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
-CS_AGENT  = ('cloudstack-agent_%(cs_version)s-snapshot_all.deb' % {'cs_version' : CS_VERSION})
+CS_COMMON = ('cloudstack-common_%(cs_version)s%(snapshot)s_all.deb' % {'cs_version' : CS_VERSION, 'snapshot' : SNAPSHOT})
+CS_MGMT   = ('cloudstack-management_%(cs_version)s%(snapshot)s_all.deb' % {'cs_version' : CS_VERSION, 'snapshot' : SNAPSHOT})
+CS_AGENT  = ('cloudstack-agent_%(cs_version)s%(snapshot)s_all.deb' % {'cs_version' : CS_VERSION, 'snapshot' : SNAPSHOT})
 
 CS_COMMON_RPM = ('cloudstack-common-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
 CS_MGMT_RPM   = ('cloudstack-management-%(cs_version)s-SNAPSHOT.el6.x86_64.rpm' % {'cs_version' : CS_VERSION})
@@ -2478,11 +2479,27 @@ def deploy_to_all(config):
 
     safe_print("CloudStack deployment finished\n")
 
+def reassign_consts():
+    global SNAPSHOT
+    global CS_URL
+    global CS_COMMON
+    global CS_MGMT
+    global CS_AGENT
+    SNAPSHOT = '-snapshot'
+    CS_URL    = ('http://jenkins.bigswitch.com/job/cloudstack_ihplus_5.5/lastSuccessfulBuild/artifact')
+    CS_COMMON = ('cloudstack-common_%(cs_version)s%(snapshot)s_all.deb' % {'cs_version' : CS_VERSION, 'snapshot' : SNAPSHOT})
+    CS_MGMT   = ('cloudstack-management_%(cs_version)s%(snapshot)s_all.deb' % {'cs_version' : CS_VERSION, 'snapshot' : SNAPSHOT})
+    CS_AGENT  = ('cloudstack-agent_%(cs_version)s%(snapshot)s_all.deb' % {'cs_version' : CS_VERSION, 'snapshot' : SNAPSHOT})
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config-file", required=False,
                         help="CloudStack YAML config path")
+    parser.add_argument("-d", "--developing", action='store_true',
+                        help="CloudStack package has snapshot as the suffix")
     args = parser.parse_args()
+    if args.developing:
+        reassign_consts()
     if args.config_file:
         code = subprocess.call("ping www.bigswitch.com -c1", shell=True)
         if code != 0:
