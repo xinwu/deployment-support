@@ -974,6 +974,8 @@ class PuppetTemplate(object):
                     path='$neutron_ovs_conf_path'),
             gen_ini('ovs', 'ovs_enable_tunneling', 'False',
                     path='$neutron_ovs_conf_path'),
+            gen_ini('agent', 'tunnel_types', '',
+                    path='$neutron_ovs_conf_path'),
             gen_ini('AGENT', 'tunnel_types', value=None, ensure='absent'),
             gen_ini('OVS', 'tunnel_bridge', value=None, ensure='absent'),
             gen_ini('restproxy', 'neutron_id', '$neutron_id',
