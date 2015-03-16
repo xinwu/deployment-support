@@ -576,7 +576,12 @@ class ConfigDeployer(object):
                             "Detected values:\n%s" % resp)
         if names:
             return names[0]
-        return '`uname -n`'
+        resp, errors = self.env.run_command_on_node(
+            node, "uname -n")
+        if errors:
+            raise Exception("error determining agent hostname information "
+                            "by uname -n on %s:\n%s" % (node, errors))
+        return resp.strip()
 
     def deploy_to_node(self, node, nodes_information):
         print "Applying configuration to %s..." % node
