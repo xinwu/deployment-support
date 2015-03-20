@@ -1,0 +1,10 @@
+
+module bsn-selinux-policy 1.0;
+
+require {
+	type neutron_t;
+	class netlink_socket { bind create setopt getattr };
+}
+
+#============= neutron_t ==============
+allow neutron_t self:netlink_socket { bind create setopt getattr };

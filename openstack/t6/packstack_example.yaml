@@ -1,0 +1,22 @@
+setup_node_user: root
+setup_node_passwd: bsn
+ivs_packages:
+- package: http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
+- package: /tmp/ivs-0.5-1.el7.centos.x86_64.deb
+default_os: centos
+default_os_version: 7.0.1406
+default_bsnstacklib_version: 2014.2.24
+default_user: root
+default_passwd: bsn
+default_role: compute
+default_uplink_interfaces:
+- interface: eth1
+default_bcf_controllers:
+- controller: 172.16.54.133:8000
+default_bcf_controller_user: admin
+default_bcf_controller_passwd: adminadmin
+default_network_vlan_ranges: physnet1:500:2000
+nodes:
+- hostname: 172.16.54.80
+  role: neutron_server
+- hostname: 172.16.54.81
