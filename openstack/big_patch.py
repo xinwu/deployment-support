@@ -1093,7 +1093,7 @@ if $operatingsystem == 'Ubuntu' {
 }
 if $operatingsystem == 'CentOS' {
   # the old version of centos openvswitch version had issues after the bond changes and required a restart as well
-  $restart_nagent_comm = "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;"
+  $restart_nagent_comm = "service openvswitch restart ||:; service neutron-openvswitch-agent restart ||:;"
 }
 if $operatingsystem == 'RedHat' {
   $restart_nagent_comm = "service neutron-openvswitch-agent restart ||:;"
@@ -1586,7 +1586,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
     }
     exec {"openvswitchrestart":
        refreshonly => true,
-       command => '/etc/init.d/openvswitch restart',
+       command => 'service openvswitch restart',
        path    => $binpath,
     }
 }
