@@ -13,7 +13,7 @@ semodule -i %(dst_dir)s/%(hostname)s_selinux.pp
 rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
 yum update -y
 yum groupinstall -y 'Development Tools'
-yum install -y python-devel.x86_64 puppet python-pip
+yum install -y python-devel.x86_64 puppet python-pip wget
 pip install --upgrade ospurge
 pip install bsnstacklib==%(bsnstacklib_version)s
 rpm -ivh %(dst_dir)s/%(ivs_pkg)s
