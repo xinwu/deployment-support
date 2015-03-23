@@ -10,7 +10,9 @@ setenforce 0
 checkmodule -M -m -o %(dst_dir)s/%(hostname)s.mod %(dst_dir)s/%(hostname)s.te
 semodule_package -o %(dst_dir)s/%(hostname)s_selinux.pp -m %(dst_dir)s/%(hostname)s.mod
 semodule -i %(dst_dir)s/%(hostname)s_selinux.pp
+rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
 yum update -y
+yum groupinstall -y 'Development Tools'
 yum install -y python-devel.x86_64 puppet python-pip
 pip install --upgrade ospurge
 pip install bsnstacklib==%(bsnstacklib_version)s
