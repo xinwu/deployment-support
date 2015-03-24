@@ -1,4 +1,5 @@
 import os
+import re
 import yaml
 import Queue
 import argparse
@@ -66,8 +67,6 @@ def load_bcf_config(config, env):
     """
     node_dic = {}
     for node_config in config['nodes']:
-        node_config['setup_node_user'] = config['setup_node_user']
-        node_config['setup_node_passwd'] = config['setup_node_passwd']
         if 'os' not in node_config:
             node_config['os'] = config['default_os']
         if 'os_version' not in node_config:
@@ -82,14 +81,6 @@ def load_bcf_config(config, env):
             node_config['role'] = config['default_role']
         if 'uplink_interfaces' not in node_config:
             node_config['uplink_interfaces'] = config['default_uplink_interfaces']
-        if 'bcf_controllers' not in node_config:
-            node_config['bcf_controllers'] = config['default_bcf_controllers']
-        if 'bcf_controller_user' not in node_config:
-            node_config['bcf_controller_user'] = config['default_bcf_controller_user']
-        if 'bcf_controller_passwd' not in node_config:
-            node_config['bcf_controller_passwd'] = config['default_bcf_controller_passwd']
-        if 'network_vlan_ranges' not in node_config:
-            node_config['network_vlan_ranges'] = config['default_network_vlan_ranges']
         node = Node(node_config, env)
         node_dic[node.hostname] = node
     return node_dic
@@ -157,8 +148,6 @@ def deploy_by_bcf_config(config):
     # Deploy setup node
     Helper.safe_print("Start to prepare setup node\n")
     setup_node_dir = os.getcwd()
-    setup_node_ip = Helper.get_setup_node_ip()
-    env = Environment(config, setup_node_ip, setup_node_dir)
     subprocess.call("rm -rf ~/.ssh/known_hosts", shell=True)
     subprocess.call("rm -rf %(log)s" %
                     {'log' : const.LOG_FILE}, shell=True)
@@ -172,25 +161,57 @@ def deploy_by_bcf_config(config):
     subprocess.call("rm -rf %(setup_node_dir)s/%(generated_script)s/*" %
                     {'setup_node_dir'   : setup_node_dir,
                      'generated_script' : const.GENERATED_SCRIPT_DIR}, shell=True)
+    code_web = 1
+    code_local = 1
     for package in config['ivs_packages']:
         url = package['package']
-        code = 1
         if 'http://' in url or 'https://' in url:
-            code = subprocess.call("wget %(url)s -P %(setup_node_dir)s" %
-                                  {'url' : url, 'setup_node_dir' : setup_node_dir},
-                                  shell=True)
-        elif os.path.isfile(url):
-            code = subprocess.call("cp %(url)s %(setup_node_dir)s" %
-                                  {'url' : url, 'setup_node_dir' : setup_node_dir},
-                                  shell=True)
-        if code != 0:
-            Helper.safe_print("Required packages are not correctly downloaded.\n")
-            exit(1)
+            code_web = subprocess.call("wget --no-check-certificate %(url)s -P %(setup_node_dir)s" %
+                                      {'url' : url, 'setup_node_dir' : setup_node_dir},
+                                       shell=True)
+    for package in config['ivs_packages']:
+        url = package['package']
+        if os.path.isfile(url):
+            code_local = subprocess.call("cp %(url)s %(setup_node_dir)s" %
+                                        {'url' : url, 'setup_node_dir' : setup_node_dir},
+                                         shell=True)
+    if code_web != 0 and code_local != 0:
+        Helper.safe_print("Required packages are not correctly downloaded.\n")
+        exit(1)
 
-
-    # Generate configuration for each node
+    # Generate detailed node information
     Helper.safe_print("Start to setup Big Cloud Fabric\n")
+    setup_node_ip = Helper.get_setup_node_ip()
+    env = Environment(config, setup_node_ip, setup_node_dir)
+    existing_vlan_range_pattern = re.compile(const.EXISTING_VLAN_RANGE_EXPRESSION, re.IGNORECASE)
+    with open(const.VLAN_RANGE_CONFIG_PATH, "r") as vlan_range_file:
+        lines = vlan_range_file.readlines()
+        for line in lines:
+            match = existing_vlan_range_pattern.match(line)
+            if match:
+                existing_phynet = match.group(1)
+                existing_lower_vlan = match.group(2)
+                existing_upper_vlan = match.group(3)
+                if env.physnet != existing_phynet:
+                    Helper.safe_print("physnet does not match with exiting ml2_conf.ini.\n")
+                    exit(1)
+                if env.lower_vlan > existing_lower_vlan:
+                    Helper.safe_print("lower vlan range is larger than exiting lower vlan range in ml2_conf.ini.\n")
+                    exit(1)
+                if env.upper_vlan < existing_upper_vlan:
+                    Helper.safe_print("upper vlan range is smaller than exiting upper vlan range in ml2_conf.ini.\n")
+                    exit(1)
+                break
     node_dic = load_bcf_config(config, env)
+    
+    # Check if setup node is one of the neutron nodes
+    setup_node = node_dic[setup_node_ip]
+    if setup_node.role != const.ROLE_NEUTRON_SERVER:
+        Helper.safe_print("Setup node %(setup_node)s needs to be a neutron server.\n" %
+                         {'setup_node' : setup_node_ip})
+        exit(1)
+
+    # Generate scripts for each node
     for hostname, node in node_dic.iteritems():
         if node.os == const.CENTOS:
             generate_scripts_for_centos(node)
@@ -198,6 +219,7 @@ def deploy_by_bcf_config(config):
             log_file.write(str(node))
         node_q.put(node)
 
+    # Use multiple threads to setup nodes
     for i in range(const.MAX_WORKERS):
         t = threading.Thread(target=worker_setup_node)
         t.daemon = True

@@ -1,6 +1,13 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
+# install selinux policies
+Package { allow_virtual => true }
+selinux::module { 'selinux-ivs':
+  ensure => 'present',
+  source => 'puppet:///modules/selinux/centos.te',
+}
+
 # ivs configruation and service
 file{'/etc/sysconfig/ivs':
     ensure  => file,
@@ -9,19 +16,10 @@ file{'/etc/sysconfig/ivs':
     notify  => Service['ivs'],
 } 
 service{'ivs':
-    ensure => running,
-    enable => true,
-    path   => $binpath,
-}
-
-# set selinux to permissive mode
-ini_setting { "selinux permissive":
-  ensure            => present,
-  path              => '/etc/selinux/config',
-  section           => '',
-  key_val_separator => '=',
-  setting           => 'SELINUX',
-  value             => 'permissive',
+    ensure  => running,
+    enable  => true,
+    path    => $binpath,
+    require => Selinux::Module['selinux-ivs'],
 }
 
 # config neutron-bsn-agent service
@@ -48,15 +46,17 @@ file { '/etc/systemd/system/multi-user.target.wants/neutron-bsn-agent.service':
    notify => Service['neutron-bsn-agent'],
 }
 service{'neutron-bsn-agent':
-    ensure => running,
-    enable => true,
-    path   => $binpath,
+    ensure  => running,
+    enable  => true,
+    path    => $binpath,
+    require => Selinux::Module['selinux-ivs'],
 }
 
 # stop and disable neutron-openvswitch-agent
 service { 'neutron-openvswitch-agent':
-  ensure => stopped,
-  enable => false,
-  path   => $binpath,
+  ensure  => stopped,
+  enable  => false,
+  path    => $binpath,
+  require => Selinux::Module['selinux-ivs'],
 }
 

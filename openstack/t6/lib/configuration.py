@@ -1,5 +1,6 @@
 import os
-from sets import Set
+import re
+import socket
 import constants as const
 
 class Node(object):
@@ -22,12 +23,12 @@ class Node(object):
             uplink_interfaces.append(intf['interface'])
         self.uplink_interfaces = ''.join(uplink_interfaces)
         bcf_controllers            = []
-        for controller in node_config['bcf_controllers']:
+        for controller in env.bcf_controllers:
             bcf_controllers.append(controller['controller'])
         self.bcf_controllers = ','.join(bcf_controllers)
-        self.bcf_controller_user   = node_config['bcf_controller_user']
-        self.bcf_controller_passwd = node_config['bcf_controller_passwd']
-        self.network_vlan_ranges   = node_config['network_vlan_ranges']
+        self.bcf_controller_user   = env.bcf_controller_user
+        self.bcf_controller_passwd = env.bcf_controller_passwd
+        self.network_vlan_ranges   = env.network_vlan_ranges
         self.setup_node_ip         = env.setup_node_ip
         self.setup_node_user       = env.setup_node_user
         self.setup_node_passwd     = env.setup_node_passwd
@@ -102,10 +103,32 @@ ivs_pkg                : %(ivs_pkg)s,
 
 class Environment(object):
     def __init__(self, config, setup_node_ip, setup_node_dir):
-        self.setup_node_user = config['setup_node_user']
-        self.setup_node_passwd = config['setup_node_passwd']
+        for node_config in config['nodes']:
+            node_ip = socket.gethostbyname(node_config['hostname'])
+            if node_ip == setup_node_ip:
+                self.setup_node_user =config['default_user']
+                if 'user' in node_config:
+                    self.setup_node_user = node_config['user']
+                self.setup_node_passwd = config['default_passwd']
+                if 'passwd' in node_config:
+                    self.setup_node_passwd = node_config['passwd']
+                break
+
+        self.network_vlan_ranges = config['network_vlan_ranges']
+        new_vlan_range_pattern = re.compile(const.NEW_VLAN_RANGE_EXPRESSION, re.IGNORECASE)
+        match = new_vlan_range_pattern.match(self.network_vlan_ranges)
+        if not match:
+            Helper.safe_print("network_vlan_ranges' format is not correct.\n")
+            exit(1)
+        self.physnet    = match.group(1)
+        self.lower_vlan = match.group(2)
+        self.upper_vlan = match.group(3)
+
         self.setup_node_ip = setup_node_ip
         self.setup_node_dir = setup_node_dir
+        self.bcf_controllers = config['bcf_controllers']
+        self.bcf_controller_user = config['bcf_controller_user']
+        self.bcf_controller_passwd = config['bcf_controller_passwd']
         self.ivs_pkg_map = {}
         self.ivs_url_map = {}
         for ivs_package in config['ivs_packages']:

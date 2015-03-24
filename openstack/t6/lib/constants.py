@@ -31,3 +31,11 @@ UBUNTU_VERSIONS = {14}
 # OSes that uses rpm or deb packages
 RPM_OS_SET = {CENTOS}
 DEB_OS_SET = {UBUNTU}
+
+# regular expressions
+EXISTING_VLAN_RANGE_EXPRESSION  = '^\s*network_vlan_ranges\s*=\s*(\S*)\s*:\s*(\S*)\s*:\s*(\S*)\s*$'
+NEW_VLAN_RANGE_EXPRESSION       = '^\s*(\S*)\s*:\s*(\S*)\s*:\s*(\S*)\s*$'
+PHYNET_GROUP_INDEX              = 1
+LOWER_VLAN_GROUP_INDEX          = 2
+UPPER_VLAN_GROUP_INDEX          = 3
+VLAN_RANGE_CONFIG_PATH          = '/etc/neutron/plugins/ml2/ml2_conf.ini'
