@@ -39,3 +39,6 @@ PHYNET_GROUP_INDEX              = 1
 LOWER_VLAN_GROUP_INDEX          = 2
 UPPER_VLAN_GROUP_INDEX          = 3
 VLAN_RANGE_CONFIG_PATH          = '/etc/neutron/plugins/ml2/ml2_conf.ini'
+
+SELINUX_MODE_EXPRESSION         = '^\s*SELINUX\s*=\s*(\S*)\s*$'
+SELINUX_CONFIG_PATH             = '/etc/selinux/config'

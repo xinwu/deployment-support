@@ -27,6 +27,16 @@ def worker_setup_node():
                  'ivs_pkg' : node.ivs_pkg}),
                 node.dst_dir,
                 node.ivs_pkg)
+            if node.ivs_debug_pkg != None:
+                Helper.safe_print("Copy %(ivs_debug_pkg)s to %(hostname)s\n" %
+                                 {'ivs_debug_pkg'  : node.ivs_debug_pkg,
+                                  'hostname'       : node.hostname})
+                Helper.copy_file_to_remote_with_passwd(node,
+                    (r'''%(src_dir)s/%(ivs_debug_pkg)s''' %
+                    {'src_dir'       : node.setup_node_dir,
+                     'ivs_debug_pkg' : node.ivs_debug_pkg}),
+                    node.dst_dir,
+                    node.ivs_debug_pkg)
             # copy bash script to node
             Helper.safe_print("Copy bash script to %(hostname)s\n" %
                              {'hostname' : node.hostname})
@@ -96,9 +106,10 @@ def generate_scripts_for_centos(node):
         bash_template = bash_template_file.read()
         bash = (bash_template %
                {'bsnstacklib_version' : node.bsnstacklib_version,
-                'dst_dir'        : node.dst_dir,
-                'hostname'       : node.hostname, 
-                'ivs_pkg'        : node.ivs_pkg})
+                'dst_dir'             : node.dst_dir,
+                'hostname'            : node.hostname, 
+                'ivs_pkg'             : node.ivs_pkg,
+                'ivs_debug_pkg'       : node.ivs_debug_pkg})
     bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                        {'setup_node_dir'       : node.setup_node_dir,
                         'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
@@ -122,7 +133,8 @@ def generate_scripts_for_centos(node):
                   'network_vlan_ranges'   : node.network_vlan_ranges,
                   'bcf_controllers'       : node.bcf_controllers,
                   'bcf_controller_user'   : node.bcf_controller_user,
-                  'bcf_controller_passwd' : node.bcf_controller_passwd})
+                  'bcf_controller_passwd' : node.bcf_controller_passwd,
+                  'selinux_mode'          : node.selinux_mode})
     puppet_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.pp''' %
                          {'setup_node_dir'       : node.setup_node_dir,
                           'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
@@ -182,7 +194,15 @@ def deploy_by_bcf_config(config):
     # Generate detailed node information
     Helper.safe_print("Start to setup Big Cloud Fabric\n")
     setup_node_ip = Helper.get_setup_node_ip()
-    env = Environment(config, setup_node_ip, setup_node_dir)
+    selinux_mode_match = re.compile(const.SELINUX_MODE_EXPRESSION, re.IGNORECASE)
+    selinux_mode = None
+    with open(const.SELINUX_CONFIG_PATH, "r") as selinux_config_file:
+        lines = selinux_config_file.readlines()
+        for line in lines:
+            match = selinux_mode_match.match(line)
+            if match:
+                selinux_mode = match.group(1)
+    env = Environment(config, setup_node_ip, setup_node_dir, selinux_mode)
     existing_vlan_range_pattern = re.compile(const.EXISTING_VLAN_RANGE_EXPRESSION, re.IGNORECASE)
     with open(const.VLAN_RANGE_CONFIG_PATH, "r") as vlan_range_file:
         lines = vlan_range_file.readlines()

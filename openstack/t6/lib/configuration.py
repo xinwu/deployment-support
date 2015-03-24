@@ -33,10 +33,14 @@ class Node(object):
         self.setup_node_user       = env.setup_node_user
         self.setup_node_passwd     = env.setup_node_passwd
         self.setup_node_dir        = env.setup_node_dir
+        self.selinux_mode          = env.selinux_mode
+        self.ivs_debug_pkg         = None
         if self.os in const.RPM_OS_SET:
             self.ivs_pkg           = env.ivs_pkg_map['rpm']
+            self.ivs_debug_pkg     = env.ivs_pkg_map['debug_rpm']
         elif self.os in const.DEB_OS_SET:
             self.ivs_pkg           = env.ivs_pkg_map['deb']
+            self.ivs_debug_pkg     = env.ivs_pkg_map['debug_deb']
 
 
     def set_bash_script_path(self, bash_script_path):
@@ -75,6 +79,7 @@ setup_node_user        : %(setup_node_user)s,
 setup_node_passwd      : %(setup_node_passwd)s,
 setup_node_dir         : %(setup_node_dir)s,
 ivs_pkg                : %(ivs_pkg)s,
+ivs_debug_pkg          : %(ivs_debug_pkg)s,
 ''' %
 {'dst_dir'               : self.dst_dir,
  'bash_script_path'      : self.bash_script_path,
@@ -98,11 +103,13 @@ ivs_pkg                : %(ivs_pkg)s,
  'setup_node_passwd'     : self.setup_node_passwd,
  'setup_node_dir'        : self.setup_node_dir,
  'ivs_pkg'               : self.ivs_pkg,
+ 'ivs_debug_pkg'         : self.ivs_debug_pkg,
 })
 
 
 class Environment(object):
-    def __init__(self, config, setup_node_ip, setup_node_dir):
+    def __init__(self, config, setup_node_ip, setup_node_dir, selinux_mode='enforcing'):
+        # setup node information
         for node_config in config['nodes']:
             node_ip = socket.gethostbyname(node_config['hostname'])
             if node_ip == setup_node_ip:
@@ -113,7 +120,10 @@ class Environment(object):
                 if 'passwd' in node_config:
                     self.setup_node_passwd = node_config['passwd']
                 break
+        self.setup_node_ip = setup_node_ip
+        self.setup_node_dir = setup_node_dir
 
+        # neutron vlan ranges
         self.network_vlan_ranges = config['network_vlan_ranges']
         new_vlan_range_pattern = re.compile(const.NEW_VLAN_RANGE_EXPRESSION, re.IGNORECASE)
         match = new_vlan_range_pattern.match(self.network_vlan_ranges)
@@ -124,20 +134,30 @@ class Environment(object):
         self.lower_vlan = match.group(2)
         self.upper_vlan = match.group(3)
 
-        self.setup_node_ip = setup_node_ip
-        self.setup_node_dir = setup_node_dir
+        # neutron node selinux mode
+        self.selinux_mode = selinux_mode
+
+        # bcf controller information
         self.bcf_controllers = config['bcf_controllers']
         self.bcf_controller_user = config['bcf_controller_user']
         self.bcf_controller_passwd = config['bcf_controller_passwd']
+
+        # ivs pkg and debug pkg
         self.ivs_pkg_map = {}
         self.ivs_url_map = {}
         for ivs_package in config['ivs_packages']:
             ivs_url = ivs_package['package']
             ivs_pkg = os.path.basename(ivs_url)
-            if '.rpm' in ivs_pkg:
+            if '.rpm' in ivs_pkg and '-debuginfo-' not in ivs_pkg:
                 self.ivs_pkg_map['rpm'] = ivs_pkg
                 self.ivs_url_map['rpm'] = ivs_url
-            elif '.deb' in ivs_pkg:
+            elif '.deb' in ivs_pkg and '-debuginfo-' not in ivs_pkg:
                 self.ivs_pkg_map['deb'] = ivs_pkg
                 self.ivs_url_map['deb'] = ivs_url
+            elif '-debuginfo-' in ivs_pkg and '.rpm' in ivs_pkg:
+                self.ivs_pkg_map['debug_rpm'] = ivs_pkg
+                self.ivs_url_map['debub_rpm'] = ivs_url
+            elif '-debuginfo-' in ivs_pkg and '.deb' in ivs_pkg:
+                self.ivs_pkg_map['debug_deb'] = ivs_pkg
+                self.ivs_url_map['debub_deb'] = ivs_url
 

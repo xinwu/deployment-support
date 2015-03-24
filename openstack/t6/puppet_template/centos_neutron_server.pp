@@ -3,6 +3,9 @@ $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
 # install selinux policies
 Package { allow_virtual => true }
+class { selinux:
+  mode => '%(selinux_mode)s'
+}
 selinux::module { 'selinux-ivs':
   ensure => 'present',
   source => 'puppet:///modules/selinux/centos.te',

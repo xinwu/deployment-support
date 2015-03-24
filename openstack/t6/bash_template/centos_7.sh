@@ -13,6 +13,9 @@ yum install -y python-devel.x86_64 puppet python-pip wget libffi-devel openssl-d
 pip install --upgrade ospurge
 pip install bsnstacklib==%(bsnstacklib_version)s
 rpm -ivh %(dst_dir)s/%(ivs_pkg)s
+if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
+    rpm -ivh %(dst_dir)s/%(ivs_debug_pkg)s
+fi
 rpm -ivh https://yum.puppetlabs.com/el/7/products/x86_64/puppetlabs-release-7-10.noarch.rpm
 puppet module install puppetlabs-inifile
 puppet module install jfryman-selinux
