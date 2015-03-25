@@ -1,6 +1,7 @@
 import os
 import re
 import yaml
+import shlex
 import Queue
 import argparse
 import threading
@@ -249,6 +250,14 @@ def deploy_by_bcf_config(config):
 
 
 def deploy_by_fuel_config(config):
+    pass
+
+
+def clean_up_ovs_agent():
+    pass
+
+
+def clean_up_tenant_resource(tenant_uuid):
     pass
 
 

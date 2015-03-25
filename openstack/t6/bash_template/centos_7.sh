@@ -6,6 +6,7 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
+# prepare dependencies
 rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
 yum update -y
 yum groupinstall -y 'Development Tools'
@@ -22,4 +23,6 @@ puppet module install jfryman-selinux
 mkdir -p /etc/puppet/modules/selinux/files
 cp %(dst_dir)s/%(hostname)s.te /etc/puppet/modules/selinux/files/centos.te
 cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/system/neutron-bsn-agent.service
+
+# deploy bcf
 puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp

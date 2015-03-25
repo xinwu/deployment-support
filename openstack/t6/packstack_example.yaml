@@ -17,4 +17,3 @@ default_uplink_interfaces:
 nodes:
 - hostname: 172.16.54.80
   role: neutron_server
-- hostname: 172.16.54.81
