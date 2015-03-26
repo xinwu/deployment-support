@@ -48,5 +48,15 @@ OVS_AGENT                       = 'neutron-openvswitch-agent'
 
 # openstack constants
 ADMIN          = 'admin'
+SERVICES       = 'services'
 CLIENT_VERSION = '2.0'
 OVS_AGENT      = 'neutron-openvswitch-agent'
+ENDPOINT_TYPE  = 'publicURL'
+
+# the order to delete neutron resources
+NEUTRON_RESOURCE_CLASSES = ['NeutronFloatingIps',
+                            'NeutronInterfaces',
+                            'NeutronRouters',
+                            'NeutronPorts',
+                            'NeutronNetworks',
+                            'NeutronSecgroups']

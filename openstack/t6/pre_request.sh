@@ -24,7 +24,9 @@ if [[ $? == 0 ]]; then
     yum groupinstall -y 'Development Tools'
     yum install -y python-devel.x86_64 python-yaml sshpass puppet python-pip wget
     pip install --upgrade subprocess32 futures
-    pip install --upgrade python-keystoneclient python-novaclient python-neutronclient
+    pip install --upgrade python-keystoneclient python-novaclient python-neutronclient ospurge
+    # suppress pythn warnings
+    export PYTHONWARNINGS="ignore"
     exit 0
 else
     echo "Unsupported operating system."
