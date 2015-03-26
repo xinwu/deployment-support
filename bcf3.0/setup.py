@@ -5,10 +5,10 @@ import Queue
 import argparse
 import threading
 import lib.constants as const
-from lib.helper import Helper
 import subprocess32 as subprocess
 from lib.clean_helper import CleanHelper
 from lib.configuration import Node, Environment
+from lib.static_helper import StaticHelper as Helper
 
 # queue to store all nodes
 node_q = Queue.Queue()
@@ -78,6 +78,8 @@ def load_bcf_config(config, env):
     """
     node_dic = {}
     for node_config in config['nodes']:
+        if 'deploy_ivs' not in node_config:
+            node_config['deploy_ivs'] = config['default_deploy_ivs']
         if 'os' not in node_config:
             node_config['os'] = config['default_os']
         if 'os_version' not in node_config:
@@ -157,10 +159,8 @@ def generate_scripts_for_centos(node):
     node.set_selinux_script_path(selinux_script_path)
 
 
-def deploy_by_bcf_config(config):
-    # Deploy setup node
-    Helper.safe_print("Start to prepare setup node\n")
-    setup_node_dir = os.getcwd()
+def common_setup_node_preparation(setup_node_dir):
+    # clean up from previous installation
     subprocess.call("rm -rf ~/.ssh/known_hosts", shell=True)
     subprocess.call("rm -rf %(log)s" %
                     {'log' : const.LOG_FILE}, shell=True)
@@ -174,6 +174,8 @@ def deploy_by_bcf_config(config):
     subprocess.call("rm -rf %(setup_node_dir)s/%(generated_script)s/*" %
                     {'setup_node_dir'   : setup_node_dir,
                      'generated_script' : const.GENERATED_SCRIPT_DIR}, shell=True)
+
+    # wget ivs packages
     code_web = 1
     code_local = 1
     for package in config['ivs_packages']:
@@ -191,6 +193,13 @@ def deploy_by_bcf_config(config):
     if code_web != 0 and code_local != 0:
         Helper.safe_print("Required packages are not correctly downloaded.\n")
         exit(1)
+
+
+def deploy_by_bcf_config(config):
+    # Deploy setup node
+    Helper.safe_print("Start to prepare setup node\n")
+    setup_node_dir = os.getcwd()
+    common_setup_node_preparation(setup_node_dir)
 
     # Generate detailed node information
     Helper.safe_print("Start to setup Big Cloud Fabric\n")
@@ -232,6 +241,7 @@ def deploy_by_bcf_config(config):
                          {'setup_node' : setup_node_ip})
         exit(1)
 
+    # TODO: try and continue
     # clean up network resources created by openstack installation
     cleaner = CleanHelper()
     cleaner.delete_ovs_agents()

@@ -17,7 +17,6 @@ if [[ $? == 0 ]]; then
     yum install -y python-devel.x86_64 python-yaml sshpass puppet python-pip wget
     pip install --upgrade subprocess32 futures
     pip install --upgrade python-keystoneclient python-novaclient python-neutronclient ospurge
-    # suppress pythn warnings
     exit 0
 else
     echo "Unsupported operating system."
