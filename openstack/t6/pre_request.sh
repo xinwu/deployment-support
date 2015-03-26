@@ -6,6 +6,16 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
+# check openrc file
+if [[ -z "$*" ]]; then
+    echo -e "No openrc file is specified.\nUsage: bash pre_request.sh admin-openrc.sh"
+    exit 1
+fi
+
+# source openrc file first
+openrc=$1
+source $openrc
+
 # install packages for centos 7
 python -mplatform | grep centos-7
 if [[ $? == 0 ]]; then
@@ -14,6 +24,7 @@ if [[ $? == 0 ]]; then
     yum groupinstall -y 'Development Tools'
     yum install -y python-devel.x86_64 python-yaml sshpass puppet python-pip wget
     pip install --upgrade subprocess32 futures
+    pip install --upgrade python-keystoneclient python-novaclient python-neutronclient
     exit 0
 else
     echo "Unsupported operating system."

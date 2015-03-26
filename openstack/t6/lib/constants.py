@@ -46,4 +46,7 @@ SELINUX_CONFIG_PATH             = '/etc/selinux/config'
 UUID_EXPRESSION                 = '^\s*([0-9a-fA-F]{8}[-][0-9a-fA-F]{4}[-][0-9a-fA-F]{4}[-][0-9a-fA-F]{4}[-][0-9a-fA-F]{12})\s*$'
 OVS_AGENT                       = 'neutron-openvswitch-agent'
 
-
+# openstack constants
+ADMIN          = 'admin'
+CLIENT_VERSION = '2.0'
+OVS_AGENT      = 'neutron-openvswitch-agent'
