@@ -20,7 +20,7 @@ LOG_FILE             = "/var/log/bcf_setup.log"
 
 # constants for ivs config
 INBAND_VLAN     = 4092
-IVS_DAEMON_ARGS = (r'''DAEMON_ARGS=\"--syslog --inband-vlan %(inband_vlan)d%(uplink_interfaces)s\"''')
+IVS_DAEMON_ARGS = (r'''DAEMON_ARGS=\"--syslog --inband-vlan %(inband_vlan)d%(uplink_interfaces)s --pipeline=bvs-1.0\"''')
 
 # constants of supported OSes and versions
 CENTOS          = 'centos'
