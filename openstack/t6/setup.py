@@ -233,9 +233,9 @@ def deploy_by_bcf_config(config):
         exit(1)
 
     # clean up network resources created by openstack installation
-    cleaner = CleanHelper()
-    cleaner.delete_ovs_agents()
-    cleaner.delete_non_bcf_projects_neutron_resources()
+    #cleaner = CleanHelper()
+    #cleaner.delete_ovs_agents()
+    #cleaner.delete_non_bcf_projects_neutron_resources()
 
     # Generate scripts for each node
     for hostname, node in node_dic.iteritems():
