@@ -7,6 +7,7 @@ import threading
 import lib.constants as const
 from lib.helper import Helper
 import subprocess32 as subprocess
+from lib.clean_helper import CleanHelper
 from lib.configuration import Node, Environment
 
 # queue to store all nodes
@@ -230,6 +231,11 @@ def deploy_by_bcf_config(config):
         Helper.safe_print("Setup node %(setup_node)s needs to be a neutron server.\n" %
                          {'setup_node' : setup_node_ip})
         exit(1)
+
+    # clean up network resources created by openstack installation
+    cleaner = CleanHelper()
+    cleaner.delete_ovs_agents()
+    cleaner.delete_non_bcf_projects_neutron_resources()
 
     # Generate scripts for each node
     for hostname, node in node_dic.iteritems():

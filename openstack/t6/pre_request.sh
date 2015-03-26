@@ -6,15 +6,7 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
-# check openrc file
-if [[ -z "$*" ]]; then
-    echo -e "No openrc file is specified.\nUsage: bash pre_request.sh admin-openrc.sh"
-    exit 1
-fi
-
 # source openrc file first
-openrc=$1
-source $openrc
 
 # install packages for centos 7
 python -mplatform | grep centos-7
@@ -26,7 +18,6 @@ if [[ $? == 0 ]]; then
     pip install --upgrade subprocess32 futures
     pip install --upgrade python-keystoneclient python-novaclient python-neutronclient ospurge
     # suppress pythn warnings
-    export PYTHONWARNINGS="ignore"
     exit 0
 else
     echo "Unsupported operating system."
