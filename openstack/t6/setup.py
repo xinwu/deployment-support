@@ -7,7 +7,7 @@ import threading
 import lib.constants as const
 from lib.helper import Helper
 import subprocess32 as subprocess
-from lib.clean_helper import CleanHelper
+#from lib.clean_helper import CleanHelper
 from lib.configuration import Node, Environment
 
 # queue to store all nodes
