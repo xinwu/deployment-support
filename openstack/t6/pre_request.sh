@@ -14,7 +14,7 @@ if [[ $? == 0 ]]; then
     rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
     yum update -y
     yum groupinstall -y 'Development Tools'
-    yum install -y python-devel.x86_64 python-yaml sshpass puppet python-pip wget
+    yum install -y python-devel python-yaml sshpass puppet python-pip wget
     pip install --upgrade subprocess32 futures
     pip install --upgrade python-keystoneclient python-novaclient python-neutronclient
     #pip install --upgrade ospurge
