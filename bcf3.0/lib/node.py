@@ -42,6 +42,14 @@ class Node(object):
             self.ivs_debug_pkg     = env.ivs_pkg_map['debug_deb']
 
 
+    def is_ready_to_deploy(self):
+        if self.deploy_ivs and self.ivs_pkg != None:
+            return True
+        if not self.deploy_ivs:
+            return True
+        return False
+
+
     def set_bash_script_path(self, bash_script_path):
         self.bash_script_path = bash_script_path
 
