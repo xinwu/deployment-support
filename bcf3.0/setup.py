@@ -6,8 +6,9 @@ import lib.constants as const
 import subprocess32 as subprocess
 from lib.node import Node
 from lib.helper import Helper
+from lib.cleaner import Cleaner
 from lib.environment import Environment
-from with_ivs.lib.cleaner import Cleaner
+
 
 # queue to store all nodes
 node_q = Queue.Queue()
