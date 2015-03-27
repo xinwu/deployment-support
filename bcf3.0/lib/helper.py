@@ -4,10 +4,9 @@ import time
 import socket
 import string
 import threading
-from node import Node
-from constants import const
-from environment import Environment
+import constants as const
 import subprocess32 as subprocess
+from node import Node
 from threading import Lock
 
 
@@ -178,7 +177,7 @@ class Helper(object):
         # generate puppet script
         ivs_daemon_args = (const.IVS_DAEMON_ARGS %
                           {'inband_vlan' : const.INBAND_VLAN,
-                           'uplink_interfaces' : node.uplink_interfaces})
+                           'uplink_interfaces' : node.get_uplink_intfs_for_ivs()})
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(puppet_template_dir)s/%(puppet_template)s_%(role)s.pp''' %
                   {'setup_node_dir'      : node.setup_node_dir,
                    'deploy_mode'         : deploy_mode,
@@ -189,7 +188,7 @@ class Helper(object):
             puppet = (puppet_template %
                      {'ivs_daemon_args'       : ivs_daemon_args,
                       'network_vlan_ranges'   : node.network_vlan_ranges,
-                      'bcf_controllers'       : node.bcf_controllers,
+                      'bcf_controllers'       : node.get_controllers_for_neutron(),
                       'bcf_controller_user'   : node.bcf_controller_user,
                       'bcf_controller_passwd' : node.bcf_controller_passwd,
                       'selinux_mode'          : node.selinux_mode})
@@ -281,6 +280,7 @@ class Helper(object):
 
     @staticmethod
     def copy_pkg_scripts_to_remote_with_passwd(node):
+        # copy ivs to node
         if node.deploy_ivs:
             Helper.safe_print("Copy %(ivs_pkg)s to %(hostname)s\n" %
                               {'ivs_pkg'  : node.ivs_pkg,
@@ -319,12 +319,13 @@ class Helper(object):
            "%(hostname)s.pp" % {'hostname' : node.hostname})
 
         # copy selinux script to node
-        Helper.safe_print("Copy bsn selinux policy to %(hostname)s\n" %
-                         {'hostname' : node.hostname})
-        Helper.copy_file_to_remote_with_passwd(node,
-           node.selinux_script_path,
-           node.dst_dir,
-           "%(hostname)s.te" % {'hostname' : node.hostname})
+        if node.os in const.RPM_OS_SET:
+            Helper.safe_print("Copy bsn selinux policy to %(hostname)s\n" %
+                             {'hostname' : node.hostname})
+            Helper.copy_file_to_remote_with_passwd(node,
+               node.selinux_script_path,
+               node.dst_dir,
+               "%(hostname)s.te" % {'hostname' : node.hostname})
 
 
 

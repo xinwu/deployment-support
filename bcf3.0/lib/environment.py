@@ -2,7 +2,7 @@ import os
 import re
 import socket
 import constants as const
-from lib.helper import Helper
+from helper import Helper
 
 class Environment(object):
     def __init__(self, config):
@@ -54,6 +54,7 @@ class Environment(object):
         self.lower_vlan = match.group(2)
         self.upper_vlan = match.group(3)
         with open(const.VLAN_RANGE_CONFIG_PATH, "r") as vlan_range_file:
+            existing_vlan_range_pattern = re.compile(const.EXISTING_VLAN_RANGE_EXPRESSION, re.IGNORECASE)
             lines = vlan_range_file.readlines()
             for line in lines:
                 match = existing_vlan_range_pattern.match(line)

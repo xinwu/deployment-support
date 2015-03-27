@@ -1,5 +1,8 @@
+import sys
+sys.path.insert(0,'../..')
 import os
-import constants as const
+from lib.helper import Helper
+import lib.constants as const
 from ospurge.ospurge import Session
 from ospurge.ospurge import Resources
 from ospurge.ospurge import NeutronResources
@@ -9,7 +12,6 @@ from ospurge.ospurge import NeutronNetworks
 from ospurge.ospurge import NeutronPorts
 from ospurge.ospurge import NeutronSecgroups
 from ospurge.ospurge import NeutronFloatingIps
-from static_helper import StaticHelper as Helper
 from neutronclient.neutron import client as neutron_client
 from keystoneclient.v2_0 import client as keystone_client
 

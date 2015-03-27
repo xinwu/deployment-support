@@ -20,7 +20,7 @@ class Node(object):
         for intf in node_config['uplink_interfaces']:
             self.uplink_interfaces.append(intf['interface'])
 
-        bcf_controllers            = []
+        self.bcf_controllers            = []
         for controller in env.bcf_controllers:
             self.bcf_controllers.append(controller['controller'])
 
@@ -62,7 +62,16 @@ class Node(object):
         self.selinux_script_path = selinux_script_path
 
 
-    # TODO: get intf and bcf controller string
+    def get_uplink_intfs_for_ivs(self):
+        uplink_interfaces = []
+        for intf in self.uplink_interfaces:
+            uplink_interfaces.append(' -u ')
+            uplink_interfaces.append(intf)
+        return ''.join(uplink_interfaces)
+
+
+    def get_controllers_for_neutron(self):
+        return ','.join(self.bcf_controllers)
 
 
     def __str__(self):

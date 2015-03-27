@@ -16,7 +16,7 @@ node_q = Queue.Queue()
 def worker_setup_node():
     while True:
         node = node_q.get()
-        if !node.is_ready_to_deploy():
+        if not node.is_ready_to_deploy():
             continue
         if node.user != None and node.passwd != None:
             # copy ivs pkg to node
@@ -37,8 +37,8 @@ def worker_setup_node():
 def deploy_by_bcf_config(config):
     # Deploy setup node
     Helper.safe_print("Start to prepare setup node\n")
-    Helper.common_setup_node_preparation()
     env = Environment(config)
+    Helper.common_setup_node_preparation(env)
 
     # clean up network resources created by openstack installation
     try:
