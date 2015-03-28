@@ -229,14 +229,30 @@ class Helper(object):
                 node_config['os_version'] = config['default_os_version']
             if 'bsnstacklib_version' not in node_config:
                 node_config['bsnstacklib_version'] = config['default_bsnstacklib_version']
-            if 'user' not in node_config:
-                node_config['user'] = config['default_user']
-            if 'passwd' not in node_config:
-                node_config['passwd'] = config['default_passwd']
             if 'role' not in node_config:
                 node_config['role'] = config['default_role']
-            if 'uplink_interfaces' not in node_config:
-                node_config['uplink_interfaces'] = config['default_uplink_interfaces']
+
+            user = None
+            if 'default_user' in config:
+                user = config['default_user']
+            if 'user' in node_config:
+                user = node_config['user']
+            node_config['user'] = user
+
+            passwd = None
+            if 'default_passwd' in config:
+                passwd = config['default_passwd']
+            if 'passwd' in node_config:
+                passwd = node_config['passwd']
+            node_config['passwd'] = passwd
+
+            intfs = None
+            if 'default_uplink_interfaces' in config:
+                intfs = config['default_uplink_interfaces']
+            if 'uplink_interfaces' in node_config:
+                intfs = node_config['uplink_interfaces']
+            node_config['uplink_interfaces'] = intfs
+
             node = Node(node_config, env)
             node_dic[node.hostname] = node
         return node_dic
