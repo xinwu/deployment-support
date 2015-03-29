@@ -6,7 +6,6 @@ import lib.constants as const
 import subprocess32 as subprocess
 from lib.node import Node
 from lib.helper import Helper
-from lib.cleaner import Cleaner
 from lib.environment import Environment
 
 
@@ -40,14 +39,6 @@ def deploy_by_bcf_config(config):
     Helper.safe_print("Start to prepare setup node\n")
     env = Environment(config)
     Helper.common_setup_node_preparation(env)
-
-    # clean up network resources created by openstack installation
-    try:
-        cleaner = CleanHelper()
-        cleaner.delete_ovs_agents()
-        cleaner.delete_non_bcf_projects_neutron_resources()
-    except:
-        pass
 
     # Generate detailed node information
     Helper.safe_print("Start to setup Big Cloud Fabric\n")

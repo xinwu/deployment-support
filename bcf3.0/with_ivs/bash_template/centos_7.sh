@@ -12,7 +12,6 @@ rpm -ivh https://yum.puppetlabs.com/el/7/products/x86_64/puppetlabs-release-7-10
 yum update -y
 yum groupinstall -y 'Development Tools'
 yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
-pip install --upgrade ospurge
 pip install bsnstacklib==%(bsnstacklib_version)s
 rpm -ivh %(dst_dir)s/%(ivs_pkg)s
 if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
@@ -26,3 +25,4 @@ cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/sy
 
 # deploy bcf
 puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
+
