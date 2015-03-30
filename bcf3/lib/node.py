@@ -1,3 +1,4 @@
+import re
 import constants as const
 
 class Node(object):
@@ -26,26 +27,80 @@ class Node(object):
 
         self.bcf_controller_user   = env.bcf_controller_user
         self.bcf_controller_passwd = env.bcf_controller_passwd
-        self.network_vlan_ranges   = env.network_vlan_ranges
+        self.physnet               = env.physnet
+        self.lower_vlan            = env.lower_vlan
+        self.upper_vlan            = env.upper_vlan
         self.setup_node_ip         = env.setup_node_ip
-        self.setup_node_user       = env.setup_node_user
-        self.setup_node_passwd     = env.setup_node_passwd
         self.setup_node_dir        = env.setup_node_dir
         self.selinux_mode          = env.selinux_mode
 
+        self.ivs_pkg_map           = env.ivs_pkg_map
+        self.ivs_pkg               = None
         self.ivs_debug_pkg         = None
         if self.os in const.RPM_OS_SET:
-            self.ivs_pkg           = env.ivs_pkg_map['rpm']
-            self.ivs_debug_pkg     = env.ivs_pkg_map['debug_rpm']
+            self.ivs_pkg           = self.ivs_pkg_map['rpm']
+            self.ivs_debug_pkg     = self.ivs_pkg_map['debug_rpm']
         elif self.os in const.DEB_OS_SET:
-            self.ivs_pkg           = env.ivs_pkg_map['deb']
-            self.ivs_debug_pkg     = env.ivs_pkg_map['debug_deb']
+            self.ivs_pkg           = self.ivs_pkg_map['deb']
+            self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
 
         self.use_fuel              = False
 
 
     def set_use_fuel(self):
+        """
+        reset by fuel
+        """
         self.use_fuel = True
+
+
+    def set_os(self, os):
+        """
+        reset by fuel
+        """
+        self.os = os.lower()
+        # update ivs pkgs accordingly
+        if self.os in const.RPM_OS_SET:
+            self.ivs_pkg           = self.ivs_pkg_map['rpm']
+            self.ivs_debug_pkg     = self.ivs_pkg_map['debug_rpm']
+        elif self.os in const.DEB_OS_SET:
+            self.ivs_pkg           = self.ivs_pkg_map['deb']
+            self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
+
+
+    def set_os_version(self, os_version):
+        """
+        reset by fuel
+        """
+        self.os_version = os_version.split(".")[0]
+
+
+    def set_network_vlan_ranges(self, physnet, vlan_range):
+        """
+        reset by fuel
+        """
+        vlan_range_pattern = re.compile(const.VLAN_RANGE_EXPRESSION, re.IGNORECASE)
+        match = vlan_range_pattern.match(vlan_range)
+        if not match:
+            Helper.safe_print("vlan_ranges' format is not correct.\n")
+            return
+        self.physnet    = physnet
+        self.lower_vlan = match(1)
+        self.upper_vlan = match(2)
+
+
+    def set_role(self, role):
+        """
+        reset by fuel
+        """
+        self.role = role
+
+
+    def set_uplink_interfaces(self, uplink_interfaces):
+        """
+        reset by fuel
+        """
+        self.uplink_interfaces = uplink_interfaces
 
 
     def is_ready_to_deploy(self):
@@ -66,6 +121,13 @@ class Node(object):
 
     def set_selinux_script_path(self, selinux_script_path):
         self.selinux_script_path = selinux_script_path
+
+
+    def get_network_vlan_ranges(self):
+        return (r'''%(physnet)s:%(lower_vlan)s:%(upper_vlan)s''' %
+               {'physnet'    : self.physnet,
+                'lower_vlan' : self.lower_vlan,
+                'upper_vlan' : self.upper_vlan})
 
 
     def get_uplink_intfs_for_ivs(self):
@@ -99,13 +161,14 @@ uplink_interfaces      : %(uplink_interfaces)s,
 bcf_controllers        : %(bcf_controllers)s,
 bcf_controller_user    : %(bcf_controller_user)s,
 bcf_controller_passwd  : %(bcf_controller_passwd)s,
-network_vlan_ranges    : %(network_vlan_ranges)s,
+physnet                : %(physnet)s,
+lower_vlan             : %(lower_vlan)s,
+upper_vlan             : %(upper_vlan)s,
 setup_node_ip          : %(setup_node_ip)s,
-setup_node_user        : %(setup_node_user)s,
-setup_node_passwd      : %(setup_node_passwd)s,
 setup_node_dir         : %(setup_node_dir)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
+use_fuel               : %(use_fuel)s,
 ''' %
 {
 'dst_dir'               : self.dst_dir,
@@ -125,11 +188,12 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'bcf_controllers'       : self.bcf_controllers,
 'bcf_controller_user'   : self.bcf_controller_user,
 'bcf_controller_passwd' : self.bcf_controller_passwd,
-'network_vlan_ranges'   : self.network_vlan_ranges,
+'physnet'               : self.physnet,
+'lower_vlan'            : self.lower_vlan,
+'upper_vlan'            : self.upper_vlan,
 'setup_node_ip'         : self.setup_node_ip,
-'setup_node_user'       : self.setup_node_user,
-'setup_node_passwd'     : self.setup_node_passwd,
 'setup_node_dir'        : self.setup_node_dir,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
+'use_fuel'              : self.use_fuel,
 })

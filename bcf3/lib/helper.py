@@ -215,7 +215,7 @@ class Helper(object):
             puppet_template = puppet_template_file.read()
             puppet = (puppet_template %
                      {'ivs_daemon_args'       : ivs_daemon_args,
-                      'network_vlan_ranges'   : node.network_vlan_ranges,
+                      'network_vlan_ranges'   : node.get_network_vlan_ranges(),
                       'bcf_controllers'       : node.get_controllers_for_neutron(),
                       'bcf_controller_user'   : node.bcf_controller_user,
                       'bcf_controller_passwd' : node.bcf_controller_passwd,
