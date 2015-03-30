@@ -41,6 +41,12 @@ class Node(object):
             self.ivs_pkg           = env.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = env.ivs_pkg_map['debug_deb']
 
+        self.use_fuel              = False
+
+
+    def set_use_fuel(self):
+        self.use_fuel = True
+
 
     def is_ready_to_deploy(self):
         if self.deploy_ivs and self.ivs_pkg != None:

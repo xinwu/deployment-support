@@ -137,7 +137,7 @@ class Helper(object):
 
 
     @staticmethod
-    def run_command_on_remote_with_key():
+    def run_command_on_remote_with_key(node, cmd):
         """
         Run cmd on remote node.
         """
@@ -150,7 +150,7 @@ class Helper(object):
 
 
     @staticmethod
-    def copy_file_to_remote_with_key():
+    def copy_file_to_remote_with_key(node, src_file, dst_dir, dst_file, mode=777):
         """
         Copy file from local node to remote node,
         create directory if remote directory doesn't exist,
@@ -243,7 +243,7 @@ class Helper(object):
 
 
     @staticmethod
-    def load_bcf_config(config, env):
+    def load_bcf_config(config, env, use_fuel):
         """
         Parse yaml file and return a dictionary
         """
@@ -283,8 +283,11 @@ class Helper(object):
 
             node = Node(node_config, env)
             node_dic[node.hostname] = node
-        return node_dic
 
+        if not use_fuel:
+            return node_dic
+
+        # TODO: load from fuel
 
     @staticmethod
     def common_setup_node_preparation(env):
@@ -323,13 +326,29 @@ class Helper(object):
 
 
     @staticmethod
-    def copy_pkg_scripts_to_remote_with_passwd(node):
+    def run_command_on_remote(node, cmd):
+        if node.use_fuel:
+            run_command_on_remote_with_key(node, cmd)
+        else:
+            run_command_on_remote_with_passwd(node, cmd)
+
+
+    @staticmethod
+    def copy_file_to_remote(node, src_file, dst_dir, dst_file, mode=777):
+        if node.use_fuel:
+            copy_file_to_remote_with_key(node, src_file, dst_dir, dst_file, mode)
+        else:
+            copy_file_to_remote_with_passwd(node, src_file, dst_dir, dst_file, mode)
+
+
+    @staticmethod
+    def copy_pkg_scripts_to_remote(node):
         # copy ivs to node
         if node.deploy_ivs:
             Helper.safe_print("Copy %(ivs_pkg)s to %(hostname)s\n" %
                               {'ivs_pkg'  : node.ivs_pkg,
                                'hostname' : node.hostname})
-            Helper.copy_file_to_remote_with_passwd(node,
+            Helper.copy_file_to_remote(node,
                 (r'''%(src_dir)s/%(ivs_pkg)s''' %
                 {'src_dir' : node.setup_node_dir,
                  'ivs_pkg' : node.ivs_pkg}),
@@ -339,7 +358,7 @@ class Helper(object):
                 Helper.safe_print("Copy %(ivs_debug_pkg)s to %(hostname)s\n" %
                                  {'ivs_debug_pkg'  : node.ivs_debug_pkg,
                                   'hostname'       : node.hostname})
-                Helper.copy_file_to_remote_with_passwd(node,
+                Helper.copy_file_to_remote(node,
                     (r'''%(src_dir)s/%(ivs_debug_pkg)s''' %
                     {'src_dir'       : node.setup_node_dir,
                      'ivs_debug_pkg' : node.ivs_debug_pkg}),
@@ -349,7 +368,7 @@ class Helper(object):
         # copy bash script to node
         Helper.safe_print("Copy bash script to %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        Helper.copy_file_to_remote_with_passwd(node,
+        Helper.copy_file_to_remote(node,
            node.bash_script_path,
            node.dst_dir,
            "%(hostname)s.sh" % {'hostname' : node.hostname})
@@ -357,7 +376,7 @@ class Helper(object):
         # copy puppet script to node
         Helper.safe_print("Copy puppet script to %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        Helper.copy_file_to_remote_with_passwd(node,
+        Helper.copy_file_to_remote(node,
            node.puppet_script_path,
            node.dst_dir,
            "%(hostname)s.pp" % {'hostname' : node.hostname})
@@ -366,7 +385,7 @@ class Helper(object):
         if node.os in const.RPM_OS_SET:
             Helper.safe_print("Copy bsn selinux policy to %(hostname)s\n" %
                              {'hostname' : node.hostname})
-            Helper.copy_file_to_remote_with_passwd(node,
+            Helper.copy_file_to_remote(node,
                node.selinux_script_path,
                node.dst_dir,
                "%(hostname)s.te" % {'hostname' : node.hostname})

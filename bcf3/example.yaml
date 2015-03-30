@@ -13,6 +13,7 @@ default_bsnstacklib_version: 2014.2.24
 default_user: root
 default_passwd: bsn
 default_role: compute
+default_deploy_ivs: True
 default_uplink_interfaces:
 - interface: eth1
 - interface: eth2
