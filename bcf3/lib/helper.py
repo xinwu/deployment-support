@@ -138,12 +138,40 @@ class Helper(object):
 
     @staticmethod
     def run_command_on_remote_with_key():
-        pass
+        """
+        Run cmd on remote node.
+        """
+        local_cmd = (r'''ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(hostname)s >> %(log)s 2>&1 "%(remote_cmd)s"''' %
+                   {'hostname'   : node.hostname,
+                    'log'        : node.log,
+                    'remote_cmd' : cmd
+                   })
+        Helper.run_command_on_local(local_cmd)
 
 
     @staticmethod
     def copy_file_to_remote_with_key():
-        pass
+        """
+        Copy file from local node to remote node,
+        create directory if remote directory doesn't exist,
+        change the file mode as well.
+        """
+        mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
+        Helper.run_command_on_remote_with_key(node, mkdir_cmd)
+        scp_cmd = (r'''scp %(src_file)s %(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
+                  {'hostname'   : node.hostname,
+                   'log'        : node.log,
+                   'src_file'   : src_file,
+                   'dst_dir'    : dst_dir,
+                   'dst_file'   : dst_file
+                  })
+        Helper.run_command_on_local(scp_cmd)
+        chmod_cmd = (r'''chmod -R %(mode)d %(dst_dir)s/%(dst_file)s''' %
+                    {'mode'     : mode,
+                     'dst_dir'  : dst_dir,
+                     'dst_file' : dst_file
+                    })
+        Helper.run_command_on_remote_with_key(node, chmod_cmd)
 
 
     @staticmethod
