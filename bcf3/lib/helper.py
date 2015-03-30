@@ -243,7 +243,7 @@ class Helper(object):
 
 
     @staticmethod
-    def load_bcf_config(config, env, use_fuel):
+    def load_bcf_config(config, env):
         """
         Parse yaml file and return a dictionary
         """
@@ -284,10 +284,21 @@ class Helper(object):
             node = Node(node_config, env)
             node_dic[node.hostname] = node
 
-        if not use_fuel:
-            return node_dic
+        return node_dic
 
-        # TODO: load from fuel
+
+    @staticmethod
+    def load_fuel(config, env):
+        pass
+
+
+    @staticmethod
+    def load_nodes(config, env, use_fuel):
+        if not use_fuel:
+            return Helper.load_bcf_config(config, env)
+        else:
+            return Helper.load_fuel(config, env)
+
 
     @staticmethod
     def common_setup_node_preparation(env):
