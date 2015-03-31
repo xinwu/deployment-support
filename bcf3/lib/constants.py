@@ -28,13 +28,13 @@ IVS_DAEMON_ARGS = (r'''DAEMON_ARGS=\"--syslog --inband-vlan %(inband_vlan)d%(upl
 
 # constants of supported OSes and versions
 CENTOS          = 'centos'
-CENTOS_VERSIONS = {7}
+CENTOS_VERSIONS = [7]
 UBUNTU          = 'ubuntu'
-UBUNTU_VERSIONS = {14}
+UBUNTU_VERSIONS = [14]
 
 # OSes that uses rpm or deb packages
-RPM_OS_SET = {CENTOS}
-DEB_OS_SET = {UBUNTU}
+RPM_OS_SET = [CENTOS]
+DEB_OS_SET = [UBUNTU]
 
 # regular expressions
 EXISTING_NETWORK_VLAN_RANGE_EXPRESSION  = '^\s*network_vlan_ranges\s*=\s*(\S*)\s*:\s*(\S*)\s*:\s*(\S*)\s*$'

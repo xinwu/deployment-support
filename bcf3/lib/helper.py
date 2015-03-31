@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import json
+import shlex
 import socket
 import string
 import threading
@@ -49,6 +51,15 @@ class Helper(object):
 
 
     @staticmethod
+    def run_command_on_local_without_timeout(command):
+        args = shlex.split(command)
+        output, error = subprocess.Popen(args,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE).communicate()
+        return output, error
+
+
+    @staticmethod
     def run_command_on_local(command, timeout=1800):
         """
         Use subprocess to run a shell command on local node.
@@ -67,6 +78,7 @@ class Helper(object):
         for t in (tout, terr):
             t.daemon = True
             t.start()
+            print(t)
 
         watcher = threading.Thread(
             target=Helper.__kill_on_timeout__, args=(command, event, timeout, p))
@@ -288,7 +300,32 @@ class Helper(object):
 
 
     @staticmethod
+    def __load_fuel_evn_setting__():
+        try:
+            Helper.safe_print("Retrieving general Fuel settings\n")
+            output, errors = Helper.run_command_on_local_without_timeout('fuel --json --env 2 settings -d')
+        except Exception as e:
+            raise Exception("Error encountered trying to execute the Fuel "
+                            "CLI:\n%s" % e)
+        if errors:
+            raise Exception("Error Loading cluster %s:\n%s"
+                            % (environment_id, errors))
+        try:
+            path = output.split('downloaded to ')[1].rstrip()
+        except (IndexError, AttributeError):
+            raise Exception("Could not download fuel settings: %s"
+                            % output)
+        try:
+            fuel_settings = json.loads(open(path, 'r').read())
+        except Exception as e:
+            raise Exception("Error parsing fuel json settings.\n%s" % e)
+        return fuel_settings
+
+
+    @staticmethod
     def load_fuel(config, env):
+        fuel_settings = Helper.__load_fuel_evn_setting__()
+        
         pass
 
 
