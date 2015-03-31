@@ -53,7 +53,6 @@ def deploy_bcf(config, fuel_cluster_id):
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
         node_q.put(node)
-    return
 
     # Use multiple threads to setup nodes
     for i in range(const.MAX_WORKERS):
