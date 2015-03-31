@@ -33,15 +33,18 @@ def worker_setup_node():
     node_q.task_done()
 
 
-def deploy_bcf(config, use_fuel):
+def deploy_bcf(config, fuel_cluster_id):
     # Deploy setup node
     Helper.safe_print("Start to prepare setup node\n")
-    env = Environment(config)
+    env = Environment(config, fuel_cluster_id)
     Helper.common_setup_node_preparation(env)
 
     # Generate detailed node information
     Helper.safe_print("Start to setup Big Cloud Fabric\n")
-    node_dic = Helper.load_nodes(config, env, use_fuel)
+    nodes_config = None
+    if 'nodes' in config:
+        nodes_config = config['nodes']
+    node_dic = Helper.load_nodes(nodes_config, env)
 
     # Generate scripts for each node
     for hostname, node in node_dic.iteritems():
@@ -50,6 +53,7 @@ def deploy_bcf(config, use_fuel):
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
         node_q.put(node)
+    return
 
     # Use multiple threads to setup nodes
     for i in range(const.MAX_WORKERS):
@@ -72,11 +76,10 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config-file", required=True,
                         help="BCF YAML configuration file")
-    parser.add_argument('-f', "--use-fuel", default=False, action='store_true',
-                        help="Set if run this script in fuel environment. Fuel environment settings will override YAML configuration.")
+    parser.add_argument('-f', "--fuel-cluster-id", required=False,
+                        help="Fuel cluster ID. Fuel settings will override YAML configuration.")
     args = parser.parse_args()
     with open(args.config_file, 'r') as config_file:
         config = yaml.load(config_file)
-    use_fuel = args.use_fuel
-    deploy_bcf(config, use_fuel)
+    deploy_bcf(config, args.fuel_cluster_id)
 

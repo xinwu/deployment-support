@@ -5,13 +5,18 @@ import constants as const
 from helper import Helper
 
 class Environment(object):
-    def __init__(self, config):
+    def __init__(self, config, fuel_cluster_id):
+        # fuel cluster id
+        self.fuel_cluster_id = fuel_cluster_id
+
+        # setup node ip and directory
+        self.setup_node_ip  = Helper.get_setup_node_ip()
+        self.setup_node_dir = os.getcwd()
+
+        # if ivs pkg is necessary
         self.deploy_ivs = False
         if 'default_deploy_ivs' in config and config['default_deploy_ivs']:
             self.deploy_ivs = config['default_deploy_ivs']
-        # setup node ip, user and pwd
-        self.setup_node_ip  = Helper.get_setup_node_ip()
-        self.setup_node_dir = os.getcwd()
         for node_config in config['nodes']:
             if not self.deploy_ivs and 'deploy_ivs' in node_config and node_config['deploy_ivs']:
                 self.deploy_ivs = node_config['deploy_ivs']
@@ -62,5 +67,38 @@ class Environment(object):
             elif '.deb' in ivs_pkg and '-debuginfo-' in ivs_pkg:
                 self.ivs_url_map['debug_deb'] = ivs_url
                 self.ivs_pkg_map['debug_deb'] = ivs_pkg
+
+        # information will be passed on to nodes
+        self.deploy_ivs = None
+        if 'default_deploy_ivs' in config:
+            self.deploy_ivs = config['default_deploy_ivs']
+
+        self.os = None
+        if 'default_os' in config:
+            self.os = config['default_os']
+        
+        self.os_version = None
+        if 'default_os_version' in config:
+            self.os_version = config['default_os_version']
+        
+        self.bsnstacklib_version = None
+        if 'default_bsnstacklib_version' in config:
+            self.bsnstacklib_version = config['default_bsnstacklib_version']
+        
+        self.role = None
+        if 'default_role' in config:
+            self.role = config['default_role']
+
+        self.user = None
+        if 'default_user' in config:
+            self.user = config['default_user']
+
+        self.passwd = None
+        if 'default_passwd' in config:
+            self.passwd = config['default_passwd']
+
+        self.uplink_interfaces = None
+        if 'default_uplink_interfaces' in config:
+            self.uplink_interfaces = config['default_uplink_interfaces']
 
 

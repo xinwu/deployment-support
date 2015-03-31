@@ -55,7 +55,8 @@ class Helper(object):
         args = shlex.split(command)
         output, error = subprocess.Popen(args,
             stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE).communicate()
+            stderr = subprocess.PIPE,
+            shell=True).communicate()
         return output, error
 
 
@@ -100,10 +101,10 @@ class Helper(object):
         clean up any hiden space.
         """
         with Helper.__print_lock:
-            Helper.run_command_on_local('stty sane')
+            subprocess.call('stty sane', shell=True)
             sys.stdout.write(message)
             sys.stdout.flush()
-            Helper.run_command_on_local('stty sane')
+            subprocess.call('stty sane', shell=True)
 
 
     @staticmethod
@@ -255,44 +256,30 @@ class Helper(object):
 
 
     @staticmethod
-    def load_bcf_config(config, env):
+    def load_bcf_config(nodes_config, env):
         """
         Parse yaml file and return a dictionary
         """
         node_dic = {}
-        for node_config in config['nodes']:
+        if nodes_config == None:
+            return node_dic
+        for node_config in nodes_config:
             if 'deploy_ivs' not in node_config:
-                node_config['deploy_ivs'] = config['default_deploy_ivs']
+                node_config['deploy_ivs'] = env.deploy_ivs
             if 'os' not in node_config:
-                node_config['os'] = config['default_os']
+                node_config['os'] = env.os
             if 'os_version' not in node_config:
-                node_config['os_version'] = config['default_os_version']
+                node_config['os_version'] = env.os_version
             if 'bsnstacklib_version' not in node_config:
-                node_config['bsnstacklib_version'] = config['default_bsnstacklib_version']
+                node_config['bsnstacklib_version'] = env.bsnstacklib_version
             if 'role' not in node_config:
-                node_config['role'] = config['default_role']
-
-            user = None
-            if 'default_user' in config:
-                user = config['default_user']
-            if 'user' in node_config:
-                user = node_config['user']
-            node_config['user'] = user
-
-            passwd = None
-            if 'default_passwd' in config:
-                passwd = config['default_passwd']
-            if 'passwd' in node_config:
-                passwd = node_config['passwd']
-            node_config['passwd'] = passwd
-
-            intfs = None
-            if 'default_uplink_interfaces' in config:
-                intfs = config['default_uplink_interfaces']
-            if 'uplink_interfaces' in node_config:
-                intfs = node_config['uplink_interfaces']
-            node_config['uplink_interfaces'] = intfs
-
+                node_config['role'] = env.role
+            if 'user' not in node_config:
+                node_config['user'] = env.user
+            if 'passwd' not in node_config:
+                node_config['passwd'] = env.passwd
+            if 'uplink_interfaces' not in node_config:
+                node_config['uplink_interfaces'] = env.uplink_interfaces
             node = Node(node_config, env)
             node_dic[node.hostname] = node
 
@@ -300,10 +287,11 @@ class Helper(object):
 
 
     @staticmethod
-    def __load_fuel_evn_setting__():
+    def __load_fuel_evn_setting__(fuel_cluster_id):
         try:
             Helper.safe_print("Retrieving general Fuel settings\n")
-            output, errors = Helper.run_command_on_local_without_timeout('fuel --json --env 2 settings -d')
+            output, errors = Helper.run_command_on_local_without_timeout("fuel --json --env %(env_id)s settings -d" %
+                                                                         {'env_id' : str(fuel_cluster_id)})
         except Exception as e:
             raise Exception("Error encountered trying to execute the Fuel "
                             "CLI:\n%s" % e)
@@ -319,22 +307,22 @@ class Helper(object):
             fuel_settings = json.loads(open(path, 'r').read())
         except Exception as e:
             raise Exception("Error parsing fuel json settings.\n%s" % e)
+        print fuel_settings
         return fuel_settings
 
 
     @staticmethod
-    def load_fuel(config, env):
-        fuel_settings = Helper.__load_fuel_evn_setting__()
-        
+    def load_fuel(env):
+        fuel_settings = Helper.__load_fuel_evn_setting__(env.fuel_cluster_id)
         pass
 
 
     @staticmethod
-    def load_nodes(config, env, use_fuel):
-        if not use_fuel:
-            return Helper.load_bcf_config(config, env)
+    def load_nodes(nodes_config, env):
+        if env.fuel_cluster_id == None:
+            return Helper.load_bcf_config(nodes_config, env)
         else:
-            return Helper.load_fuel(config, env)
+            return Helper.load_fuel(env)
 
 
     @staticmethod

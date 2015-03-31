@@ -12,16 +12,16 @@ class Node(object):
         self.role                  = node_config['role'].lower()
         self.deploy_ivs            = node_config['deploy_ivs']
         self.os                    = node_config['os'].lower()
-        self.os_version            = node_config['os_version'].split(".")[0]
+        self.os_version            = str(node_config['os_version']).split(".")[0]
         self.bsnstacklib_version   = node_config['bsnstacklib_version']
         self.user                  = node_config['user']
         self.passwd                = node_config['passwd']
 
-        self.uplink_interfaces          = []
+        self.uplink_interfaces     = []
         for intf in node_config['uplink_interfaces']:
             self.uplink_interfaces.append(intf['interface'])
 
-        self.bcf_controllers            = []
+        self.bcf_controllers       = []
         for controller in env.bcf_controllers:
             self.bcf_controllers.append(controller['controller'])
 
@@ -33,7 +33,7 @@ class Node(object):
         self.setup_node_ip         = env.setup_node_ip
         self.setup_node_dir        = env.setup_node_dir
         self.selinux_mode          = env.selinux_mode
-
+        self.fuel_cluster_id       = env.fuel_cluster_id
         self.ivs_pkg_map           = env.ivs_pkg_map
         self.ivs_pkg               = None
         self.ivs_debug_pkg         = None
@@ -43,15 +43,6 @@ class Node(object):
         elif self.os in const.DEB_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
-
-        self.use_fuel              = False
-
-
-    def set_use_fuel(self):
-        """
-        reset by fuel
-        """
-        self.use_fuel = True
 
 
     def set_os(self, os):
@@ -166,9 +157,10 @@ lower_vlan             : %(lower_vlan)s,
 upper_vlan             : %(upper_vlan)s,
 setup_node_ip          : %(setup_node_ip)s,
 setup_node_dir         : %(setup_node_dir)s,
+selinux_mode           : %(selinux_mode)s,
+fuel_cluster_id        : %(fuel_cluster_id)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
-use_fuel               : %(use_fuel)s,
 ''' %
 {
 'dst_dir'               : self.dst_dir,
@@ -193,7 +185,8 @@ use_fuel               : %(use_fuel)s,
 'upper_vlan'            : self.upper_vlan,
 'setup_node_ip'         : self.setup_node_ip,
 'setup_node_dir'        : self.setup_node_dir,
+'selinux_mode'          : self.selinux_mode,
+'fuel_cluster_id'       : self.fuel_cluster_id,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
-'use_fuel'              : self.use_fuel,
 })
