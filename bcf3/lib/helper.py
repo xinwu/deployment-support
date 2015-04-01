@@ -338,20 +338,31 @@ class Helper(object):
             lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
             for l in lines:
-                ip = str(netaddr.IPAddress(l.split('|')[4].strip()))
-                role = str(l.split('|')[6].strip())
-                node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(ip, 'cat /etc/astute.yaml')
+                node_config = {}
+                node_config['hostname'] = str(netaddr.IPAddress(l.split('|')[4].strip()))
+                node_config['role'] = str(l.split('|')[6].strip())
+
+                node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
+                    'cat /etc/astute.yaml')
                 if errors or not node_yaml:
-                    Helper.safe_print("Error retrieving config for node %(ip)s:\n%(errors)s\n"
-                                      % {'ip' : ip, 'errors' : errors})
+                    Helper.safe_print("Error retrieving config for node %(hostname)s:\n%(errors)s\n"
+                                      % {'hostname' : node_config['hostname'], 'errors' : errors})
                     continue
                 try:
-                    node_config = yaml.load(node_yaml)
+                    node_yaml_config = yaml.load(node_yaml)
                 except Exception as e:
-                    Helper.safe_print("Error parsing node %(ip)s yaml file:\n%(e)s\n"
-                                      % {'ip' : ip, 'e' : e})
+                    Helper.safe_print("Error parsing node %(hostname)s yaml file:\n%(e)s\n"
+                                      % {'hostname' : node_config['hostname'], 'e' : e})
                     continue
-                #TODO process node_config
+
+                physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
+                for physnet, physnet_detail in physnets.iteritems():
+                    bridge     = physnet_detail['bridge']
+                    vlan_range = physnet_detail['vlan_range']
+                    # we deal with only the first physnet
+                    break
+                # TODO
+                fuel_node_config_dic[node_config['hostname']] = node_config
         except IndexError:
             raise Exception("Could not parse node list:\n%(node_list)s\n"
                             % {'node_list' : node_list})
