@@ -6,6 +6,7 @@ bcf_controllers:
 bcf_controller_user: admin
 bcf_controller_passwd: adminadmin
 default_deploy_ivs: true
+default_skip: false
 default_bsnstacklib_version: 2014.2.24
 default_user: root
 default_passwd: bsn

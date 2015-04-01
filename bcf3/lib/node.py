@@ -10,6 +10,7 @@ class Node(object):
         self.log                   = const.LOG_FILE
         self.hostname              = node_config['hostname']
         self.role                  = node_config['role'].lower()
+        self.skip                  = node_config['skip']
         self.deploy_ivs            = node_config['deploy_ivs']
         self.os                    = node_config['os'].lower()
         self.os_version            = str(node_config['os_version']).split(".")[0]
@@ -142,6 +143,7 @@ selinux_script_path    : %(selinux_script_path)s,
 log                    : %(log)s,
 hostname               : %(hostname)s,
 role                   : %(role)s,
+skip                   : %(skip)s,
 deploy_ivs             : %(deploy_ivs)s,
 os                     : %(os)s,
 os_version             : %(os_version)s,
@@ -170,6 +172,7 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'log'                   : self.log,
 'hostname'              : self.hostname,
 'role'                  : self.role,
+'skip'                  : self.skip,
 'deploy_ivs'            : self.deploy_ivs,
 'os'                    : self.os,
 'os_version'            : self.os_version,

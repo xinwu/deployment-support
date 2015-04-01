@@ -69,6 +69,10 @@ class Environment(object):
                 self.ivs_pkg_map['debug_deb'] = ivs_pkg
 
         # information will be passed on to nodes
+        self.skip = False
+        if 'default_skip' in config:
+            self.skip = config['default_skip']
+
         self.deploy_ivs = None
         if 'default_deploy_ivs' in config:
             self.deploy_ivs = config['default_deploy_ivs']

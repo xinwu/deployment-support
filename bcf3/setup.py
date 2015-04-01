@@ -53,6 +53,7 @@ def deploy_bcf(config, fuel_cluster_id):
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
         node_q.put(node)
+    return
 
     # Use multiple threads to setup nodes
     for i in range(const.MAX_WORKERS):
@@ -76,7 +77,7 @@ if __name__=='__main__':
     parser.add_argument("-c", "--config-file", required=True,
                         help="BCF YAML configuration file")
     parser.add_argument('-f', "--fuel-cluster-id", required=False,
-                        help="Fuel cluster ID. Fuel settings will override YAML configuration.")
+                        help="Fuel cluster ID. YAML configuration can override Fuel settings.")
     args = parser.parse_args()
     with open(args.config_file, 'r') as config_file:
         config = yaml.load(config_file)

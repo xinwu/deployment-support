@@ -5,6 +5,7 @@ import json
 import shlex
 import socket
 import string
+import netaddr
 import threading
 import constants as const
 import subprocess32 as subprocess
@@ -55,8 +56,7 @@ class Helper(object):
         args = shlex.split(command)
         output, error = subprocess.Popen(args,
             stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE,
-            shell=True).communicate()
+            stderr = subprocess.PIPE).communicate()
         return output, error
 
 
@@ -256,7 +256,7 @@ class Helper(object):
 
 
     @staticmethod
-    def load_bcf_config(nodes_config, env):
+    def load_nodes_from_yaml(nodes_config, env):
         """
         Parse yaml file and return a dictionary
         """
@@ -282,7 +282,6 @@ class Helper(object):
                 node_config['uplink_interfaces'] = env.uplink_interfaces
             node = Node(node_config, env)
             node_dic[node.hostname] = node
-
         return node_dic
 
 
@@ -290,8 +289,9 @@ class Helper(object):
     def __load_fuel_evn_setting__(fuel_cluster_id):
         try:
             Helper.safe_print("Retrieving general Fuel settings\n")
-            output, errors = Helper.run_command_on_local_without_timeout("fuel --json --env %(env_id)s settings -d" %
-                                                                         {'env_id' : str(fuel_cluster_id)})
+            cmd = (r'''fuel --json --env %(fuel_cluster_id)s settings -d''' %
+                  {'fuel_cluster_id' : fuel_cluster_id})
+            output, errors = Helper.run_command_on_local_without_timeout(cmd)
         except Exception as e:
             raise Exception("Error encountered trying to execute the Fuel "
                             "CLI:\n%s" % e)
@@ -312,17 +312,53 @@ class Helper(object):
 
 
     @staticmethod
-    def load_fuel(env):
+    def __load_fuel_nodes__(env):
+        Helper.safe_print("Retrieving list of Fuel nodes\n")
+        cmd = (r'''fuel nodes --env %(fuel_cluster_id)s''' %
+              {'fuel_cluster_id' : str(env.fuel_cluster_id)})
+        output, errors = Helper.run_command_on_local_without_timeout(cmd)
+        if errors:
+            raise Exception("Error Loading node list %s:\n%s"
+                            % (env.fuel_cluster_id, errors))
+        fuel_node_config_dic = {}
+        try:
+            lines = [l for l in output.splitlines()
+                     if '----' not in l and 'pending_roles' not in l]
+            for l in lines:
+                ip = str(netaddr.IPAddress(l.split('|')[4].strip()))
+                hostname = socket.gethostbyaddr(ip)
+                role = str(l.split('|')[6].strip())
+                #TODO
+            Helper.safe_print("Nodes to configure: %s\n" % ips)
+        except IndexError:
+            raise Exception("Could not parse node list:\n%s" % output)
+        return fuel_node_config_dic
+        
+
+
+    @staticmethod
+    def load_nodes_from_fuel(nodes_config, env):
         fuel_settings = Helper.__load_fuel_evn_setting__(env.fuel_cluster_id)
-        pass
+        fuel_node_config_dic = Helper.__load_nodes_from_fuel__(env)
+        node_dic = {}
+        for ip, fuel_node_config in fuel_node_config_dic.iteritems():
+            hostname = ip
+            if hostname not in nodes_config:
+                hostname = socket.gethostbyaddr(ip)
+            if hostname in nodes_config:
+                # TODO
+            else:
+                node = Node(fuel_node_config, env)
+            node_dic[hostname] = node
+        return node_dic
 
 
     @staticmethod
     def load_nodes(nodes_config, env):
         if env.fuel_cluster_id == None:
-            return Helper.load_bcf_config(nodes_config, env)
+            return Helper.load_nodes_from_yaml(nodes_config, env)
         else:
-            return Helper.load_fuel(env)
+            return Helper.load_nodes_from_fuel(nodes_config, env)
 
 
     @staticmethod
