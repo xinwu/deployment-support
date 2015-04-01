@@ -1091,9 +1091,13 @@ exec{"neutronserverrestart":
 if $operatingsystem == 'Ubuntu' {
   $restart_nagent_comm = "service neutron-plugin-openvswitch-agent restart ||:;"
 }
-if $operatingsystem == 'CentOS' {
+if ($operatingsystem == 'CentOS') and ($operatingsystemrelease =~ /^6.*/) {
   # the old version of centos openvswitch version had issues after the bond changes and required a restart as well
   $restart_nagent_comm = "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;"
+}
+if ($operatingsystem == 'CentOS') and ($operatingsystemrelease !~ /^6.*/) {
+  # the old version of centos openvswitch version had issues after the bond changes and required a restart as well
+  $restart_nagent_comm = "service openvswitch restart ||:; service neutron-openvswitch-agent restart ||:;"
 }
 if $operatingsystem == 'RedHat' {
   $restart_nagent_comm = "service neutron-openvswitch-agent restart ||:;"
@@ -1584,10 +1588,18 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
             content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
         }
     }
-    exec {"openvswitchrestart":
-       refreshonly => true,
-       command => '/etc/init.d/openvswitch restart',
-       path    => $binpath,
+    if $operatingsystemrelease =~ /^6.*/ {
+        exec {"openvswitchrestart":
+          refreshonly => true,
+          command => '/etc/init.d/openvswitch restart', 
+          path    => $binpath,
+        }
+    } else {
+        exec {"openvswitchrestart":
+          refreshonly => true,
+          command => 'service openvswitch restart',
+          path    => $binpath,
+        }
     }
 }
 exec {"ensurebridge":
