@@ -48,6 +48,8 @@ def deploy_bcf(config, fuel_cluster_id):
 
     # Generate scripts for each node
     for hostname, node in node_dic.iteritems():
+        if node.skip:
+            continue
         if node.os == const.CENTOS:
             Helper.generate_scripts_for_centos(node)
         with open(const.LOG_FILE, "a") as log_file:

@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import json
-import shlex
 import socket
 import string
 import netaddr
@@ -304,20 +303,22 @@ class Helper(object):
                   {'fuel_cluster_id' : fuel_cluster_id})
             output, errors = Helper.run_command_on_local_without_timeout(cmd)
         except Exception as e:
-            raise Exception("Error encountered trying to execute the Fuel "
-                            "CLI:\n%s" % e)
+            raise Exception("Error encountered trying to execute the Fuel CLI\n%(e)s\n"
+                            % {'e' : e})
         if errors:
-            raise Exception("Error Loading cluster %s:\n%s"
-                            % (environment_id, errors))
+            raise Exception("Error Loading cluster %(fuel_cluster_id)s\n%(errors)s\n"
+                            % {'fuel_cluster_id' : str(fuel_cluster_id),
+                               'errors'          : errors})
         try:
             path = output.split('downloaded to ')[1].rstrip()
         except (IndexError, AttributeError):
-            raise Exception("Could not download fuel settings: %s"
-                            % output)
+            raise Exception("Could not download fuel settings: %(output)s\n"
+                            % {'output' : output})
         try:
             fuel_settings = json.loads(open(path, 'r').read())
         except Exception as e:
-            raise Exception("Error parsing fuel json settings.\n%s" % e)
+            raise Exception("Error parsing fuel json settings.\n%(e)s\n"
+                            % {'e' : e})
         return fuel_settings
 
 
@@ -328,8 +329,9 @@ class Helper(object):
               {'fuel_cluster_id' : str(env.fuel_cluster_id)})
         node_list, errors = Helper.run_command_on_local_without_timeout(cmd)
         if errors:
-            raise Exception("Error Loading node list %s:\n%s"
-                            % (env.fuel_cluster_id, errors))
+            raise Exception("Error Loading node list %(fuel_cluster_id)s:\n%(errors)s\n"
+                            % {'fuel_cluster_id' : env.fuel_cluster_id,
+                               'errors'          : errors})
         fuel_node_config_dic = {}
         try:
             lines = [l for l in node_list.splitlines()
@@ -339,18 +341,24 @@ class Helper(object):
                 role = str(l.split('|')[6].strip())
                 node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(ip, 'cat /etc/astute.yaml')
                 if errors or not node_yaml:
-                    Helper.safe_print("Error retrieving config for node %s:\n%s\n"
-                                      % (ip, errors))
+                    Helper.safe_print("Error retrieving config for node %(ip)s:\n%(errors)s\n"
+                                      % {'ip' : ip, 'errors' : errors})
                     continue
                 try:
                     node_config = yaml.load(node_yaml)
                 except Exception as e:
-                    Helper.safe_print("Error parsing node yaml file:\n%s\n%s"
-                                      % (e, node_yaml))
+                    Helper.safe_print("\n\n\n")
+                    Helper.safe_print(node_yaml)
+                    Helper.safe_print("\n\n\n")
+                    Helper.safe_print(str(e) + "\n")
+                    break
+                    Helper.safe_print("Error parsing node %(ip)s yaml file:\n%(e)s\n"
+                                      % {'ip' : ip, 'e' : e})
                     continue
                 #TODO process node_config
         except IndexError:
-            raise Exception("Could not parse node list:\n%s" % node_list)
+            raise Exception("Could not parse node list:\n%(node_list)s\n"
+                            % {'node_list' : node_list})
         return fuel_node_config_dic
         
 
