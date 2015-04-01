@@ -53,11 +53,23 @@ class Helper(object):
 
     @staticmethod
     def run_command_on_local_without_timeout(command):
-        args = shlex.split(command)
-        output, error = subprocess.Popen(args,
+        output, error = subprocess.Popen(command,
             stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE).communicate()
+            stderr = subprocess.PIPE,
+            shell=True).communicate()
         return output, error
+
+
+    @staticmethod
+    def run_command_on_remote_with_key_without_timeout(node_ip, command):
+        """
+        Run cmd on remote node.
+        """
+        local_cmd = (r'''ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(hostname)s "%(remote_cmd)s"''' %
+                    {'hostname'   : node_ip,
+                     'remote_cmd' : command,
+                    })
+        return Helper.run_command_on_local_without_timeout(local_cmd)
 
 
     @staticmethod
@@ -79,7 +91,6 @@ class Helper(object):
         for t in (tout, terr):
             t.daemon = True
             t.start()
-            print(t)
 
         watcher = threading.Thread(
             target=Helper.__kill_on_timeout__, args=(command, event, timeout, p))
@@ -108,7 +119,7 @@ class Helper(object):
 
 
     @staticmethod
-    def run_command_on_remote_with_passwd(node, cmd):
+    def run_command_on_remote_with_passwd(node, command):
         """
         Run cmd on remote node.
         """
@@ -117,7 +128,7 @@ class Helper(object):
                     'hostname'   : node.hostname,
                     'pwd'        : node.passwd,
                     'log'        : node.log,
-                    'remote_cmd' : cmd
+                    'remote_cmd' : command,
                    })
         Helper.run_command_on_local(local_cmd)
 
@@ -150,14 +161,14 @@ class Helper(object):
 
 
     @staticmethod
-    def run_command_on_remote_with_key(node, cmd):
+    def run_command_on_remote_with_key(node, command):
         """
         Run cmd on remote node.
         """
         local_cmd = (r'''ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(hostname)s >> %(log)s 2>&1 "%(remote_cmd)s"''' %
                    {'hostname'   : node.hostname,
                     'log'        : node.log,
-                    'remote_cmd' : cmd
+                    'remote_cmd' : command
                    })
         Helper.run_command_on_local(local_cmd)
 
@@ -307,31 +318,39 @@ class Helper(object):
             fuel_settings = json.loads(open(path, 'r').read())
         except Exception as e:
             raise Exception("Error parsing fuel json settings.\n%s" % e)
-        print fuel_settings
         return fuel_settings
 
 
     @staticmethod
-    def __load_fuel_nodes__(env):
+    def __load_fuel_nodes_config__(env):
         Helper.safe_print("Retrieving list of Fuel nodes\n")
         cmd = (r'''fuel nodes --env %(fuel_cluster_id)s''' %
               {'fuel_cluster_id' : str(env.fuel_cluster_id)})
-        output, errors = Helper.run_command_on_local_without_timeout(cmd)
+        node_list, errors = Helper.run_command_on_local_without_timeout(cmd)
         if errors:
             raise Exception("Error Loading node list %s:\n%s"
                             % (env.fuel_cluster_id, errors))
         fuel_node_config_dic = {}
         try:
-            lines = [l for l in output.splitlines()
+            lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
             for l in lines:
                 ip = str(netaddr.IPAddress(l.split('|')[4].strip()))
-                hostname = socket.gethostbyaddr(ip)
                 role = str(l.split('|')[6].strip())
-                #TODO
-            Helper.safe_print("Nodes to configure: %s\n" % ips)
+                node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(ip, 'cat /etc/astute.yaml')
+                if errors or not node_yaml:
+                    Helper.safe_print("Error retrieving config for node %s:\n%s\n"
+                                      % (ip, errors))
+                    continue
+                try:
+                    node_config = yaml.load(node_yaml)
+                except Exception as e:
+                    Helper.safe_print("Error parsing node yaml file:\n%s\n%s"
+                                      % (e, node_yaml))
+                    continue
+                #TODO process node_config
         except IndexError:
-            raise Exception("Could not parse node list:\n%s" % output)
+            raise Exception("Could not parse node list:\n%s" % node_list)
         return fuel_node_config_dic
         
 
@@ -339,13 +358,14 @@ class Helper(object):
     @staticmethod
     def load_nodes_from_fuel(nodes_config, env):
         fuel_settings = Helper.__load_fuel_evn_setting__(env.fuel_cluster_id)
-        fuel_node_config_dic = Helper.__load_nodes_from_fuel__(env)
+        fuel_node_config_dic = Helper.__load_fuel_nodes_config__(env)
         node_dic = {}
         for ip, fuel_node_config in fuel_node_config_dic.iteritems():
             hostname = ip
             if hostname not in nodes_config:
                 hostname = socket.gethostbyaddr(ip)
             if hostname in nodes_config:
+                pass
                 # TODO
             else:
                 node = Node(fuel_node_config, env)
@@ -398,11 +418,11 @@ class Helper(object):
 
 
     @staticmethod
-    def run_command_on_remote(node, cmd):
+    def run_command_on_remote(node, command):
         if node.use_fuel:
-            run_command_on_remote_with_key(node, cmd)
+            run_command_on_remote_with_key(node, command)
         else:
-            run_command_on_remote_with_passwd(node, cmd)
+            run_command_on_remote_with_passwd(node, command)
 
 
     @staticmethod
