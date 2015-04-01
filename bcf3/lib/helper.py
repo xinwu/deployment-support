@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import json
+import yaml
 import socket
 import string
 import netaddr
@@ -347,11 +348,6 @@ class Helper(object):
                 try:
                     node_config = yaml.load(node_yaml)
                 except Exception as e:
-                    Helper.safe_print("\n\n\n")
-                    Helper.safe_print(node_yaml)
-                    Helper.safe_print("\n\n\n")
-                    Helper.safe_print(str(e) + "\n")
-                    break
                     Helper.safe_print("Error parsing node %(ip)s yaml file:\n%(e)s\n"
                                       % {'ip' : ip, 'e' : e})
                     continue
