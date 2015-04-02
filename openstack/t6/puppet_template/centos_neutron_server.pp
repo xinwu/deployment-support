@@ -243,3 +243,7 @@ service { 'neutron-dhcp-agent':
   require => Selinux::Module['selinux-ivs'],
 }
 
+# patch for packstack nova
+package { "device-mapper-libs":
+  ensure => "installed",
+}

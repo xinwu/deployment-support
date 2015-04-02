@@ -63,3 +63,20 @@ service { 'neutron-openvswitch-agent':
   require => Selinux::Module['selinux-ivs'],
 }
 
+# patch for packstack nova
+package { "device-mapper-libs":
+  ensure => "installed",
+  notify => Service['libvirtd'],
+}
+service { "libvirtd":
+  ensure  => running,
+  enable  => true,
+  path    => $binpath,
+  notify  => Service['openstack-nova-compute'],
+}
+service { "openstack-nova-compute":
+  ensure  => running,
+  enable  => true,
+  path    => $binpath,
+}
+
