@@ -1296,8 +1296,10 @@ allow neutron_t etc_t:file create;
 '''  # noqa
 
     bond_and_lldpd_configuration = r'''
-package { "wget":
-    ensure => installed,
+if !defined(Package['wget']) {
+    package { "wget":
+        ensure => installed,
+    }
 }
 exec {"loadbond":
    command => 'modprobe bonding',
