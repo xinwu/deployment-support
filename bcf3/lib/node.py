@@ -45,6 +45,11 @@ class Node(object):
             self.ivs_pkg           = self.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
         self.physnet_bridge        = env.physnet_bridge
+        self.br_management         = env.br_management
+        self.br_storage            = env.br_storage
+        self.br_ex                 = env.br_ex
+        self.br_private            = env.br_private
+        self.br_bond               = env.br_bond
 
 
     def set_os(self, os):
@@ -144,6 +149,11 @@ fuel_cluster_id        : %(fuel_cluster_id)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
 physnet_bridge         : %(physnet_bridge)s,
+br_management          : %(br_management)s,
+br_storage             : %(br_storage)s,
+br_ex                  : %(br_ex)s,
+br_private             : %(br_private)s,
+br_bond                : %(br_bond)s,
 ''' %
 {
 'dst_dir'               : self.dst_dir,
@@ -174,4 +184,10 @@ physnet_bridge         : %(physnet_bridge)s,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
 'physnet_bridge'        : self.physnet_bridge,
+'br_management'         : self.br_management,
+'br_storage'            : self.br_storage,
+'br_ex'                 : self.br_ex,
+'br_private'            : self.br_private,
+'br_bond'               : self.br_bond,
 })
+

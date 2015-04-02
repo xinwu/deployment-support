@@ -107,6 +107,11 @@ class Environment(object):
 
         # fields introduced by fuel
         self.physnet_bridge = None
+        self.br_management  = None
+        self.br_storage     = None
+        self.br_ex          = None
+        self.br_private     = None
+        self.br_bond        = None
 
 
     def set_physnet(self, physnet):
@@ -125,6 +130,23 @@ class Environment(object):
         self.upper_vlan = upper_vlan
 
 
+    def set_br_management(self, br_mgmt):
+        self.br_management = br_mgmt
 
+
+    def set_br_storage(self, br_storage):
+        self.br_storage = br_storage
+
+
+    def set_br_ex(self, br_ex):
+        self.br_ex = br_ex
+
+
+    def set_br_private(self, br_private):
+        self.br_private = br_private
+
+
+    def set_br_bond(self, br_bond):
+        self.br_bond = br_bond
 
 

@@ -345,7 +345,7 @@ class Helper(object):
                               % {'hostname' : node_config['hostname'], 'e' : e})
             return None, env
 
-        # physnet bridge hasn't been assigned
+        # physnet and vlan range
         if not env.physnet_bridge:
             physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
             for physnet, physnet_detail in physnets.iteritems():
@@ -358,8 +358,30 @@ class Helper(object):
                 # we deal with only the first physnet
                 break
 
-        #TODO other fields
+        # bridge names
+        if not env.br_private:
+            roles = node_yaml_config['network_scheme']['roles']
+            env.set_br_management(roles['management'])
+            env.set_br_storage(roles['storage'])
+            env.set_br_ex(roles['ex'])
+            env.set_br_private(roles['private'])
 
+        trans = node_yaml_config['network_scheme']['transformations']
+        # get br_prv attached bond bridge
+        for tran in trans:
+            if (tran['action'] != 'add-patch'):
+                continue
+            if (env.br_private not in tran['bridges']):
+                continue
+            bridges = list(tran['bridges'])
+            bridges.remove(env.br_private)
+            env.br_bond = bridges[0]
+
+        # bond intfs
+        for tran in trans:
+            if tran['action'] == 'add-bond':
+
+        # TODO: bond bridge ip
         node = Node(node_config, env)
         return node, env
 
