@@ -1296,6 +1296,9 @@ allow neutron_t etc_t:file create;
 '''  # noqa
 
     bond_and_lldpd_configuration = r'''
+package { "wget":
+    ensure => installed,
+}
 exec {"loadbond":
    command => 'modprobe bonding',
    path    => $binpath,
@@ -1379,6 +1382,7 @@ auto bond0
     }
     if ! $offline_mode {
         exec{"lldpdinstall":
+            require => Package['wget'],
             command => 'bash -c \'
               # default to 12.04
               export urelease=12.04;
@@ -1437,6 +1441,7 @@ lldpcli \$@
 if $operatingsystem == 'RedHat' {
     if ! $offline_mode {
         exec {'lldpdinstall':
+           require => Package['wget'],
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
@@ -1525,6 +1530,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
 if $operatingsystem == 'CentOS' {
     if ! $offline_mode {
         exec {'lldpdinstall':
+           require => Package['wget'],
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
