@@ -79,7 +79,7 @@ if __name__=='__main__':
     parser.add_argument("-c", "--config-file", required=True,
                         help="BCF YAML configuration file")
     parser.add_argument('-f', "--fuel-cluster-id", required=False,
-                        help="Fuel cluster ID. YAML configuration can override Fuel settings.")
+                        help="Fuel cluster ID. Fuel settings will override YAML configuration, except deploy_ivs and skip.")
     args = parser.parse_args()
     with open(args.config_file, 'r') as config_file:
         config = yaml.load(config_file)

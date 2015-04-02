@@ -67,27 +67,6 @@ class Node(object):
         self.os_version = os_version.split(".")[0]
 
 
-    def set_network_vlan_ranges(self, physnet, vlan_range):
-        """
-        reset by fuel
-        """
-        vlan_range_pattern = re.compile(const.VLAN_RANGE_EXPRESSION, re.IGNORECASE)
-        match = vlan_range_pattern.match(vlan_range)
-        if not match:
-            Helper.safe_print("vlan_ranges' format is not correct.\n")
-            return
-        self.physnet    = physnet
-        self.lower_vlan = match(1)
-        self.upper_vlan = match(2)
-
-
-    def set_role(self, role):
-        """
-        reset by fuel
-        """
-        self.role = role
-
-
     def set_uplink_interfaces(self, uplink_interfaces):
         """
         reset by fuel

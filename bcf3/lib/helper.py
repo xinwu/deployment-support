@@ -275,6 +275,8 @@ class Helper(object):
         if nodes_config == None:
             return node_dic
         for node_config in nodes_config:
+            # we always use ip address as the hostname
+            node_config['hostname'] = socket.gethostbyname(node_config['hostname'])
             if 'deploy_ivs' not in node_config:
                 node_config['deploy_ivs'] = env.deploy_ivs
             if 'os' not in node_config:
@@ -324,7 +326,47 @@ class Helper(object):
 
 
     @staticmethod
-    def __load_fuel_nodes_config__(env):
+    def __load_fuel_node__(line, env):
+        node_config = {}
+        node_config['hostname'] = str(netaddr.IPAddress(line.split('|')[4].strip()))
+        node_config['role'] = str(line.split('|')[6].strip())
+
+        node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
+            'cat /etc/astute.yaml')
+        if errors or not node_yaml:
+            Helper.safe_print("Error retrieving config for node %(hostname)s:\n%(errors)s\n"
+                              % {'hostname' : node_config['hostname'], 'errors' : errors})
+            return None
+
+        try:
+            node_yaml_config = yaml.load(node_yaml)
+        except Exception as e:
+            Helper.safe_print("Error parsing node %(hostname)s yaml file:\n%(e)s\n"
+                              % {'hostname' : node_config['hostname'], 'e' : e})
+            return None
+
+        # physnet bridge hasn't been assigned
+        if not env.physnet_bridge:
+            physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
+            for physnet, physnet_detail in physnets.iteritems():
+                env.set_physnet(physnet)
+                env.set_physnet_bridge(physnet_detail['bridge'])
+                vlan_range_pattern = re.compile(const.VLAN_RANGE_EXPRESSION, re.IGNORECASE)
+                match = vlan_range_pattern.match(physnet_detail['vlan_range'])
+                env.set_lower_vlan(match(1))
+                env.set_upper_vlan(match(2))
+                # we deal with only the first physnet
+                break
+
+        #TODO other fields
+
+        node = Node(node_config, env)
+        return node
+
+
+    @staticmethod
+    def load_nodes_from_fuel(nodes_config, env):
+        fuel_settings = Helper.__load_fuel_evn_setting__(env.fuel_cluster_id)
         Helper.safe_print("Retrieving list of Fuel nodes\n")
         cmd = (r'''fuel nodes --env %(fuel_cluster_id)s''' %
               {'fuel_cluster_id' : str(env.fuel_cluster_id)})
@@ -333,58 +375,17 @@ class Helper(object):
             raise Exception("Error Loading node list %(fuel_cluster_id)s:\n%(errors)s\n"
                             % {'fuel_cluster_id' : env.fuel_cluster_id,
                                'errors'          : errors})
-        fuel_node_config_dic = {}
+        node_dic = {}
         try:
             lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
-            for l in lines:
-                node_config = {}
-                node_config['hostname'] = str(netaddr.IPAddress(l.split('|')[4].strip()))
-                node_config['role'] = str(l.split('|')[6].strip())
-
-                node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
-                    'cat /etc/astute.yaml')
-                if errors or not node_yaml:
-                    Helper.safe_print("Error retrieving config for node %(hostname)s:\n%(errors)s\n"
-                                      % {'hostname' : node_config['hostname'], 'errors' : errors})
-                    continue
-                try:
-                    node_yaml_config = yaml.load(node_yaml)
-                except Exception as e:
-                    Helper.safe_print("Error parsing node %(hostname)s yaml file:\n%(e)s\n"
-                                      % {'hostname' : node_config['hostname'], 'e' : e})
-                    continue
-
-                physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
-                for physnet, physnet_detail in physnets.iteritems():
-                    bridge     = physnet_detail['bridge']
-                    vlan_range = physnet_detail['vlan_range']
-                    # we deal with only the first physnet
-                    break
-                # TODO
-                fuel_node_config_dic[node_config['hostname']] = node_config
+            for line in lines:
+                node = Helper.__load_fuel_node__(line, env)
+                if node and node.hostname:
+                    node_dic[node.hostname] = node
         except IndexError:
             raise Exception("Could not parse node list:\n%(node_list)s\n"
                             % {'node_list' : node_list})
-        return fuel_node_config_dic
-        
-
-
-    @staticmethod
-    def load_nodes_from_fuel(nodes_config, env):
-        fuel_settings = Helper.__load_fuel_evn_setting__(env.fuel_cluster_id)
-        fuel_node_config_dic = Helper.__load_fuel_nodes_config__(env)
-        node_dic = {}
-        for ip, fuel_node_config in fuel_node_config_dic.iteritems():
-            hostname = ip
-            if hostname not in nodes_config:
-                hostname = socket.gethostbyaddr(ip)
-            if hostname in nodes_config:
-                pass
-                # TODO
-            else:
-                node = Node(fuel_node_config, env)
-            node_dic[hostname] = node
         return node_dic
 
 

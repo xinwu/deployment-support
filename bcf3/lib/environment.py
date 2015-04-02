@@ -106,3 +106,22 @@ class Environment(object):
             self.uplink_interfaces = config['default_uplink_interfaces']
 
 
+    def set_physnet(self, physnet):
+        self.physnet = physnet
+
+
+    def set_physnet_bridge(self, physnet_bridge):
+        self.physnet_bridge = physnet_bridge
+
+
+    def set_lower_vlan(self, lower_vlan):
+        self.lower_vlan = lower_vlan
+
+
+    def set_upper_vlan(self, upper_vlan):
+        self.upper_vlan = upper_vlan
+
+
+
+
+
