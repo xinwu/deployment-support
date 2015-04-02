@@ -336,14 +336,14 @@ class Helper(object):
         if errors or not node_yaml:
             Helper.safe_print("Error retrieving config for node %(hostname)s:\n%(errors)s\n"
                               % {'hostname' : node_config['hostname'], 'errors' : errors})
-            return None
+            return None, env
 
         try:
             node_yaml_config = yaml.load(node_yaml)
         except Exception as e:
             Helper.safe_print("Error parsing node %(hostname)s yaml file:\n%(e)s\n"
                               % {'hostname' : node_config['hostname'], 'e' : e})
-            return None
+            return None, env
 
         # physnet bridge hasn't been assigned
         if not env.physnet_bridge:
@@ -361,7 +361,7 @@ class Helper(object):
         #TODO other fields
 
         node = Node(node_config, env)
-        return node
+        return node, env
 
 
     @staticmethod
@@ -380,7 +380,7 @@ class Helper(object):
             lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
             for line in lines:
-                node = Helper.__load_fuel_node__(line, env)
+                node, env = Helper.__load_fuel_node__(line, env)
                 if node and node.hostname:
                     node_dic[node.hostname] = node
         except IndexError:

@@ -105,6 +105,9 @@ class Environment(object):
         if 'default_uplink_interfaces' in config:
             self.uplink_interfaces = config['default_uplink_interfaces']
 
+        # fields introduced by fuel
+        self.physnet_bridge = None
+
 
     def set_physnet(self, physnet):
         self.physnet = physnet

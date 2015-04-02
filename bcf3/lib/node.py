@@ -44,6 +44,7 @@ class Node(object):
         elif self.os in const.DEB_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
+        self.physnet_bridge        = env.physnet_bridge
 
 
     def set_os(self, os):
@@ -142,6 +143,7 @@ selinux_mode           : %(selinux_mode)s,
 fuel_cluster_id        : %(fuel_cluster_id)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
+physnet_bridge         : %(physnet_bridge)s,
 ''' %
 {
 'dst_dir'               : self.dst_dir,
@@ -171,4 +173,5 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'fuel_cluster_id'       : self.fuel_cluster_id,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
+'physnet_bridge'        : self.physnet_bridge,
 })
