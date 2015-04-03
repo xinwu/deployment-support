@@ -52,6 +52,7 @@ SERVICES       = 'services'
 CLIENT_VERSION = '2.0'
 OVS_AGENT      = 'neutron-openvswitch-agent'
 ENDPOINT_TYPE  = 'publicURL'
+NONE_IP        = 'none'
 
 # the order to delete neutron resources
 NEUTRON_RESOURCE_CLASSES = ['NeutronFloatingIps',

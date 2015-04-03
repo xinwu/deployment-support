@@ -19,6 +19,12 @@ class Node(object):
         self.passwd                = node_config['passwd']
         self.uplink_interfaces     = node_config['uplink_interfaces']
 
+        # fields may not exist
+        self.br_management_ip      = node_config.get('br_management_ip')
+        self.br_storage_ip         = node_config.get('br_storage_ip')
+        self.br_ex_ip              = node_config.get('br_ex_ip')
+        self.br_private_ip         = node_config.get('br_private_ip')
+
         self.bcf_controllers       = env.bcf_controllers
         self.bcf_controller_user   = env.bcf_controller_user
         self.bcf_controller_passwd = env.bcf_controller_passwd
@@ -44,34 +50,6 @@ class Node(object):
         self.br_ex                 = env.br_ex
         self.br_private            = env.br_private
         self.br_bond               = env.br_bond
-
-
-    def set_os(self, os):
-        """
-        reset by fuel
-        """
-        self.os = os.lower()
-        # update ivs pkgs accordingly
-        if self.os in const.RPM_OS_SET:
-            self.ivs_pkg           = self.ivs_pkg_map['rpm']
-            self.ivs_debug_pkg     = self.ivs_pkg_map['debug_rpm']
-        elif self.os in const.DEB_OS_SET:
-            self.ivs_pkg           = self.ivs_pkg_map['deb']
-            self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
-
-
-    def set_os_version(self, os_version):
-        """
-        reset by fuel
-        """
-        self.os_version = os_version.split(".")[0]
-
-
-    def set_uplink_interfaces(self, uplink_interfaces):
-        """
-        reset by fuel
-        """
-        self.uplink_interfaces = uplink_interfaces
 
 
     def is_ready_to_deploy(self):
@@ -130,6 +108,10 @@ bsnstacklib_version    : %(bsnstacklib_version)s,
 user                   : %(user)s,
 passwd                 : %(passwd)s,
 uplink_interfaces      : %(uplink_interfaces)s,
+br_management_ip       : %(br_management_ip)s,
+br_storage_ip          : %(br_storage_ip)s,
+br_ex_ip               : %(br_ex_ip)s,
+br_private_ip          : %(br_private_ip)s,
 bcf_controllers        : %(bcf_controllers)s,
 bcf_controller_user    : %(bcf_controller_user)s,
 bcf_controller_passwd  : %(bcf_controller_passwd)s,
@@ -165,6 +147,10 @@ br_bond                : %(br_bond)s,
 'user'                  : self.user,
 'passwd'                : self.passwd,
 'uplink_interfaces'     : self.uplink_interfaces,
+'br_management_ip'      : self.br_management_ip,
+'br_storage_ip'         : self.br_storage_ip,
+'br_ex_ip'              : self.br_ex_ip,
+'br_private_ip'         : self.br_private_ip,
 'bcf_controllers'       : self.bcf_controllers,
 'bcf_controller_user'   : self.bcf_controller_user,
 'bcf_controller_passwd' : self.bcf_controller_passwd,

@@ -409,7 +409,17 @@ class Helper(object):
                 and tran['bridge'] == env.br_bond):
                 node_config['uplink_interfaces'] = tran['interfaces']
 
-        # TODO: bond bridge ip
+        # bridge ips
+        endpoints = node_yaml_config['network_scheme']['endpoints']
+        if endpoints[env.br_management]['IP'] != const.NONE_IP:
+            node_config['br_management_ip'] = endpoints[env.br_management]['IP'][0]
+        if endpoints[env.br_storage]['IP'] != const.NONE_IP:
+            node_config['br_storage_ip'] = endpoints[env.br_storage]['IP'][0]
+        if endpoints[env.br_ex]['IP'] != const.NONE_IP:
+            node_config['br_ex_ip'] = endpoints[env.br_ex]['IP'][0]
+        if endpoints[env.br_private]['IP'] != const.NONE_IP:
+            node_config['br_private_ip'] = endpoints[env.br_private]['IP'][0]
+
         node = Node(node_config, env)
         return node, env
 
