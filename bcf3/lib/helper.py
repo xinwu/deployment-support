@@ -10,6 +10,7 @@ import threading
 import constants as const
 import subprocess32 as subprocess
 from node import Node
+from bridge import Bridge
 from threading import Lock
 
 
@@ -347,7 +348,7 @@ class Helper(object):
         if errors or not os_info:
             Helper.safe_print("Error retrieving operating system info from node %(hostname)s:\n%(errors)s\n"
                               % {'hostname' : node_config['hostname'], 'errors' : errors})
-            return None, env
+            return None
         try:
             os_and_version = os_info.split('with-')[1].split('-')
             node_config['os'] = os_and_version[0]
@@ -355,7 +356,7 @@ class Helper(object):
         except Exception as e:
             Helper.safe_print("Error parsing node %(hostname)s operating system info:\n%(e)s\n"
                               % {'hostname' : node_config['hostname'], 'e' : e})
-            return None, env
+            return None
 
         # get node /etc/astute.yaml
         node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
@@ -363,65 +364,62 @@ class Helper(object):
         if errors or not node_yaml:
             Helper.safe_print("Error retrieving config for node %(hostname)s:\n%(errors)s\n"
                               % {'hostname' : node_config['hostname'], 'errors' : errors})
-            return None, env
+            return None
         try:
             node_yaml_config = yaml.load(node_yaml)
         except Exception as e:
             Helper.safe_print("Error parsing node %(hostname)s yaml file:\n%(e)s\n"
                               % {'hostname' : node_config['hostname'], 'e' : e})
-            return None, env
+            return None
 
         # physnet and vlan range
-        if not env.physnet_bridge:
-            physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
-            for physnet, physnet_detail in physnets.iteritems():
-                env.set_physnet(physnet)
-                env.set_physnet_bridge(physnet_detail['bridge'])
-                vlans = physnet_detail['vlan_range'].strip().split(':')
-                env.set_lower_vlan(vlans[0])
-                env.set_upper_vlan(vlans[1])
-                # we deal with only the first physnet
-                break
-
-        # bridge names
-        if not env.br_private:
-            roles = node_yaml_config['network_scheme']['roles']
-            env.set_br_management(roles['management'])
-            env.set_br_storage(roles['storage'])
-            env.set_br_ex(roles['ex'])
-            env.set_br_private(roles['private'])
+        physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
+        for physnet, physnet_detail in physnets.iteritems():
+            env.set_physnet(physnet)
+            vlans = physnet_detail['vlan_range'].strip().split(':')
+            env.set_lower_vlan(vlans[0])
+            env.set_upper_vlan(vlans[1])
+            # we deal with only the first physnet
+            break
 
         # get br_prv attached bond bridge
+        roles = node_yaml_config['network_scheme']['roles']
+        br_prv = roles[const.BR_PRIVATE]
         trans = node_yaml_config['network_scheme']['transformations']
         for tran in trans:
             if (tran['action'] != 'add-patch'):
                 continue
-            if (env.br_private not in tran['bridges']):
+            if (br_prv not in tran['bridges']):
                 continue
             bridges = list(tran['bridges'])
-            bridges.remove(env.br_private)
-            env.br_bond = bridges[0]
+            bridges.remove(br_prv)
+            node_config['br_bond'] = bridges[0]
             break
 
         # bond intfs
         for tran in trans:
             if (tran['action'] == 'add-bond'
-                and tran['bridge'] == env.br_bond):
+                and tran['bridge'] == node_config['br_bond']):
                 node_config['uplink_interfaces'] = tran['interfaces']
+                break
 
-        # bridge ips
+        # bridge names
+        bridges = []
         endpoints = node_yaml_config['network_scheme']['endpoints']
-        if endpoints[env.br_management]['IP'] != const.NONE_IP:
-            node_config['br_management_ip'] = endpoints[env.br_management]['IP'][0]
-        if endpoints[env.br_storage]['IP'] != const.NONE_IP:
-            node_config['br_storage_ip'] = endpoints[env.br_storage]['IP'][0]
-        if endpoints[env.br_ex]['IP'] != const.NONE_IP:
-            node_config['br_ex_ip'] = endpoints[env.br_ex]['IP'][0]
-        if endpoints[env.br_private]['IP'] != const.NONE_IP:
-            node_config['br_private_ip'] = endpoints[env.br_private]['IP'][0]
+        for br_key, br_name in roles.iteritems():
+            if br_key in const.BR_EXCEPTION:
+                continue
+            ip = endpoints[br_name]['IP']
+            if ip == const.NONE_IP:
+                ip = None
+            else:
+                ip = ip[0]
+            bridge = Bridge(br_key, br_name, ip)
+            bridges.append(bridge)
+        node_config['bridges'] = bridges
 
         node = Node(node_config, env)
-        return node, env
+        return node
 
 
     @staticmethod
@@ -444,7 +442,7 @@ class Helper(object):
                 role = str(line.split('|')[6].strip())
                 node_yaml_config = None
                 node_yaml_config = node_yaml_config_map.get(hostname)
-                node, env = Helper.__load_fuel_node__(hostname, role, node_yaml_config, env)
+                node = Helper.__load_fuel_node__(hostname, role, node_yaml_config, env)
                 if node and node.hostname:
                     node_dic[node.hostname] = node
         except IndexError:

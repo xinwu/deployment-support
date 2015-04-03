@@ -18,12 +18,8 @@ class Node(object):
         self.user                  = node_config['user']
         self.passwd                = node_config['passwd']
         self.uplink_interfaces     = node_config['uplink_interfaces']
-
-        # fields may not exist
-        self.br_management_ip      = node_config.get('br_management_ip')
-        self.br_storage_ip         = node_config.get('br_storage_ip')
-        self.br_ex_ip              = node_config.get('br_ex_ip')
-        self.br_private_ip         = node_config.get('br_private_ip')
+        self.bridges               = node_config.get('bridges')
+        self.br_bond               = node_config.get('br_bond')
 
         self.bcf_controllers       = env.bcf_controllers
         self.bcf_controller_user   = env.bcf_controller_user
@@ -44,12 +40,6 @@ class Node(object):
         elif self.os in const.DEB_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
-        self.physnet_bridge        = env.physnet_bridge
-        self.br_management         = env.br_management
-        self.br_storage            = env.br_storage
-        self.br_ex                 = env.br_ex
-        self.br_private            = env.br_private
-        self.br_bond               = env.br_bond
 
 
     def is_ready_to_deploy(self):
@@ -108,10 +98,8 @@ bsnstacklib_version    : %(bsnstacklib_version)s,
 user                   : %(user)s,
 passwd                 : %(passwd)s,
 uplink_interfaces      : %(uplink_interfaces)s,
-br_management_ip       : %(br_management_ip)s,
-br_storage_ip          : %(br_storage_ip)s,
-br_ex_ip               : %(br_ex_ip)s,
-br_private_ip          : %(br_private_ip)s,
+bridges                : %(bridges)s,
+br_bond                : %(br_bond)s,
 bcf_controllers        : %(bcf_controllers)s,
 bcf_controller_user    : %(bcf_controller_user)s,
 bcf_controller_passwd  : %(bcf_controller_passwd)s,
@@ -124,12 +112,6 @@ selinux_mode           : %(selinux_mode)s,
 fuel_cluster_id        : %(fuel_cluster_id)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
-physnet_bridge         : %(physnet_bridge)s,
-br_management          : %(br_management)s,
-br_storage             : %(br_storage)s,
-br_ex                  : %(br_ex)s,
-br_private             : %(br_private)s,
-br_bond                : %(br_bond)s,
 ''' %
 {
 'dst_dir'               : self.dst_dir,
@@ -147,10 +129,8 @@ br_bond                : %(br_bond)s,
 'user'                  : self.user,
 'passwd'                : self.passwd,
 'uplink_interfaces'     : self.uplink_interfaces,
-'br_management_ip'      : self.br_management_ip,
-'br_storage_ip'         : self.br_storage_ip,
-'br_ex_ip'              : self.br_ex_ip,
-'br_private_ip'         : self.br_private_ip,
+'bridges'               : str(self.bridges),
+'br_bond'               : self.br_bond,
 'bcf_controllers'       : self.bcf_controllers,
 'bcf_controller_user'   : self.bcf_controller_user,
 'bcf_controller_passwd' : self.bcf_controller_passwd,
@@ -163,11 +143,10 @@ br_bond                : %(br_bond)s,
 'fuel_cluster_id'       : self.fuel_cluster_id,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
-'physnet_bridge'        : self.physnet_bridge,
-'br_management'         : self.br_management,
-'br_storage'            : self.br_storage,
-'br_ex'                 : self.br_ex,
-'br_private'            : self.br_private,
-'br_bond'               : self.br_bond,
 })
+
+    def __repr__(self):
+        return self.__str__()
+
+
 

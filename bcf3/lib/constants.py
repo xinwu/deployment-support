@@ -39,26 +39,27 @@ DEB_OS_SET = [UBUNTU]
 # regular expressions
 EXISTING_NETWORK_VLAN_RANGE_EXPRESSION  = '^\s*network_vlan_ranges\s*=\s*(\S*)\s*:\s*(\S*)\s*:\s*(\S*)\s*$'
 NETWORK_VLAN_RANGE_EXPRESSION   = '^\s*(\S*)\s*:\s*(\S*)\s*:\s*(\S*)\s*$'
-VLAN_RANGE_EXPRESSION           = '^\s*(\S*)\s*:\s*(\S*)\s*$'
 VLAN_RANGE_CONFIG_PATH          = '/etc/neutron/plugins/ml2/ml2_conf.ini'
-
 SELINUX_MODE_EXPRESSION         = '^\s*SELINUX\s*=\s*(\S*)\s*$'
 SELINUX_CONFIG_PATH             = '/etc/selinux/config'
 
 
-# openstack constants
+# ospurge constants
 ADMIN          = 'admin'
 SERVICES       = 'services'
 CLIENT_VERSION = '2.0'
 OVS_AGENT      = 'neutron-openvswitch-agent'
 ENDPOINT_TYPE  = 'publicURL'
-NONE_IP        = 'none'
-
-# the order to delete neutron resources
 NEUTRON_RESOURCE_CLASSES = ['NeutronFloatingIps',
                             'NeutronInterfaces',
                             'NeutronRouters',
                             'NeutronPorts',
                             'NeutronNetworks',
                             'NeutronSecgroups']
+
+
+# fuel constants
+NONE_IP        = 'none'
+BR_PRIVATE     = 'private'
+BR_EXCEPTION   = ['fw-admin']
 
