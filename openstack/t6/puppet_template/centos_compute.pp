@@ -9,6 +9,7 @@ class { selinux:
 selinux::module { 'selinux-ivs':
   ensure => 'present',
   source => 'puppet:///modules/selinux/centos.te',
+  notify => Service['libvirtd'],
 }
 
 # ivs configruation and service
@@ -23,6 +24,7 @@ service{'ivs':
     enable  => true,
     path    => $binpath,
     require => Selinux::Module['selinux-ivs'],
+    notify  => Service['libvirtd'],
 }
 
 # config neutron-bsn-agent service
@@ -53,6 +55,7 @@ service{'neutron-bsn-agent':
     enable  => true,
     path    => $binpath,
     require => Selinux::Module['selinux-ivs'],
+    notify  => Service['libvirtd'],
 }
 
 # stop and disable neutron-openvswitch-agent
