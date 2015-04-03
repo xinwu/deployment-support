@@ -17,15 +17,9 @@ class Node(object):
         self.bsnstacklib_version   = node_config['bsnstacklib_version']
         self.user                  = node_config['user']
         self.passwd                = node_config['passwd']
+        self.uplink_interfaces     = node_config['uplink_interfaces']
 
-        self.uplink_interfaces     = []
-        for intf in node_config['uplink_interfaces']:
-            self.uplink_interfaces.append(intf['interface'])
-
-        self.bcf_controllers       = []
-        for controller in env.bcf_controllers:
-            self.bcf_controllers.append(controller['controller'])
-
+        self.bcf_controllers       = env.bcf_controllers
         self.bcf_controller_user   = env.bcf_controller_user
         self.bcf_controller_passwd = env.bcf_controller_passwd
         self.physnet               = env.physnet

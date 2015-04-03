@@ -1,12 +1,12 @@
 # configuration won't be overrided by fuel
-default_bsnstacklib_version: 2014.2.24
+default_bsnstacklib_version: 2014.2.25
 default_deploy_ivs: true
 default_skip: false
 ivs_packages:
-- package: http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
-- package: http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
+- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
+- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
 bcf_controllers:
-- controller: 172.16.54.133:8000
+- 172.16.54.133:8000
 bcf_controller_user: admin
 bcf_controller_passwd: adminadmin
 
@@ -18,10 +18,10 @@ default_os_version: 6.5
 network_vlan_ranges: physnet1:500:2000
 default_role: compute
 default_uplink_interfaces:
-- interface: eth1
-- interface: eth2
+- eth1
+- eth2
 nodes:
 - hostname: 172.16.54.3
-  role: neutron_server
+  role: controller
 - hostname: 172.16.54.4
 

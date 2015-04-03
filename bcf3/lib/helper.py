@@ -267,33 +267,39 @@ class Helper(object):
 
 
     @staticmethod
-    def load_nodes_from_yaml(nodes_config, env):
+    def __load_node_yaml_config__(node_config, env):
+        if 'role' not in node_config:
+            node_config['role'] = env.role
+        if 'skip' not in node_config:
+            node_config['skip'] = env.skip
+        if 'deploy_ivs' not in node_config:
+            node_config['deploy_ivs'] = env.deploy_ivs
+        if 'os' not in node_config:
+            node_config['os'] = env.os
+        if 'os_version' not in node_config:
+            node_config['os_version'] = env.os_version
+        if 'bsnstacklib_version' not in node_config:
+            node_config['bsnstacklib_version'] = env.bsnstacklib_version
+        if 'user' not in node_config:
+            node_config['user'] = env.user
+        if 'passwd' not in node_config:
+            node_config['passwd'] = env.passwd
+        if 'uplink_interfaces' not in node_config:
+            node_config['uplink_interfaces'] = env.uplink_interfaces
+        return node_config
+
+
+    @staticmethod
+    def load_nodes_from_yaml(node_yaml_config_map, env):
         """
         Parse yaml file and return a dictionary
         """
         node_dic = {}
-        if nodes_config == None:
+        if node_yaml_config_map == None:
             return node_dic
-        for node_config in nodes_config:
-            # we always use ip address as the hostname
-            node_config['hostname'] = socket.gethostbyname(node_config['hostname'])
-            if 'deploy_ivs' not in node_config:
-                node_config['deploy_ivs'] = env.deploy_ivs
-            if 'os' not in node_config:
-                node_config['os'] = env.os
-            if 'os_version' not in node_config:
-                node_config['os_version'] = env.os_version
-            if 'bsnstacklib_version' not in node_config:
-                node_config['bsnstacklib_version'] = env.bsnstacklib_version
-            if 'role' not in node_config:
-                node_config['role'] = env.role
-            if 'user' not in node_config:
-                node_config['user'] = env.user
-            if 'passwd' not in node_config:
-                node_config['passwd'] = env.passwd
-            if 'uplink_interfaces' not in node_config:
-                node_config['uplink_interfaces'] = env.uplink_interfaces
-            node = Node(node_config, env)
+        for hostname, node_yaml_config in node_yaml_config_map.iteritems():
+            node_yaml_config = Helper.__load_node_yaml_config__(node_yaml_config, env)
+            node = Node(node_yaml_config, env)
             node_dic[node.hostname] = node
         return node_dic
 
@@ -326,18 +332,38 @@ class Helper(object):
 
 
     @staticmethod
-    def __load_fuel_node__(line, env):
+    def __load_fuel_node__(hostname, role, node_yaml_config, env):
         node_config = {}
-        node_config['hostname'] = str(netaddr.IPAddress(line.split('|')[4].strip()))
-        node_config['role'] = str(line.split('|')[6].strip())
+        if node_yaml_config:
+            node_config = Helper.__load_node_yaml_config__(node_yaml_config, env)
+        else:
+            node_config = Helper.__load_node_yaml_config__(node_config, env)
+        node_config['hostname'] = hostname
+        node_config['role'] = role
 
+        # get node operating system information
+        os_info, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
+            'python -mplatform')
+        if errors or not os_info:
+            Helper.safe_print("Error retrieving operating system info from node %(hostname)s:\n%(errors)s\n"
+                              % {'hostname' : node_config['hostname'], 'errors' : errors})
+            return None, env
+        try:
+            os_and_version = os_info.split('with-')[1].split('-')
+            node_config['os'] = os_and_version[0]
+            node_config['os_version'] = os_and_version[1]
+        except Exception as e:
+            Helper.safe_print("Error parsing node %(hostname)s operating system info:\n%(e)s\n"
+                              % {'hostname' : node_config['hostname'], 'e' : e})
+            return None, env
+
+        # get node /etc/astute.yaml
         node_yaml, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
             'cat /etc/astute.yaml')
         if errors or not node_yaml:
             Helper.safe_print("Error retrieving config for node %(hostname)s:\n%(errors)s\n"
                               % {'hostname' : node_config['hostname'], 'errors' : errors})
             return None, env
-
         try:
             node_yaml_config = yaml.load(node_yaml)
         except Exception as e:
@@ -351,10 +377,9 @@ class Helper(object):
             for physnet, physnet_detail in physnets.iteritems():
                 env.set_physnet(physnet)
                 env.set_physnet_bridge(physnet_detail['bridge'])
-                vlan_range_pattern = re.compile(const.VLAN_RANGE_EXPRESSION, re.IGNORECASE)
-                match = vlan_range_pattern.match(physnet_detail['vlan_range'])
-                env.set_lower_vlan(match(1))
-                env.set_upper_vlan(match(2))
+                vlans = physnet_detail['vlan_range'].strip().split(':')
+                env.set_lower_vlan(vlans[0])
+                env.set_upper_vlan(vlans[1])
                 # we deal with only the first physnet
                 break
 
@@ -366,8 +391,8 @@ class Helper(object):
             env.set_br_ex(roles['ex'])
             env.set_br_private(roles['private'])
 
-        trans = node_yaml_config['network_scheme']['transformations']
         # get br_prv attached bond bridge
+        trans = node_yaml_config['network_scheme']['transformations']
         for tran in trans:
             if (tran['action'] != 'add-patch'):
                 continue
@@ -376,10 +401,13 @@ class Helper(object):
             bridges = list(tran['bridges'])
             bridges.remove(env.br_private)
             env.br_bond = bridges[0]
+            break
 
         # bond intfs
         for tran in trans:
-            if tran['action'] == 'add-bond':
+            if (tran['action'] == 'add-bond'
+                and tran['bridge'] == env.br_bond):
+                node_config['uplink_interfaces'] = tran['interfaces']
 
         # TODO: bond bridge ip
         node = Node(node_config, env)
@@ -387,7 +415,7 @@ class Helper(object):
 
 
     @staticmethod
-    def load_nodes_from_fuel(nodes_config, env):
+    def load_nodes_from_fuel(node_yaml_config_map, env):
         fuel_settings = Helper.__load_fuel_evn_setting__(env.fuel_cluster_id)
         Helper.safe_print("Retrieving list of Fuel nodes\n")
         cmd = (r'''fuel nodes --env %(fuel_cluster_id)s''' %
@@ -402,7 +430,11 @@ class Helper(object):
             lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
             for line in lines:
-                node, env = Helper.__load_fuel_node__(line, env)
+                hostname = str(netaddr.IPAddress(line.split('|')[4].strip()))
+                role = str(line.split('|')[6].strip())
+                node_yaml_config = None
+                node_yaml_config = node_yaml_config_map.get(hostname)
+                node, env = Helper.__load_fuel_node__(hostname, role, node_yaml_config, env)
                 if node and node.hostname:
                     node_dic[node.hostname] = node
         except IndexError:
@@ -412,11 +444,17 @@ class Helper(object):
 
 
     @staticmethod
-    def load_nodes(nodes_config, env):
+    def load_nodes(nodes_yaml_config, env):
+        node_yaml_config_map = {}
+        if nodes_yaml_config != None:
+            for node_yaml_config in nodes_yaml_config:
+                # we always use ip address as the hostname
+                node_yaml_config['hostname'] = socket.gethostbyname(node_yaml_config['hostname'])
+                node_yaml_config_map[node_yaml_config['hostname']] = node_yaml_config
         if env.fuel_cluster_id == None:
-            return Helper.load_nodes_from_yaml(nodes_config, env)
+            return Helper.load_nodes_from_yaml(node_yaml_config_map, env)
         else:
-            return Helper.load_nodes_from_fuel(nodes_config, env)
+            return Helper.load_nodes_from_fuel(node_yaml_config_map, env)
 
 
     @staticmethod

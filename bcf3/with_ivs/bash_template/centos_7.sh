@@ -12,9 +12,9 @@ rpm -ivh https://yum.puppetlabs.com/el/7/products/x86_64/puppetlabs-release-7-10
 yum groupinstall -y 'Development Tools'
 yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
 pip install bsnstacklib==%(bsnstacklib_version)s
-rpm -ivh %(dst_dir)s/%(ivs_pkg)s
+rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
 if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
-    rpm -ivh %(dst_dir)s/%(ivs_debug_pkg)s
+    rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
 fi
 puppet module install --force puppetlabs-inifile
 puppet module install --force puppetlabs-stdlib

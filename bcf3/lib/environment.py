@@ -52,8 +52,7 @@ class Environment(object):
         # ivs pkg and debug pkg
         self.ivs_pkg_map = {}
         self.ivs_url_map = {}
-        for ivs_package in config['ivs_packages']:
-            ivs_url = ivs_package['package']
+        for ivs_url in config['ivs_packages']:
             ivs_pkg = os.path.basename(ivs_url)
             if '.rpm' in ivs_pkg and '-debuginfo-' not in ivs_pkg:
                 self.ivs_url_map['rpm'] = ivs_url

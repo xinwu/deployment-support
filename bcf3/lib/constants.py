@@ -6,7 +6,7 @@ MAX_WORKERS = 20
 DEFAULT_USER = 'root'
 
 # key words to specify node role in yaml config
-ROLE_NEUTRON_SERVER = 'neutron_server'
+ROLE_NEUTRON_SERVER = 'controller'
 ROLE_COMPUTE        = 'compute'
 
 # deployment with/out ivs

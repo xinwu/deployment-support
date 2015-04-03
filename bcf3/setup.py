@@ -43,8 +43,8 @@ def deploy_bcf(config, fuel_cluster_id):
     Helper.safe_print("Start to setup Big Cloud Fabric\n")
     nodes_config = None
     if 'nodes' in config:
-        nodes_config = config['nodes']
-    node_dic = Helper.load_nodes(nodes_config, env)
+        nodes_yaml_config = config['nodes']
+    node_dic = Helper.load_nodes(nodes_yaml_config, env)
 
     # Generate scripts for each node
     for hostname, node in node_dic.iteritems():
