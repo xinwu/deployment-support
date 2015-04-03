@@ -382,7 +382,7 @@ class Helper(object):
             # we deal with only the first physnet
             break
 
-        # get br_prv attached bond bridge
+        # get bond bridge attached by br_prv
         roles = node_yaml_config['network_scheme']['roles']
         br_prv = roles[const.BR_PRIVATE]
         trans = node_yaml_config['network_scheme']['transformations']
@@ -403,7 +403,28 @@ class Helper(object):
                 node_config['uplink_interfaces'] = tran['interfaces']
                 break
 
-        # bridge names
+        # get bridge vlan
+        br_vlan_map = {}
+        for tran in trans:
+            if 'tags' not in tran:
+                continue
+            if tran['action'] != 'add-patch':
+                continue
+            bridges = list(tran['bridges'])
+            bridges.remove(node_config['br_bond'])
+            if not len(bridges):
+                continue
+            bridge = bridges[0]
+            vlan_ids = list(tran['vlan_ids'])
+            if 0 in vlan_ids:
+                vlan_ids.remove(0)
+            if not len(vlan_ids):
+                continue
+            vlan_id = vlan_ids[0]
+            br_vlan_map[bridge] = vlan_id
+            
+
+        # get bridge ip and construct bridge obj
         bridges = []
         endpoints = node_yaml_config['network_scheme']['endpoints']
         for br_key, br_name in roles.iteritems():
@@ -414,7 +435,7 @@ class Helper(object):
                 ip = None
             else:
                 ip = ip[0]
-            bridge = Bridge(br_key, br_name, ip)
+            bridge = Bridge(br_key, br_name, ip, br_vlan_map.get(br_name))
             bridges.append(bridge)
         node_config['bridges'] = bridges
 
