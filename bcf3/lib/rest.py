@@ -81,10 +81,24 @@ class RestLib(object):
         return session["session_cookie"]
 
     @staticmethod
-    def logout(cookie, server, port=const.BCF_CONTROLLER_PORT):
+    def logout_bcf(cookie, server, port=const.BCF_CONTROLLER_PORT):
         url = "core/aaa/session[auth-token=\"%s\"]" % cookie
         ret = RestLib.delete(cookie, url, server, port)
         return ret
+
+
+    @staticmethod
+    def get_active_bcf_controller(servers, username, password, port=const.BCF_CONTROLLER_PORT):
+        for server in servers:
+            try:
+                cookie = RestLib.auth_bcf(server, username, password, port)
+                url = 'core/controller/role'
+                res = RestLib.get(cookie, url, server, port)[2]
+                if 'active' in res:
+                    return server, cookie
+            except Exception as e:
+                continue
+        return None, None
 
 
 

@@ -37,8 +37,6 @@ def deploy_bcf(config, fuel_cluster_id):
     # Deploy setup node
     Helper.safe_print("Start to prepare setup node\n")
     env = Environment(config, fuel_cluster_id)
-    # TODO: verify connection to controller
-    
     Helper.common_setup_node_preparation(env)
 
     # Generate detailed node information
@@ -57,6 +55,8 @@ def deploy_bcf(config, fuel_cluster_id):
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
         node_q.put(node)
+
+    # TODO: config bcf controller
     return
 
     # Use multiple threads to setup nodes

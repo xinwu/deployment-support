@@ -3,6 +3,7 @@ import re
 import socket
 import constants as const
 from helper import Helper
+from rest import RestLib
 
 class Environment(object):
     def __init__(self, config, fuel_cluster_id):
@@ -103,6 +104,16 @@ class Environment(object):
         self.uplink_interfaces = None
         if 'default_uplink_interfaces' in config:
             self.uplink_interfaces = config['default_uplink_interfaces']
+
+
+        # mast bcf controller and cookie
+        self.master_bcf = None
+        self.bcf_cookie = None
+        if fuel_cluster_id:
+            self.master_bcf, self.bcf_cookie = RestLib.get_active_bcf_controller(self.bcf_controllers,
+                self.bcf_controller_user, self.bcf_controller_passwd)
+            if (not self.master) or (not self.cookie):
+                raise Exception("Failed to connect to master BCF controller, quit setup.")
 
 
     def set_physnet(self, physnet):
