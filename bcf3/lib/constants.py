@@ -59,10 +59,14 @@ NEUTRON_RESOURCE_CLASSES = ['NeutronFloatingIps',
 
 
 # fuel constants
-NONE_IP         = 'none'
-BR_PRIVATE      = 'private'
-BR_EXCEPTION    = ['fw-admin']
-OS_MGMT_TENANT  = 'os-mgmt'
-OS_MGMT_SEGMENT = 'os-mgmt'
+NONE_IP             = 'none'
+BR_PRIVATE          = 'private'
+BR_EXCEPTION        = ['fw-admin']
+OS_MGMT_TENANT      = 'os-mgmt'
+OS_MGMT_SEGMENT     = 'os-mgmt'
+HASH_HEADER         = 'BCF-SETUP'
+BCF_CONTROLLER_PORT = 8443
+
+
 
 

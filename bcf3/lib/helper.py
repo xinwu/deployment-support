@@ -483,7 +483,10 @@ class Helper(object):
         if env.fuel_cluster_id == None:
             return Helper.load_nodes_from_yaml(node_yaml_config_map, env)
         else:
-            return Helper.load_nodes_from_fuel(node_yaml_config_map, env)
+            node_dic = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
+            # TODO: prepare membership rule
+            # TODO: program membership rule to controller
+            return node_dic
 
 
     @staticmethod
