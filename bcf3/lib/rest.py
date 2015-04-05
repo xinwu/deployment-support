@@ -126,11 +126,34 @@ class RestLib(object):
         if ret[0] != 204:
             raise Exception(ret)
 
-        rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
-                      {'tenant'    : const.OS_MGMT_TENANT,
-                       'segment'   : rule.br_key,
-                       'interface' : rule.,
-                       'switch'    : 'any',
-                       'vlan'      : rule.br_vlan})
+        if rule.br_vlan:
+            vlan = int(rule.br_vlan)
+        else:
+            vlan = -1
+
+        intf_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
+                       {'tenant'    : const.OS_MGMT_TENANT,
+                        'segment'   : rule.br_key,
+                        'interface' : const.ANY,
+                        'switch'    : const.ANY,
+                        'vlan'      : vlan})
+        rule_data = {"interface" : const.ANY, "switch" : const.ANY, "vlan" : vlan}
+        ret = RestLib.put(cookie, intf_rule_url, server, port, json.dumps(rule_data))
+        if ret[0] != 204:
+            raise Exception(ret)
+
+        pg_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/port-group-membership-rule[port-group="%(pg)s"][vlan=%(vlan)d]''' %
+                       {'tenant'    : const.OS_MGMT_TENANT,
+                        'segment'   : rule.br_key,
+                        'pg'        : const.ANY,
+                        'vlan'      : vlan})
+        rule_data = {"port-group" : const.ANY, "vlan" : vlan}
+        ret = RestLib.put(cookie, pg_rule_url, server, port, json.dumps(rule_data))
+        if ret[0] != 204:
+            raise Exception(ret)
+
+        
+
+
 
 

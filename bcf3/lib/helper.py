@@ -467,6 +467,10 @@ class Helper(object):
                 br_key = segment
             pre_configured_bcf_bridges.append(br_key)
 
+        # check if management segment and its membership rule have been configured
+        if const.FUEL_GUI_TO_BR_KEY_MAP['management'] not in pre_configured_bcf_bridges:
+            raise Exception("management segment is not configured in tenant %s" %(const.OS_MGMT_TENANT))
+
         node_dic = {}
         new_membership_rules = {}
         try:
