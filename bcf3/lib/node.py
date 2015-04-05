@@ -22,6 +22,7 @@ class Node(object):
         self.br_bond               = node_config.get('br_bond')
 
         self.bcf_controllers       = env.bcf_controllers
+        self.bcf_controller_ips    = env.bcf_controller_ips
         self.bcf_controller_user   = env.bcf_controller_user
         self.bcf_controller_passwd = env.bcf_controller_passwd
         self.bcf_master            = env.bcf_master
@@ -102,6 +103,7 @@ uplink_interfaces      : %(uplink_interfaces)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
 bcf_controllers        : %(bcf_controllers)s,
+bcf_controller_ips     : %(bcf_controller_ips)s,
 bcf_controller_user    : %(bcf_controller_user)s,
 bcf_controller_passwd  : %(bcf_controller_passwd)s,
 bcf_master             : %(bcf_master)s,
@@ -134,6 +136,7 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
 'bcf_controllers'       : self.bcf_controllers,
+'bcf_controller_ips'    : self.bcf_controller_ips,
 'bcf_controller_user'   : self.bcf_controller_user,
 'bcf_controller_passwd' : self.bcf_controller_passwd,
 'bcf_master'            : self.bcf_master,

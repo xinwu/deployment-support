@@ -47,6 +47,10 @@ class Environment(object):
 
         # bcf controller information
         self.bcf_controllers = config['bcf_controllers']
+        self.bcf_controller_ips = []
+        for controller in self.bcf_controllers:
+            ip = controller.split(':')[0]
+            self.bcf_controller_ips.append(ip)
         self.bcf_controller_user = config['bcf_controller_user']
         self.bcf_controller_passwd = config['bcf_controller_passwd']
 
@@ -107,12 +111,12 @@ class Environment(object):
 
 
         # mast bcf controller and cookie
-        self.master_bcf = None
+        self.bcf_master = None
         self.bcf_cookie = None
         if fuel_cluster_id:
-            self.master_bcf, self.bcf_cookie = RestLib.get_active_bcf_controller(self.bcf_controllers,
+            self.bcf_master, self.bcf_cookie = RestLib.get_active_bcf_controller(self.bcf_controller_ips,
                 self.bcf_controller_user, self.bcf_controller_passwd)
-            if (not self.master) or (not self.cookie):
+            if (not self.bcf_master) or (not self.bcf_cookie):
                 raise Exception("Failed to connect to master BCF controller, quit setup.")
 
 

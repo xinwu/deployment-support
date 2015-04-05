@@ -10,8 +10,10 @@ import threading
 import constants as const
 import subprocess32 as subprocess
 from node import Node
+from rest import RestLib
 from bridge import Bridge
 from threading import Lock
+from membership_rule import MembershipRule
 
 
 class Helper(object):
@@ -454,7 +456,19 @@ class Helper(object):
             raise Exception("Error Loading node list %(fuel_cluster_id)s:\n%(errors)s\n"
                             % {'fuel_cluster_id' : env.fuel_cluster_id,
                                'errors'          : errors})
+
+        # get pre-configured segments from bcf controller,
+        # then get the corresponding 
+        pre_configured_segments = RestLib.get_os_mgmt_segments(env.bcf_master, env.bcf_cookie)
+        pre_configured_bcf_bridges = []
+        for segment in pre_configured_segments:
+            br_key = const.FUEL_GUI_TO_BR_KEY_MAP.get(segment)
+            if not br_key:
+                br_key = segment
+            pre_configured_bcf_bridges.append(br_key)
+
         node_dic = {}
+        new_membership_rules = {}
         try:
             lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
@@ -464,12 +478,21 @@ class Helper(object):
                 node_yaml_config = None
                 node_yaml_config = node_yaml_config_map.get(hostname)
                 node = Helper.__load_fuel_node__(hostname, role, node_yaml_config, env)
-                if node and node.hostname:
-                    node_dic[node.hostname] = node
+                if (not node) or (not node.hostname):
+                    continue
+                node_dic[node.hostname] = node
+                
+                # get node bridges whose corresponding segments are not in bcf controller
+                for br in node.bridges:
+                    if br.br_key in pre_configured_bcf_bridges:
+                        continue
+                    rule = MembershipRule(br.br_key, br.br_name, br.br_vlan)
+                    new_membership_rules[rule.br_key] = rule
+
         except IndexError:
             raise Exception("Could not parse node list:\n%(node_list)s\n"
                             % {'node_list' : node_list})
-        return node_dic
+        return node_dic, new_membership_rules
 
 
     @staticmethod
@@ -483,9 +506,10 @@ class Helper(object):
         if env.fuel_cluster_id == None:
             return Helper.load_nodes_from_yaml(node_yaml_config_map, env)
         else:
-            node_dic = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
-            # TODO: prepare membership rule
-            # TODO: program membership rule to controller
+            node_dic, new_membership_rules = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
+            # program new membership rules to controller
+            for br_key, rule in new_membership_rules.iteritems():
+                RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
             return node_dic
 
 

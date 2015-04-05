@@ -1,6 +1,7 @@
 import json
 import httplib
 import constants as const
+from membership_rule import MembershipRule
 
 
 class RestLib(object):
@@ -75,7 +76,7 @@ class RestLib(object):
                                host=host)
         session = json.loads(ret[2])
         if ret[0] != 200:
-            raise Exception(session["error_message"])
+            raise Exception(ret)
         if ("session_cookie" not in session):
             raise Exception("Failed to authenticate: session cookie not set")
         return session["session_cookie"]
@@ -107,7 +108,7 @@ class RestLib(object):
               {'tenant' : const.OS_MGMT_TENANT})
         ret = RestLib.get(cookie, url, server, port)
         if ret[0] != 200:
-            raise Exception(session["error_message"])
+            raise Exception(ret)
         res = json.loads(ret[2])
         segments = []
         for segment in res:
@@ -117,22 +118,19 @@ class RestLib(object):
 
 
     @staticmethod
-    def prepare_new_bridges(server, cookie, fuel_bridges, port=const.BCF_CONTROLLER_PORT):
-        # get pre-configured segments from bcf controller
-        existing_segments = RestLib.get_os_mgmt_segments(server, cookie, port)
-        bcf_bridges = []
-        for segment in existing_segments:
-            br_key = const.FUEL_GUI_TO_BR_KEY_MAP.get(segment)
-            if not br_key:
-                br_key = segment
-            bcf_bridges.append(br_key)
-        new_bridges = []
-        for fuel_br in fuel_bridges:
-            if fuel_br.br_key in bcf_bridges:
-                continue
-            new_bridges.append(fuel_br)
-        return new_bridges
+    def program_segment_and_membership_rule(server, cookie, rule, port=const.BCF_CONTROLLER_PORT):
+        segment_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]''' %
+                      {'tenant' : const.OS_MGMT_TENANT, 'segment' : rule.br_key})
+        segment_data = {"name": rule.br_key}
+        ret = RestLib.put(cookie, segment_url, server, port, json.dumps(segment_data))
+        if ret[0] != 204:
+            raise Exception(ret)
 
-
+        rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
+                      {'tenant'    : const.OS_MGMT_TENANT,
+                       'segment'   : rule.br_key,
+                       'interface' : rule.,
+                       'switch'    : 'any',
+                       'vlan'      : rule.br_vlan})
 
 
