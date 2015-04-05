@@ -63,10 +63,11 @@ NONE_IP             = 'none'
 BR_PRIVATE          = 'private'
 BR_EXCEPTION        = ['fw-admin']
 OS_MGMT_TENANT      = 'os-mgmt'
-OS_MGMT_SEGMENT     = 'os-mgmt'
 HASH_HEADER         = 'BCF-SETUP'
 BCF_CONTROLLER_PORT = 8443
-
-
+FUEL_GUI_TO_BR_KEY_MAP = {'management' : 'management',
+    'storage' : 'storage',
+    'public'  : 'ex',
+    'private' : 'private'}
 
 

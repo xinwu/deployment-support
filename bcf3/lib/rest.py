@@ -101,4 +101,38 @@ class RestLib(object):
         return None, None
 
 
+    @staticmethod
+    def get_os_mgmt_segments(server, cookie, port=const.BCF_CONTROLLER_PORT):
+        url = (r'''applications/bcf/info/endpoint-manager/segment[tenant="%(tenant)s"]''' %
+              {'tenant' : const.OS_MGMT_TENANT})
+        ret = RestLib.get(cookie, url, server, port)
+        if ret[0] != 200:
+            raise Exception(session["error_message"])
+        res = json.loads(ret[2])
+        segments = []
+        for segment in res:
+            # 'management' or 'Management' segment does not matter
+            segments.append(segment['name'].lower())
+        return segments
+
+
+    @staticmethod
+    def prepare_new_bridges(server, cookie, fuel_bridges, port=const.BCF_CONTROLLER_PORT):
+        # get pre-configured segments from bcf controller
+        existing_segments = RestLib.get_os_mgmt_segments(server, cookie, port)
+        bcf_bridges = []
+        for segment in existing_segments:
+            br_key = const.FUEL_GUI_TO_BR_KEY_MAP.get(segment)
+            if not br_key:
+                br_key = segment
+            bcf_bridges.append(br_key)
+        new_bridges = []
+        for fuel_br in fuel_bridges:
+            if fuel_br.br_key in bcf_bridges:
+                continue
+            new_bridges.append(fuel_br)
+        return new_bridges
+
+
+
 

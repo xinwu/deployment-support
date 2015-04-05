@@ -24,6 +24,7 @@ class Node(object):
         self.bcf_controllers       = env.bcf_controllers
         self.bcf_controller_user   = env.bcf_controller_user
         self.bcf_controller_passwd = env.bcf_controller_passwd
+        self.bcf_master            = env.bcf_master
         self.physnet               = env.physnet
         self.lower_vlan            = env.lower_vlan
         self.upper_vlan            = env.upper_vlan
@@ -103,6 +104,7 @@ br_bond                : %(br_bond)s,
 bcf_controllers        : %(bcf_controllers)s,
 bcf_controller_user    : %(bcf_controller_user)s,
 bcf_controller_passwd  : %(bcf_controller_passwd)s,
+bcf_master             : %(bcf_master)s,
 physnet                : %(physnet)s,
 lower_vlan             : %(lower_vlan)s,
 upper_vlan             : %(upper_vlan)s,
@@ -134,6 +136,7 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'bcf_controllers'       : self.bcf_controllers,
 'bcf_controller_user'   : self.bcf_controller_user,
 'bcf_controller_passwd' : self.bcf_controller_passwd,
+'bcf_master'            : self.bcf_master,
 'physnet'               : self.physnet,
 'lower_vlan'            : self.lower_vlan,
 'upper_vlan'            : self.upper_vlan,
