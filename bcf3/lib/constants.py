@@ -61,12 +61,13 @@ NEUTRON_RESOURCE_CLASSES = ['NeutronFloatingIps',
 # fuel constants
 NONE_IP                = 'none'
 BR_KEY_PRIVATE         = 'private'
-BR_KEY_EXCEPTION       = ['fw-admin', BR_KEY_PRIVATE]
+BR_KEY_MGMT            = 'management'
+BR_KEY_EXCEPTION       = ['fw-admin', BR_KEY_PRIVATE, BR_KEY_MGMT]
 OS_MGMT_TENANT         = 'os-mgmt'
 HASH_HEADER            = 'BCF-SETUP'
 BCF_CONTROLLER_PORT    = 8443
 ANY                    = 'any'
-FUEL_GUI_TO_BR_KEY_MAP = {'management' : 'management',
+FUEL_GUI_TO_BR_KEY_MAP = {'management' : BR_KEY_MGMT,
     'storage' : 'storage',
     'public'  : 'ex',
     'private' : BR_KEY_PRIVATE}
