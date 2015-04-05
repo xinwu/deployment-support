@@ -44,18 +44,9 @@ SELINUX_MODE_EXPRESSION         = '^\s*SELINUX\s*=\s*(\S*)\s*$'
 SELINUX_CONFIG_PATH             = '/etc/selinux/config'
 
 
-# ospurge constants
-ADMIN          = 'admin'
-SERVICES       = 'services'
-CLIENT_VERSION = '2.0'
-OVS_AGENT      = 'neutron-openvswitch-agent'
-ENDPOINT_TYPE  = 'publicURL'
-NEUTRON_RESOURCE_CLASSES = ['NeutronFloatingIps',
-                            'NeutronInterfaces',
-                            'NeutronRouters',
-                            'NeutronPorts',
-                            'NeutronNetworks',
-                            'NeutronSecgroups']
+# openrc
+FUEL_OPENRC            = '/root/openrc'
+PACKSTACK_OPENRC       = '/root/keystonerc_admin'
 
 
 # fuel constants

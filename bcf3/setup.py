@@ -55,8 +55,7 @@ def deploy_bcf(config, fuel_cluster_id):
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
         node_q.put(node)
-
-    # TODO: config bcf controller
+    #TODO: remove bridges and install ivs
     return
 
     # Use multiple threads to setup nodes

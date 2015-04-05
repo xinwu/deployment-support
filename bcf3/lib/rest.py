@@ -152,8 +152,4 @@ class RestLib(object):
         if ret[0] != 204:
             raise Exception(ret)
 
-        
-
-
-
 
