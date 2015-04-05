@@ -386,7 +386,7 @@ class Helper(object):
 
         # get bond bridge attached by br_prv
         roles = node_yaml_config['network_scheme']['roles']
-        br_prv = roles[const.BR_PRIVATE]
+        br_prv = roles[const.BR_KEY_PRIVATE]
         trans = node_yaml_config['network_scheme']['transformations']
         for tran in trans:
             if (tran['action'] != 'add-patch'):
@@ -430,7 +430,7 @@ class Helper(object):
         bridges = []
         endpoints = node_yaml_config['network_scheme']['endpoints']
         for br_key, br_name in roles.iteritems():
-            if br_key in const.BR_EXCEPTION:
+            if br_key in const.BR_KEY_EXCEPTION:
                 continue
             ip = endpoints[br_name]['IP']
             if ip == const.NONE_IP:
