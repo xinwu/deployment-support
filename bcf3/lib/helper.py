@@ -272,16 +272,22 @@ class Helper(object):
         # generate ospurge script
         if node.role != const.ROLE_NEUTRON_SERVER:
             return
-        ospurge_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.py''' %
+        openrc = const.PACKSTACK_OPENRC
+        if node.fuel_cluster_id:
+            openrc = FUEL_OPENRC
+        with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.sh''' %
+                  {'setup_node_dir'       : node.setup_node_dir,
+                   'deploy_mode'          : deploy_mode,
+                   'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
+                   'ospurge_template'     : const.CENTOS}), "r") as ospurge_template_file:
+            ospurge_template = ospurge_template_file.read()
+            ospurge = (ospurge_template % {'openrc' : openrc})
+        ospurge_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s_ospurge.sh''' %
                               {'setup_node_dir'       : node.setup_node_dir,
                                'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
                                'hostname'             : node.hostname})
-        subprocess.call(r'''cp %(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.py %(ospurge_script_path)s''' %
-                       {'setup_node_dir'       : node.setup_node_dir,
-                        'deploy_mode'          : deploy_mode,
-                        'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
-                        'ospurge_template'     : const.CENTOS,
-                        'ospurge_script_path'  : ospurge_script_path}, shell=True)
+        with open(ospurge_script_path, "w") as ospurge_file:
+            ospurge_file.write(ospurge)
         node.set_ospurge_script_path(ospurge_script_path)
         
 
@@ -646,7 +652,7 @@ class Helper(object):
             Helper.copy_file_to_remote(node,
                node.ospurge_script_path,
                node.dst_dir,
-               "%(hostname)s.py" % {'hostname' : node.hostname})
+               "%(hostname)s_ospurge.sh" % {'hostname' : node.hostname})
 
 
 
