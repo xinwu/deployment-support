@@ -490,7 +490,7 @@ class Helper(object):
                 for br in node.bridges:
                     if br.br_key in pre_configured_bcf_bridges:
                         continue
-                    rule = MembershipRule(br.br_key, br.br_name, br.br_vlan)
+                    rule = MembershipRule(br.br_key, br.br_vlan)
                     new_membership_rules[rule.br_key] = rule
 
         except IndexError:
@@ -511,9 +511,13 @@ class Helper(object):
             return Helper.load_nodes_from_yaml(node_yaml_config_map, env)
         else:
             node_dic, new_membership_rules = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
+
             # program new membership rules to controller
             for br_key, rule in new_membership_rules.iteritems():
                 RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
+            # program "ivs any port management vlan untagged" rule to management segment
+            rule = MembershipRule(br_key=const.BR_KEY_MGMT, br_vlan=None, interface=const.BR_KEY_MGMT)
+            RestLib.program_management_segment_membership_rule(env.bcf_master, env.bcf_cookie, rule)
             return node_dic
 
 
