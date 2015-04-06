@@ -23,11 +23,18 @@ def worker_setup_node():
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
+        """
         Helper.run_command_on_remote(node,
             (r'''/bin/bash %(dst_dir)s/%(hostname)s.sh >> %(log)s 2>&1''' %
             {'dst_dir'  : node.dst_dir,
              'hostname' : node.hostname,
              'log'      : node.log}))
+        """
+        # virtualenv ospurge; source openrc; python ./test
+        # TODO
+        #if node.role == const.ROLE_NEUTRON_SERVER:
+        #    Helper.run_command_on_remote(node,
+        #        (r'''''' % {}))
         Helper.safe_print("Finish deploying %(hostname)s\n" %
                          {'hostname' : node.hostname})
     node_q.task_done()
@@ -56,7 +63,6 @@ def deploy_bcf(config, fuel_cluster_id):
             log_file.write(str(node))
         node_q.put(node)
     #TODO: remove bridges and install ivs
-    return
 
     # Use multiple threads to setup nodes
     for i in range(const.MAX_WORKERS):

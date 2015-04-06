@@ -7,6 +7,7 @@ class Node(object):
         self.bash_script_path      = None
         self.puppet_script_path    = None
         self.selinux_script_path   = None
+        self.ospurge_script_path   = None
         self.log                   = const.LOG_FILE
         self.hostname              = node_config['hostname']
         self.role                  = node_config['role'].lower()
@@ -64,6 +65,10 @@ class Node(object):
         self.selinux_script_path = selinux_script_path
 
 
+    def set_ospurge_script_path(self, ospurge_script_path):
+        self.ospurge_script_path = ospurge_script_path
+
+
     def get_network_vlan_ranges(self):
         return (r'''%(physnet)s:%(lower_vlan)s:%(upper_vlan)s''' %
                {'physnet'    : self.physnet,
@@ -89,6 +94,7 @@ dst_dir                : %(dst_dir)s,
 bash_script_path       : %(bash_script_path)s,
 puppet_script_path     : %(puppet_script_path)s,
 selinux_script_path    : %(selinux_script_path)s,
+ospurge_script_path    : %(ospurge_script_path)s,
 log                    : %(log)s,
 hostname               : %(hostname)s,
 role                   : %(role)s,
@@ -122,6 +128,7 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'bash_script_path'      : self.bash_script_path,
 'puppet_script_path'    : self.puppet_script_path,
 'selinux_script_path'   : self.selinux_script_path,
+'ospurge_script_path'   : self.ospurge_script_path,
 'log'                   : self.log,
 'hostname'              : self.hostname,
 'role'                  : self.role,

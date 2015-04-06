@@ -26,6 +26,11 @@ cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/sy
 # deploy bcf
 puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
 
+# install packages for cleanup
+pip install virtualenvwrapper
+virtualenv ospurge
+pip install ospurge
+
 # restart libvirtd and nova compute on compute node
 systemctl status openstack-nova-compute
 if [ $?==0 ]; then

@@ -82,6 +82,7 @@ class Helper(object):
         A watcher threading stops the subprocess when it expires.
         stdout and stderr are captured.
         """
+        # TODO: does not work on python 2.6
         event = threading.Event()
         p = subprocess.Popen(
             command, shell=True, stdout=subprocess.PIPE,
@@ -267,6 +268,22 @@ class Helper(object):
                         'selinux_template'     : const.CENTOS,
                         'selinux_script_path'  : selinux_script_path}, shell=True)
         node.set_selinux_script_path(selinux_script_path)
+
+        # generate ospurge script
+        if node.role != const.ROLE_NEUTRON_SERVER:
+            return
+        ospurge_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.py''' %
+                              {'setup_node_dir'       : node.setup_node_dir,
+                               'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
+                               'hostname'             : node.hostname})
+        subprocess.call(r'''cp %(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.py %(ospurge_script_path)s''' %
+                       {'setup_node_dir'       : node.setup_node_dir,
+                        'deploy_mode'          : deploy_mode,
+                        'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
+                        'ospurge_template'     : const.CENTOS,
+                        'ospurge_script_path'  : ospurge_script_path}, shell=True)
+        node.set_ospurge_script_path(ospurge_script_path)
+        
 
 
     @staticmethod
@@ -559,18 +576,18 @@ class Helper(object):
 
     @staticmethod
     def run_command_on_remote(node, command):
-        if node.use_fuel:
-            run_command_on_remote_with_key(node, command)
+        if node.fuel_cluster_id:
+            Helper.run_command_on_remote_with_key(node, command)
         else:
-            run_command_on_remote_with_passwd(node, command)
+            Helper.run_command_on_remote_with_passwd(node, command)
 
 
     @staticmethod
     def copy_file_to_remote(node, src_file, dst_dir, dst_file, mode=777):
-        if node.use_fuel:
-            copy_file_to_remote_with_key(node, src_file, dst_dir, dst_file, mode)
+        if node.fuel_cluster_id:
+            Helper.copy_file_to_remote_with_key(node, src_file, dst_dir, dst_file, mode)
         else:
-            copy_file_to_remote_with_passwd(node, src_file, dst_dir, dst_file, mode)
+            Helper.copy_file_to_remote_with_passwd(node, src_file, dst_dir, dst_file, mode)
 
 
     @staticmethod
@@ -621,6 +638,15 @@ class Helper(object):
                node.selinux_script_path,
                node.dst_dir,
                "%(hostname)s.te" % {'hostname' : node.hostname})
+
+        # copy ospurge script to node
+        if node.role == const.ROLE_NEUTRON_SERVER:
+            Helper.safe_print("Copy ospurge script to %(hostname)s\n" %
+                             {'hostname' : node.hostname})
+            Helper.copy_file_to_remote(node,
+               node.ospurge_script_path,
+               node.dst_dir,
+               "%(hostname)s.py" % {'hostname' : node.hostname})
 
 
 

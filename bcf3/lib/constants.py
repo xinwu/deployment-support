@@ -20,6 +20,7 @@ GENERATED_SCRIPT_DIR = 'generated_script'
 BASH_TEMPLATE_DIR    = 'bash_template'
 PUPPET_TEMPLATE_DIR  = 'puppet_template'
 SELINUX_TEMPLATE_DIR = 'selinux_template'
+OSPURGE_TEMPLATE_DIR = 'ospurge_template'
 LOG_FILE             = "/var/log/bcf_setup.log"
 
 # constants for ivs config
