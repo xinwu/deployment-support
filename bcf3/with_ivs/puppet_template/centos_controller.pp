@@ -1,6 +1,26 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
+# keystone paste config
+ini_setting { "keystone paste config":
+  ensure            => present,
+  path              => '/etc/keystone/keystone.conf',
+  section           => 'paste_deploy',
+  key_val_separator => '=',
+  setting           => 'config_file',
+  value             => '/usr/share/keystone/keystone-dist-paste.ini',
+}
+
+# reserve keystone ephemeral port
+exec { "reserve keystone port":
+  command => "/sbin/sysctl -w 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882'",
+}
+file_line { "reserve keystone port":
+  path  => '/etc/sysctl.conf',
+  line  => 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882',
+  match => '^net.ipv4.ip_local_reserved_ports.*$',
+}
+
 # install selinux policies
 Package { allow_virtual => true }
 class { selinux:
