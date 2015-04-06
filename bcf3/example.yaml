@@ -13,7 +13,7 @@ bcf_controller_passwd: adminadmin
 
 # configuration can be overrided by fuel
 default_user: root
-default_passwd: bsn
+default_passwd: r00tme
 default_os: centos
 default_os_version: 6.5
 network_vlan_ranges: physnet1:500:2000
@@ -22,7 +22,7 @@ default_uplink_interfaces:
 - eth1
 - eth2
 nodes:
-- hostname: 172.16.54.3
+- hostname: 172.16.54.5
   role: controller
-- hostname: 172.16.54.4
+- hostname: 172.16.54.6
 

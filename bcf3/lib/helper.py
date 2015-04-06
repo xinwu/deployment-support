@@ -274,7 +274,7 @@ class Helper(object):
             return
         openrc = const.PACKSTACK_OPENRC
         if node.fuel_cluster_id:
-            openrc = FUEL_OPENRC
+            openrc = const.FUEL_OPENRC
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.sh''' %
                   {'setup_node_dir'       : node.setup_node_dir,
                    'deploy_mode'          : deploy_mode,
