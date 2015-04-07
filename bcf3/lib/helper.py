@@ -480,22 +480,8 @@ class Helper(object):
                             % {'fuel_cluster_id' : env.fuel_cluster_id,
                                'errors'          : errors})
 
-        # get pre-configured segments from bcf controller,
-        # then get the corresponding 
-        pre_configured_segments = RestLib.get_os_mgmt_segments(env.bcf_master, env.bcf_cookie)
-        pre_configured_bcf_bridges = []
-        for segment in pre_configured_segments:
-            br_key = const.FUEL_GUI_TO_BR_KEY_MAP.get(segment)
-            if not br_key:
-                br_key = segment
-            pre_configured_bcf_bridges.append(br_key)
-
-        # check if management segment and its membership rule have been configured
-        if const.BR_KEY_MGMT not in pre_configured_bcf_bridges:
-            raise Exception("management segment is not configured in tenant %s" %(const.OS_MGMT_TENANT))
-
         node_dic = {}
-        new_membership_rules = {}
+        membership_rules = {}
         try:
             lines = [l for l in node_list.splitlines()
                      if '----' not in l and 'pending_roles' not in l]
@@ -509,17 +495,15 @@ class Helper(object):
                     continue
                 node_dic[node.hostname] = node
                 
-                # get node bridges whose corresponding segments are not in bcf controller
+                # get node bridges
                 for br in node.bridges:
-                    if br.br_key in pre_configured_bcf_bridges:
-                        continue
                     rule = MembershipRule(br.br_key, br.br_vlan)
-                    new_membership_rules[rule.br_key] = rule
+                    membership_rules[rule.br_key] = rule
 
         except IndexError:
             raise Exception("Could not parse node list:\n%(node_list)s\n"
                             % {'node_list' : node_list})
-        return node_dic, new_membership_rules
+        return node_dic, membership_rules
 
 
     @staticmethod
@@ -533,14 +517,10 @@ class Helper(object):
         if env.fuel_cluster_id == None:
             return Helper.load_nodes_from_yaml(node_yaml_config_map, env)
         else:
-            node_dic, new_membership_rules = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
-
-            # program new membership rules to controller
-            for br_key, rule in new_membership_rules.iteritems():
+            node_dic, membership_rules = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
+            # program membership rules to controller
+            for br_key, rule in membership_rules.iteritems():
                 RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
-            # program "ivs any port management vlan untagged" rule to management segment
-            rule = MembershipRule(br_key=const.BR_KEY_MGMT, br_vlan=None, interface=const.BR_KEY_MGMT)
-            RestLib.program_management_segment_membership_rule(env.bcf_master, env.bcf_cookie, rule)
             return node_dic
 
 

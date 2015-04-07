@@ -134,10 +134,10 @@ class RestLib(object):
         intf_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
                        {'tenant'    : const.OS_MGMT_TENANT,
                         'segment'   : rule.br_key,
-                        'interface' : rule.interface,
+                        'interface' : const.ANY,
                         'switch'    : const.ANY,
                         'vlan'      : vlan})
-        rule_data = {"interface" : rule.interface, "switch" : const.ANY, "vlan" : vlan}
+        rule_data = {"interface" : const.ANY, "switch" : const.ANY, "vlan" : vlan}
         ret = RestLib.put(cookie, intf_rule_url, server, port, json.dumps(rule_data))
         if ret[0] != 204:
             raise Exception(ret)
@@ -152,22 +152,14 @@ class RestLib(object):
         if ret[0] != 204:
             raise Exception(ret)
 
-
-    @staticmethod
-    def program_management_segment_membership_rule(server, cookie, rule, port=const.BCF_CONTROLLER_PORT):
-        if rule.br_vlan:
-            vlan = int(rule.br_vlan)
-        else:
-            vlan = -1
-
-        intf_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
+        specific_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
                        {'tenant'    : const.OS_MGMT_TENANT,
                         'segment'   : rule.br_key,
-                        'interface' : rule.interface,
+                        'interface' : rule.br_key,
                         'switch'    : const.ANY,
-                        'vlan'      : vlan})
-        rule_data = {"interface" : rule.interface, "switch" : const.ANY, "vlan" : vlan}
-        ret = RestLib.put(cookie, intf_rule_url, server, port, json.dumps(rule_data))
+                        'vlan'      : -1})
+        rule_data = {"interface" : rule.br_key, "switch" : const.ANY, "vlan" : -1}
+        ret = RestLib.put(cookie, specific_rule_url, server, port, json.dumps(rule_data))
         if ret[0] != 204:
             raise Exception(ret)
 
