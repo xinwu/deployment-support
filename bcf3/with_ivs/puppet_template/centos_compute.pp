@@ -25,6 +25,17 @@ service{'ivs':
     require => Selinux::Module['selinux-bcf'],
 }
 
+# load 8021q module on boot
+file {'/etc/sysconfig/modules/8021q.modules':
+    ensure  => file,
+    mode    => 0777,
+    content => "modprobe 8021q",
+}
+exec { "load 8021q":
+    command => "modprobe 8021q",
+    path    => $binpath,
+}
+
 # config neutron-bsn-agent service
 ini_setting { "neutron-bsn-agent.service Description":
   ensure            => present,

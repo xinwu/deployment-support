@@ -3,36 +3,48 @@ $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
 # keystone paste config
 ini_setting { "keystone paste config":
-  ensure            => present,
-  path              => '/etc/keystone/keystone.conf',
-  section           => 'paste_deploy',
-  key_val_separator => '=',
-  setting           => 'config_file',
-  value             => '/usr/share/keystone/keystone-dist-paste.ini',
+    ensure            => present,
+    path              => '/etc/keystone/keystone.conf',
+    section           => 'paste_deploy',
+    key_val_separator => '=',
+    setting           => 'config_file',
+    value             => '/usr/share/keystone/keystone-dist-paste.ini',
 }
 
 # reserve keystone ephemeral port
 exec { "reserve keystone port":
-  command => "/sbin/sysctl -w 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882'",
+    command => "sysctl -w 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882'",
+    path    => $binpath,
 }
 file_line { "reserve keystone port":
-  path  => '/etc/sysctl.conf',
-  line  => 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882',
-  match => '^net.ipv4.ip_local_reserved_ports.*$',
+    path  => '/etc/sysctl.conf',
+    line  => 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882',
+    match => '^net.ipv4.ip_local_reserved_ports.*$',
+}
+
+# load 8021q module on boot
+file {'/etc/sysconfig/modules/8021q.modules':
+    ensure  => file,
+    mode    => 0777,
+    content => "modprobe 8021q",
+}
+exec { "load 8021q":
+    command => "modprobe 8021q",
+    path    => $binpath,
 }
 
 # install selinux policies
 Package { allow_virtual => true }
 class { selinux:
-  mode => '%(selinux_mode)s'
+    mode => '%(selinux_mode)s'
 }
 selinux::module { 'selinux-bcf':
-  ensure => 'present',
-  source => 'puppet:///modules/selinux/centos.te',
+    ensure => 'present',
+    source => 'puppet:///modules/selinux/centos.te',
 }
 
 # ivs configruation and service
-file{'/etc/sysconfig/ivs':
+file {'/etc/sysconfig/ivs':
     ensure  => file,
     mode    => 0644,
     content => "%(ivs_daemon_args)s",
