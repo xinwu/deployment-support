@@ -83,6 +83,8 @@ class Node(object):
                 return
             if old_ivs_version_num[0] == '0':
                 return
+            if str(self.ivs_version) in str(self.old_ivs_version):
+                return
             diff = int(ivs_version_num[0]) - int(old_ivs_version_num[0])
             if self.ivs_version < self.old_ivs_version:
                 self.skip = True
