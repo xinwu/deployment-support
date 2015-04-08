@@ -87,7 +87,7 @@ class Node(object):
             if self.ivs_version < self.old_ivs_version:
                 self.skip = True
                 self.error = (r'''Existing ivs %(old_ivs_version)s is newer than %(ivs_version)s''' %
-                              {'old_ivs_version' : self.old_ivs_version, 'ivs_version' : ivs_version})
+                              {'old_ivs_version' : self.old_ivs_version, 'ivs_version' : self.ivs_version})
             elif diff > 1:
                 self.skip = True
                 self.error = (r'''Existing ivs %(old_ivs_version)s is %(diff)d version behind %(ivs_version)s''' %
