@@ -25,7 +25,7 @@ LOG_FILE             = "/var/log/bcf_setup.log"
 
 # constants for ivs config
 INBAND_VLAN     = 4092
-IVS_DAEMON_ARGS = (r'''DAEMON_ARGS=\"--syslog --inband-vlan %(inband_vlan)d%(uplink_interfaces)s --pipeline=bvs-1.0\"''')
+IVS_DAEMON_ARGS = (r'''DAEMON_ARGS=\"--syslog --inband-vlan %(inband_vlan)d%(uplink_interfaces)s%(internal_ports)s --pipeline=bvs-1.0\"''')
 
 # constants of supported OSes and versions
 CENTOS          = 'centos'
@@ -55,6 +55,10 @@ NONE_IP                = 'none'
 BR_KEY_PRIVATE         = 'private'
 BR_KEY_MGMT            = 'management'
 BR_KEY_EXCEPTION       = ['fw-admin', BR_KEY_PRIVATE]
+# these ovs bridges needs to be cleaned up from compute node,
+# but this script doesn't program any membership rules to bcf
+# controller about these bridges.
+TO_BE_CLEANED_BR_NAME  = ['br-int', 'br-prv']
 OS_MGMT_TENANT         = 'os-mgmt'
 HASH_HEADER            = 'BCF-SETUP'
 BCF_CONTROLLER_PORT    = 8443

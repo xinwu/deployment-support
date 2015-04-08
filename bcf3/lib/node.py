@@ -92,11 +92,23 @@ class Node(object):
         return ''.join(internal_ports)
 
 
-    def get_ivs_internal_port_ip_config(self):
-        ip_configs = []
+    def get_ivs_internal_port_ips(self):
+        port_ips = []
         for br in self.bridges:
-            internal_ports.append("ifconfig %(internal_port)s %(ip)s" % (br.br_key, br.br_ip))
-        return "\n".join(ip_configs)
+            port_ips.append(r'''"%(internal_port)s,%(ip)s"''' %
+                                 {'internal_port' : br.br_key,
+                                  'ip'            : br.br_ip})
+        return ",".join(port_ips)
+
+
+    def get_all_ovs_brs(self):
+        ovs_brs = []
+        for br in self.bridges:
+            ovs_brs.append(r'''"%(br)s"''' % {'br' : br.br_name})
+        for br in const.TO_BE_CLEANED_BR_NAME:
+            ovs_brs.append(r'''"%(br)s"''' % {'br' : br})
+        ovs_brs.append(r'''"%(br)s"''' % {'br' : self.br_bond})
+        return ' '.join(ovs_brs)
 
 
     def get_controllers_for_neutron(self):

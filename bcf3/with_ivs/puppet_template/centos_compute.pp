@@ -1,6 +1,34 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
+# assign ip to ivs internal port
+define ivs_internal_port_ip {
+    $port_ip = split($name, ',')
+    file_line { "ifconfig ${port_ip[0]} ${port_ip[1]}":
+        path  => '/etc/rc.d/rc.local',
+        line  => "ifconfig ${port_ip[0]} ${port_ip[1]}",
+        match => "^ifconfig ${port_ip[0]} ${port_ip[1]}$",
+    }
+}
+# example ['storage,192.168.1.1/24', 'ex,192.168.2.1/24', 'management,192.168.3.1/24']
+class ivs_internal_port_ips {
+    $port_ips = [%(port_ips)s]
+    file { "/etc/rc.d/rc.local":
+        ensure  => file,
+        mode    => 0777,
+    }
+    file_line { "restart ivs":
+        require => File['/etc/rc.d/rc.local'],
+        path    => '/etc/rc.d/rc.local',
+        line    => "systemctl restart ivs",
+        match   => "^systemctl restart ivs$",
+    }
+    ivs_internal_port_ip { $port_ips:
+        require => File_line['restart ivs'],
+    }
+}
+include ivs_internal_port_ips
+
 # install selinux policies
 Package { allow_virtual => true }
 class { selinux:

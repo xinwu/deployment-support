@@ -13,17 +13,18 @@ define ivs_internal_port_ip {
 # example ['storage,192.168.1.1/24', 'ex,192.168.2.1/24', 'management,192.168.3.1/24']
 class ivs_internal_port_ips {
     $port_ips = [%(port_ips)s]
-    file_line { "restart ivs":
-        path  => '/etc/rc.d/rc.local',
-        line  => "systemctl restart ivs",
-        match => "^systemctl restart ivs$",
-    }
-    ivs_internal_port_ip{$port_ips:
-        require => File_line['restart ivs'],
-    }
     file { "/etc/rc.d/rc.local":
         ensure  => file,
         mode    => 0777,
+    }
+    file_line { "restart ivs":
+        require => File['/etc/rc.d/rc.local'],
+        path    => '/etc/rc.d/rc.local',
+        line    => "systemctl restart ivs",
+        match   => "^systemctl restart ivs$",
+    }
+    ivs_internal_port_ip { $port_ips:
+        require => File_line['restart ivs'],
     }
 }
 include ivs_internal_port_ips

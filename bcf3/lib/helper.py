@@ -221,7 +221,8 @@ class Helper(object):
                     'dst_dir'             : node.dst_dir,
                     'hostname'            : node.hostname,
                     'ivs_pkg'             : node.ivs_pkg,
-                    'ivs_debug_pkg'       : node.ivs_debug_pkg})
+                    'ivs_debug_pkg'       : node.ivs_debug_pkg,
+                    'ovs_br'              : node.get_all_ovs_brs()})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
                             'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
@@ -232,7 +233,8 @@ class Helper(object):
 
         # generate puppet script
         ivs_daemon_args = (const.IVS_DAEMON_ARGS %
-                          {'inband_vlan' : const.INBAND_VLAN,
+                          {'inband_vlan'       : const.INBAND_VLAN,
+                           'internal_ports'    : node.get_ivs_internal_ports(),
                            'uplink_interfaces' : node.get_uplink_intfs_for_ivs()})
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(puppet_template_dir)s/%(puppet_template)s_%(role)s.pp''' %
                   {'setup_node_dir'      : node.setup_node_dir,
@@ -247,7 +249,8 @@ class Helper(object):
                       'bcf_controllers'       : node.get_controllers_for_neutron(),
                       'bcf_controller_user'   : node.bcf_controller_user,
                       'bcf_controller_passwd' : node.bcf_controller_passwd,
-                      'selinux_mode'          : node.selinux_mode})
+                      'selinux_mode'          : node.selinux_mode,
+                      'port_ips'              : node.get_ivs_internal_port_ips()})
         puppet_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.pp''' %
                              {'setup_node_dir'       : node.setup_node_dir,
                               'generated_script_dir' : const.GENERATED_SCRIPT_DIR,

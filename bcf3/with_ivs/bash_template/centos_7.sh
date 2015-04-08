@@ -23,8 +23,18 @@ mkdir -p /etc/puppet/modules/selinux/files
 cp %(dst_dir)s/%(hostname)s.te /etc/puppet/modules/selinux/files/centos.te
 cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/system/neutron-bsn-agent.service
 
+# remove ovs, example ("br-storage" "br-prv" "br-ex")
+declare -a ovs_br=(%(ovs_br)s)
+len=${#ovs_br[@]}
+for (( i=0; i<$len; i++ )); do
+    ovs-vsctl del-br ${ovs_br[$i]}
+done
+
 # deploy bcf
 puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
+
+# assign ip to ivs internal ports
+bash /etc/rc.d/rc.local
 
 # restart libvirtd and nova compute on compute node
 systemctl status openstack-nova-compute
