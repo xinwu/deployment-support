@@ -84,6 +84,21 @@ class Node(object):
         return ''.join(uplink_interfaces)
 
 
+    def get_ivs_internal_ports(self):
+        internal_ports = []
+        for br in self.bridges:
+            internal_ports.append(' --internal-port=')
+            internal_ports.append(br.br_key)
+        return ''.join(internal_ports)
+
+
+    def get_ivs_internal_port_ip_config(self):
+        ip_configs = []
+        for br in self.bridges:
+            internal_ports.append("ifconfig %(internal_port)s %(ip)s" % (br.br_key, br.br_ip))
+        return "\n".join(ip_configs)
+
+
     def get_controllers_for_neutron(self):
         return ','.join(self.bcf_controllers)
 

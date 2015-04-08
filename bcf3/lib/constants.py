@@ -59,6 +59,10 @@ OS_MGMT_TENANT         = 'os-mgmt'
 HASH_HEADER            = 'BCF-SETUP'
 BCF_CONTROLLER_PORT    = 8443
 ANY                    = 'any'
+
+# this map is not used in the script, but is
+# helpful to understand the fuel created bridge
+# and BCF membership rules
 FUEL_GUI_TO_BR_KEY_MAP = {'management' : BR_KEY_MGMT,
     'storage' : 'storage',
     'public'  : 'ex',
