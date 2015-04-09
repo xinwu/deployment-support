@@ -203,7 +203,7 @@ class SSHEnvironment(Environment):
             sshcomm = ' '.join(sshcomm)
         self.ensure_connectivity(node)
         resp, errors = TimedCommand(sshcomm).run(timeout, retries, shell=shell)
-        return resp, errors
+        return resp, errors.replace("Error: NetworkManager is not running.", "")
 
     def ensure_connectivity(self, node):
         # This might be worth caching if many SSH calls are made to each node.
