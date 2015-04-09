@@ -29,6 +29,11 @@ class ivs_internal_port_ips {
 }
 include ivs_internal_port_ips
 
+# make sure known_hosts is cleaned up
+file { "/root/.ssh/known_hosts":
+    ensure => absent,
+}
+
 # keystone paste config
 ini_setting { "keystone paste config":
     ensure            => present,
