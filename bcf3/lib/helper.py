@@ -217,6 +217,7 @@ class Helper(object):
                    {'install_ivs'         : node.install_ivs,
                     'install_bsnstacklib' : node.install_bsnstacklib,
                     'install_all'         : node.install_all,
+                    'ivs_version'         : node.ivs_version,
                     'bsnstacklib_version' : node.bsnstacklib_version,
                     'dst_dir'             : node.dst_dir,
                     'hostname'            : node.hostname,
@@ -568,6 +569,7 @@ class Helper(object):
         if env.deploy_mode == const.T6 and code_web != 0 and code_local != 0:
             Helper.safe_print("Required packages are not correctly downloaded.\n")
             exit(1)
+        # TODO: deal with tarball
 
 
     @staticmethod

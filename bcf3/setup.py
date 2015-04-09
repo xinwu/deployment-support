@@ -56,12 +56,12 @@ def deploy_bcf(config, fuel_cluster_id):
 
     # Generate scripts for each node
     for hostname, node in node_dic.iteritems():
-        if node.skip:
-            continue
         if node.os == const.CENTOS:
             Helper.generate_scripts_for_centos(node)
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
+        if node.skip:
+            continue
         node_q.put(node)
 
     # Use multiple threads to setup nodes
@@ -70,7 +70,8 @@ def deploy_bcf(config, fuel_cluster_id):
         t.daemon = True
         t.start()
     node_q.join()
-    Helper.safe_print("Big Cloud Fabric deployment finished!\n")
+    Helper.safe_print("Big Cloud Fabric deployment finished! Check %(log)s on each node for details.\n" %
+                     {'log' : const.LOG_FILE})
 
 
 if __name__=='__main__':

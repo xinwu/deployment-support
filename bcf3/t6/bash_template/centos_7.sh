@@ -9,6 +9,7 @@ fi
 install_bsnstacklib=%(install_bsnstacklib)s
 install_ivs=%(install_ivs)s
 install_all=%(install_all)s
+ivs_version=%(ivs_version)s
 
 # prepare dependencies
 rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
@@ -23,14 +24,32 @@ fi
 
 # install ivs
 if [ $install_ivs = true ]; then
-    rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
-    if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
-        rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
+    # check ivs version compatability
+    pass=true
+    ivs --version
+    if [ $?==0 ]; then
+        old_version=$(ivs --version | awk '{print $2}')
+        old_version_numbers=(${old_version//./ })
+        new_version_numbers=(${ivs_version//./ })
+        if [[ $old_version > $ivs_version ]]; then
+            pass=false
+        elif [[ $((${new_version_numbers[0]}-1)) > ${old_version_numbers[0]} ]]; then
+            pass=false
+        fi
+    fi
+
+    if [ $pass == true ]; then
+        rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
+        if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
+            rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
+        fi
+    else
+        echo "ivs upgrade fails version validation"
     fi
 fi
 
 # full installation of bcf
-if [ $install_all = true ]; then
+if [ $install_all == true ]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
     puppet module install jfryman-selinux

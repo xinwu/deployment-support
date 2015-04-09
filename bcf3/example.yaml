@@ -6,6 +6,8 @@ default_install_bsnstacklib: true
 default_install_ivs: true
 default_install_all: true
 ivs_packages:
+#- http://10.2.3.11/~bsn/xenon-bsn/precise-amd64/latest/ivs_0.5_amd64.deb
+#- http://10.2.3.11/~bsn/xenon-bsn/precise-amd64/latest/ivs-dbg_0.5_amd64.deb
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
 bcf_controllers:
@@ -28,4 +30,7 @@ nodes:
 - hostname: 172.16.54.5
   role: controller
 - hostname: 172.16.54.6
+#- hostname: 172.16.54.7
+#  role: controller
+#- hostname: 172.16.54.8
 

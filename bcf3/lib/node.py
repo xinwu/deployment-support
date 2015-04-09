@@ -40,12 +40,32 @@ class Node(object):
         self.ivs_pkg_map           = env.ivs_pkg_map
         self.ivs_pkg               = None
         self.ivs_debug_pkg         = None
+        self.ivs_version           = None
         if self.os in const.RPM_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['rpm']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_rpm']
         elif self.os in const.DEB_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
+        self.error                 = None
+
+        # check os compatability
+        if (((self.os == const.CENTOS) and (self.os_version not in const.CENTOS_VERSIONS))
+           or ((self.os == const.UBUNTU) and (self.os_version not in const.UBUNTU_VERSIONS))):
+            self.skip = True
+            self.error = (r'''%(os)s %(os_version)s is not supported''' %
+                         {'os' : self.os, 'os_version' : self.os_version})
+
+        # get ivs version
+        if self.ivs_pkg:
+            temp = []
+            subs = self.ivs_pkg.split('-')
+            for sub in subs:
+                temp.extend(sub.split('_'))
+            for i in range(len(temp)):
+                if temp[i].lower() == 'ivs':
+                    self.ivs_version = temp[i+1]
+                    break
 
 
     def is_ready_to_deploy(self):
@@ -155,6 +175,8 @@ selinux_mode           : %(selinux_mode)s,
 fuel_cluster_id        : %(fuel_cluster_id)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
+ivs_version            : %(ivs_version)s,
+error                  : %(error)s,
 ''' %
 {
 'dst_dir'               : self.dst_dir,
@@ -192,6 +214,8 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'fuel_cluster_id'       : self.fuel_cluster_id,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
+'ivs_version'           : self.ivs_version,
+'error'                 : self.error,
 })
 
     def __repr__(self):
