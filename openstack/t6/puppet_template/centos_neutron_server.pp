@@ -1,6 +1,11 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
+# make sure known_hosts is cleaned up
+file { "/root/.ssh/known_hosts":
+    ensure => absent,
+}
+
 # keystone paste config
 ini_setting { "keystone paste config":
   ensure            => present,
