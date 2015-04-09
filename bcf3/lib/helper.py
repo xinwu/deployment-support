@@ -222,7 +222,8 @@ class Helper(object):
                     'hostname'            : node.hostname,
                     'ivs_pkg'             : node.ivs_pkg,
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
-                    'ovs_br'              : node.get_all_ovs_brs()})
+                    'ovs_br'              : node.get_all_ovs_brs(),
+                    'br-int'              : const.BR_NAME_INT})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
                             'generated_script_dir' : const.GENERATED_SCRIPT_DIR,

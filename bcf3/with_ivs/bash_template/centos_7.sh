@@ -29,6 +29,8 @@ len=${#ovs_br[@]}
 for (( i=0; i<$len; i++ )); do
     ovs-vsctl del-br ${ovs_br[$i]}
 done
+# delete ovs br-int
+ovs-vsctl del-br %(br-int)s
 
 # deploy bcf
 puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
