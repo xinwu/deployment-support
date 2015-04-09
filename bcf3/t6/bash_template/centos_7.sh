@@ -121,6 +121,12 @@ if [[ $install_all == true ]]; then
         systemctl enable neutron-metadata-agent
         systemctl restart neutron-dhcp-agent
         systemctl enable neutron-dhcp-agent
+    else
+        echo 'Stop and disable neutron-metadata-agent and neutron-dhcp-agent'
+        systemctl stop neutron-metadata-agent
+        systemctl disable neutron-metadata-agent
+        systemctl stop neutron-dhcp-agent
+        systemctl disable neutron-dhcp-agent
     fi
 fi
 
