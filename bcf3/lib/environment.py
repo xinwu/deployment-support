@@ -10,6 +10,10 @@ class Environment(object):
         # fuel cluster id
         self.fuel_cluster_id = fuel_cluster_id
 
+        # flags for upgrade
+        self.upgrade_ivs_only = config['default_upgrade_ivs_only']
+        self.upgrade_bsnstacklib_only = config['default_upgrade_bsnstacklib_only']
+
         # setup node ip and directory
         self.setup_node_ip  = Helper.get_setup_node_ip()
         self.setup_node_dir = os.getcwd()
