@@ -11,20 +11,23 @@ class Environment(object):
         self.fuel_cluster_id = fuel_cluster_id
 
         # flags for upgrade
-        self.upgrade_ivs_only = config['default_upgrade_ivs_only']
-        self.upgrade_bsnstacklib_only = config['default_upgrade_bsnstacklib_only']
+        self.install_ivs = config.get('default_install_ivs')
+        self.install_bsnstacklib = config.get('default_install_bsnstacklib')
+        self.install_all = config.get('default_install_all')
 
         # setup node ip and directory
         self.setup_node_ip  = Helper.get_setup_node_ip()
         self.setup_node_dir = os.getcwd()
 
-        # if ivs pkg is necessary
-        self.deploy_ivs = False
-        if 'default_deploy_ivs' in config and config['default_deploy_ivs']:
-            self.deploy_ivs = config['default_deploy_ivs']
+        # t5 or t6 mode
+        self.deploy_mode = config.get('default_deploy_mode')
+        if not self.deploy_mode:
+            self.deploy_mode = const.T5
         for node_config in config['nodes']:
-            if not self.deploy_ivs and 'deploy_ivs' in node_config and node_config['deploy_ivs']:
-                self.deploy_ivs = node_config['deploy_ivs']
+            node_mode = node_config.get('deploy_mode')
+            if node_mode and node_mode.lower() == const.T6:
+                self.deploy_mode = const.T6
+                break
 
         # selinux configuration
         self.selinux_mode = None
@@ -80,39 +83,13 @@ class Environment(object):
         self.skip = False
         if 'default_skip' in config:
             self.skip = config['default_skip']
-
-        self.deploy_ivs = None
-        if 'default_deploy_ivs' in config:
-            self.deploy_ivs = config['default_deploy_ivs']
-
-        self.os = None
-        if 'default_os' in config:
-            self.os = config['default_os']
-        
-        self.os_version = None
-        if 'default_os_version' in config:
-            self.os_version = config['default_os_version']
-        
-        self.bsnstacklib_version = None
-        if 'default_bsnstacklib_version' in config:
-            self.bsnstacklib_version = config['default_bsnstacklib_version']
-        
-        self.role = None
-        if 'default_role' in config:
-            self.role = config['default_role']
-
-        self.user = None
-        if 'default_user' in config:
-            self.user = config['default_user']
-
-        self.passwd = None
-        if 'default_passwd' in config:
-            self.passwd = config['default_passwd']
-
-        self.uplink_interfaces = None
-        if 'default_uplink_interfaces' in config:
-            self.uplink_interfaces = config['default_uplink_interfaces']
-
+        self.os = config.get('default_os')
+        self.os_version = config.get('default_os_version')
+        self.bsnstacklib_version = config.get('default_bsnstacklib_version')
+        self.role = config.get('default_role')
+        self.user = config.get('default_user')
+        self.passwd = config.get('default_passwd')
+        self.uplink_interfaces = config.get('default_uplink_interfaces')
 
         # mast bcf controller and cookie
         self.bcf_master = None

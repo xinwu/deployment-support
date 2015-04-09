@@ -82,7 +82,7 @@ class Helper(object):
         A watcher threading stops the subprocess when it expires.
         stdout and stderr are captured.
         """
-        # TODO: does not work on python 2.6
+        # TODO: fix it in python 2.6
         event = threading.Event()
         p = subprocess.Popen(
             command, shell=True, stdout=subprocess.PIPE,
@@ -204,20 +204,20 @@ class Helper(object):
 
     @staticmethod
     def generate_scripts_for_centos(node):
-        deploy_mode = const.WITH_IVS
-        if not node.deploy_ivs:
-            deploy_mode = const.NO_IVS
 
         # generate bash script
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(bash_template_dir)s/%(bash_template)s_%(os_version)s.sh''' %
                   {'setup_node_dir'    : node.setup_node_dir,
-                   'deploy_mode'       : deploy_mode,
+                   'deploy_mode'       : node.deploy_mode,
                    'bash_template_dir' : const.BASH_TEMPLATE_DIR,
                    'bash_template'     : const.CENTOS,
                    'os_version'        : node.os_version}), "r") as bash_template_file:
             bash_template = bash_template_file.read()
             bash = (bash_template %
-                   {'bsnstacklib_version' : node.bsnstacklib_version,
+                   {'install_ivs'         : node.install_ivs,
+                    'install_bsnstacklib' : node.install_bsnstacklib,
+                    'install_all'         : node.install_all,
+                    'bsnstacklib_version' : node.bsnstacklib_version,
                     'dst_dir'             : node.dst_dir,
                     'hostname'            : node.hostname,
                     'ivs_pkg'             : node.ivs_pkg,
@@ -239,7 +239,7 @@ class Helper(object):
                            'uplink_interfaces' : node.get_uplink_intfs_for_ivs()})
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(puppet_template_dir)s/%(puppet_template)s_%(role)s.pp''' %
                   {'setup_node_dir'      : node.setup_node_dir,
-                   'deploy_mode'         : deploy_mode,
+                   'deploy_mode'         : node.deploy_mode,
                    'puppet_template_dir' : const.PUPPET_TEMPLATE_DIR,
                    'puppet_template'     : const.CENTOS,
                    'role'                : node.role}), "r") as puppet_template_file:
@@ -267,7 +267,7 @@ class Helper(object):
                                'hostname'             : node.hostname})
         subprocess.call(r'''cp %(setup_node_dir)s/%(deploy_mode)s/%(selinux_template_dir)s/%(selinux_template)s.te %(selinux_script_path)s''' %
                        {'setup_node_dir'       : node.setup_node_dir,
-                        'deploy_mode'          : deploy_mode,
+                        'deploy_mode'          : node.deploy_mode,
                         'selinux_template_dir' : const.SELINUX_TEMPLATE_DIR,
                         'selinux_template'     : const.CENTOS,
                         'selinux_script_path'  : selinux_script_path}, shell=True)
@@ -281,7 +281,7 @@ class Helper(object):
             openrc = const.FUEL_OPENRC
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.sh''' %
                   {'setup_node_dir'       : node.setup_node_dir,
-                   'deploy_mode'          : deploy_mode,
+                   'deploy_mode'          : node.deploy_mode,
                    'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
                    'ospurge_template'     : const.CENTOS}), "r") as ospurge_template_file:
             ospurge_template = ospurge_template_file.read()
@@ -302,8 +302,8 @@ class Helper(object):
             node_config['role'] = env.role
         if 'skip' not in node_config:
             node_config['skip'] = env.skip
-        if 'deploy_ivs' not in node_config:
-            node_config['deploy_ivs'] = env.deploy_ivs
+        if 'deploy_mode' not in node_config:
+            node_config['deploy_mode'] = env.deploy_mode
         if 'os' not in node_config:
             node_config['os'] = env.os
         if 'os_version' not in node_config:
@@ -316,6 +316,12 @@ class Helper(object):
             node_config['passwd'] = env.passwd
         if 'uplink_interfaces' not in node_config:
             node_config['uplink_interfaces'] = env.uplink_interfaces
+        if 'install_ivs' not in node_config:
+            node_config['install_ivs'] = env.install_ivs
+        if 'install_bsnstacklib' not in node_config:
+            node_config['install_bsnstacklib'] = env.install_bsnstacklib
+        if 'install_all' not in node_config:
+            node_config['install_all'] = env.install_all
         return node_config
 
 
@@ -559,7 +565,7 @@ class Helper(object):
                 code_local = subprocess.call("cp %(url)s %(setup_node_dir)s" %
                                             {'url' : url, 'setup_node_dir' : setup_node_dir},
                                              shell=True)
-        if env.deploy_ivs and code_web != 0 and code_local != 0:
+        if env.deploy_mode == const.T6 and code_web != 0 and code_local != 0:
             Helper.safe_print("Required packages are not correctly downloaded.\n")
             exit(1)
 
@@ -583,7 +589,7 @@ class Helper(object):
     @staticmethod
     def copy_pkg_scripts_to_remote(node):
         # copy ivs to node
-        if node.deploy_ivs:
+        if node.deploy_mode == const.T6:
             Helper.safe_print("Copy %(ivs_pkg)s to %(hostname)s\n" %
                               {'ivs_pkg'  : node.ivs_pkg,
                                'hostname' : node.hostname})

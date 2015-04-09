@@ -6,9 +6,9 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
-install_bsnstacklib_flag=%(install_bsnstacklib_flag)s
-install_ivs_flag=%(install_ivs_flag)s
-full_install_flag=%(full_installation_flag)s
+install_bsnstacklib=%(install_bsnstacklib)s
+install_ivs=%(install_ivs)s
+install_all=%(install_all)s
 
 # prepare dependencies
 rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
@@ -17,12 +17,12 @@ yum groupinstall -y 'Development Tools'
 yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
 
 # install bsnstacklib
-if [ $install_bsnstacklib_flag = true ]; then
+if [ $install_bsnstacklib = true ]; then
     pip install bsnstacklib==%(bsnstacklib_version)s
 fi
 
 # install ivs
-if [ $install_ivs_flag = true ]; then
+if [ $install_ivs = true ]; then
     rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
     if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
         rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
@@ -30,7 +30,7 @@ if [ $install_ivs_flag = true ]; then
 fi
 
 # full installation of bcf
-if [ $full_install_flag = true ]; then
+if [ $install_all = true ]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
     puppet module install jfryman-selinux

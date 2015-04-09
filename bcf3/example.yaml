@@ -1,7 +1,10 @@
 # configuration won't be overrided by fuel
 default_bsnstacklib_version: 2014.2.25
-default_deploy_ivs: true
+default_deploy_mode: t6
 default_skip: false
+default_install_bsnstacklib: true
+default_install_ivs: true
+default_install_all: true
 ivs_packages:
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm

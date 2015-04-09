@@ -9,9 +9,9 @@ DEFAULT_USER = 'root'
 ROLE_NEUTRON_SERVER = 'controller'
 ROLE_COMPUTE        = 'compute'
 
-# deployment with/out ivs
-WITH_IVS = 'with_ivs'
-NO_IVS   = 'no_ivs'
+# deployment t6/t5
+T6 = 't6'
+T5 = 't5'
 
 # constant file, directory names for each node
 PRE_REQUEST_BASH     = 'pre_request.sh'

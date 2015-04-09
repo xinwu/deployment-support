@@ -12,13 +12,16 @@ class Node(object):
         self.hostname              = node_config['hostname']
         self.role                  = node_config['role'].lower()
         self.skip                  = node_config['skip']
-        self.deploy_ivs            = node_config['deploy_ivs']
+        self.deploy_mode           = node_config['deploy_mode']
         self.os                    = node_config['os'].lower()
         self.os_version            = str(node_config['os_version']).split(".")[0]
         self.bsnstacklib_version   = node_config['bsnstacklib_version']
         self.user                  = node_config['user']
         self.passwd                = node_config['passwd']
         self.uplink_interfaces     = node_config['uplink_interfaces']
+        self.install_ivs           = node_config['install_ivs']
+        self.install_bsnstacklib   = node_config['install_bsnstacklib']
+        self.install_all           = node_config['install_all']
         self.bridges               = node_config.get('bridges')
         self.br_bond               = node_config.get('br_bond')
 
@@ -46,9 +49,9 @@ class Node(object):
 
 
     def is_ready_to_deploy(self):
-        if self.deploy_ivs and self.ivs_pkg != None:
+        if self.deploy_mode == const.T6 and self.ivs_pkg != None:
             return True
-        if not self.deploy_ivs:
+        if not self.deploy_mode == const.T5:
             return True
         return False
 
@@ -126,13 +129,16 @@ log                    : %(log)s,
 hostname               : %(hostname)s,
 role                   : %(role)s,
 skip                   : %(skip)s,
-deploy_ivs             : %(deploy_ivs)s,
+deploy_mode            : %(deploy_mode)s,
 os                     : %(os)s,
 os_version             : %(os_version)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 user                   : %(user)s,
 passwd                 : %(passwd)s,
 uplink_interfaces      : %(uplink_interfaces)s,
+install_ivs            : %(install_ivs)s,
+install_bsnstacklib    : %(install_bsnstacklib)s,
+install_all            : %(install_all)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -160,13 +166,16 @@ ivs_debug_pkg          : %(ivs_debug_pkg)s,
 'hostname'              : self.hostname,
 'role'                  : self.role,
 'skip'                  : self.skip,
-'deploy_ivs'            : self.deploy_ivs,
+'deploy_mode'           : self.deploy_mode,
 'os'                    : self.os,
 'os_version'            : self.os_version,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'user'                  : self.user,
 'passwd'                : self.passwd,
 'uplink_interfaces'     : self.uplink_interfaces,
+'install_ivs'           : self.install_ivs,
+'install_bsnstacklib'   : self.install_bsnstacklib,
+'install_all'           : self.install_all,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
 'bcf_controllers'       : self.bcf_controllers,
