@@ -53,6 +53,8 @@ if [[ $install_ivs == true ]]; then
         new_version_numbers=(${ivs_version//./ })
         if [[ ${old_version_numbers[0]} == 0 ]]; then
             pass=true
+        elif [[ "$old_version" != "${old_version%$new_version*}" ]]; then
+            pass=true
         elif [[ $old_version > $ivs_version ]]; then
             pass=false
         elif [[ $((${new_version_numbers[0]}-1)) -gt ${old_version_numbers[0]} ]]; then
