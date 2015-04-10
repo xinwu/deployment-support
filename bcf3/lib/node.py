@@ -72,7 +72,7 @@ class Node(object):
         if self.deploy_mode == const.T6 and self.old_ivs_version:
             ivs_version_num = self.ivs_version.split('.')
             old_ivs_version_num = self.old_ivs_version.split('.')
-            diff = ivs_version_num[0] - old_ivs_version_num[0]
+            diff = int(ivs_version_num[0]) - int(old_ivs_version_num[0])
             if self.ivs_version < self.old_ivs_version:
                 self.skip = True
                 self.error = (r'''Existing ivs %(old_ivs_version)s is newer than %(ivs_version)s''' %
@@ -108,11 +108,11 @@ class Node(object):
 
 
     def get_uplink_intfs_for_ivs(self):
-        uplink_interfaces = []
+        uplink_intfs = []
         for intf in self.uplink_interfaces:
-            uplink_interfaces.append(' -u ')
-            uplink_interfaces.append(intf)
-        return ''.join(uplink_interfaces)
+            uplink_intfs.append(' -u ')
+            uplink_intfs.append(intf)
+        return ''.join(uplink_intfs)
 
 
     def get_ivs_internal_ports(self):
