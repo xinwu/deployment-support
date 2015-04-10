@@ -19,7 +19,6 @@ def worker_setup_node():
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        """
         # copy ivs pkg to node
         Helper.copy_pkg_scripts_to_remote(node)
         if node.role == const.ROLE_NEUTRON_SERVER:
@@ -33,7 +32,6 @@ def worker_setup_node():
             {'dst_dir'  : node.dst_dir,
              'hostname' : node.hostname,
              'log'      : node.log}))
-        """
         Helper.safe_print("Finish deploying %(hostname)s\n" %
                          {'hostname' : node.hostname})
     node_q.task_done()

@@ -226,9 +226,9 @@ class Helper(object):
                    'os_version'        : node.os_version}), "r") as bash_template_file:
             bash_template = bash_template_file.read()
             bash = (bash_template %
-                   {'install_ivs'         : node.install_ivs,
-                    'install_bsnstacklib' : node.install_bsnstacklib,
-                    'install_all'         : node.install_all,
+                   {'install_ivs'         : str(node.install_ivs).lower(),
+                    'install_bsnstacklib' : str(node.install_bsnstacklib).lower(),
+                    'install_all'         : str(node.install_all).lower(),
                     'ivs_version'         : node.ivs_version,
                     'bsnstacklib_version' : node.bsnstacklib_version,
                     'dst_dir'             : node.dst_dir,
