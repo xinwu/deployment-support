@@ -41,13 +41,14 @@ class Node(object):
         self.ivs_pkg               = None
         self.ivs_debug_pkg         = None
         self.ivs_version           = None
+        self.old_ivs_version       = node_config.get('old_ivs_version')
         if self.os in const.RPM_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['rpm']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_rpm']
         elif self.os in const.DEB_OS_SET:
             self.ivs_pkg           = self.ivs_pkg_map['deb']
             self.ivs_debug_pkg     = self.ivs_pkg_map['debug_deb']
-        self.error                 = None
+        self.error                 = node_config.get('error')
 
         # check os compatability
         if (((self.os == const.CENTOS) and (self.os_version not in const.CENTOS_VERSIONS))
@@ -67,13 +68,20 @@ class Node(object):
                     self.ivs_version = temp[i+1]
                     break
 
-
-    def is_ready_to_deploy(self):
-        if self.deploy_mode == const.T6 and self.ivs_pkg != None:
-            return True
-        if not self.deploy_mode == const.T5:
-            return True
-        return False
+        # check ivs compatability
+        if self.deploy_mode == const.T6 and self.old_ivs_version:
+            ivs_version_num = self.ivs_version.split('.')
+            old_ivs_version_num = self.old_ivs_version.split('.')
+            diff = ivs_version_num[0] - old_ivs_version_num[0]
+            if self.ivs_version < self.old_ivs_version:
+                self.skip = True
+                self.error = (r'''Existing ivs %(old_ivs_version)s is newer than %(ivs_version)s''' %
+                              {'old_ivs_version' : self.old_ivs_version, 'ivs_version' : ivs_version})
+            elif diff > 1:
+                self.skip = True
+                self.error = (r'''Existing ivs %(old_ivs_version)s is %(diff)d version behind %(ivs_version)s''' %
+                             {'old_ivs_version' : self.old_ivs_version, 'diff' : diff,
+                              'ivs_version' : ivs_version})
 
 
     def set_bash_script_path(self, bash_script_path):
@@ -180,6 +188,7 @@ fuel_cluster_id        : %(fuel_cluster_id)s,
 ivs_pkg                : %(ivs_pkg)s,
 ivs_debug_pkg          : %(ivs_debug_pkg)s,
 ivs_version            : %(ivs_version)s,
+old_ivs_version        : %(old_ivs_version)s,
 error                  : %(error)s,
 ''' %
 {
@@ -219,6 +228,7 @@ error                  : %(error)s,
 'ivs_pkg'               : self.ivs_pkg,
 'ivs_debug_pkg'         : self.ivs_debug_pkg,
 'ivs_version'           : self.ivs_version,
+'old_ivs_version'       : self.old_ivs_version,
 'error'                 : self.error,
 })
 

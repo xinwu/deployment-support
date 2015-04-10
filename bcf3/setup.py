@@ -16,8 +16,6 @@ node_q = Queue.Queue()
 def worker_setup_node():
     while True:
         node = node_q.get()
-        if not node.is_ready_to_deploy():
-            continue
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
@@ -61,6 +59,9 @@ def deploy_bcf(config, fuel_cluster_id):
         with open(const.LOG_FILE, "a") as log_file:
             log_file.write(str(node))
         if node.skip:
+            Helper.safe_print("skip node %(hostname)s due to %(error)s\n" %
+                             {'hostname' : hostname,
+                              'error'    : node.error})
             continue
         node_q.put(node)
 

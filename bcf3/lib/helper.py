@@ -138,6 +138,18 @@ class Helper(object):
 
 
     @staticmethod
+    def run_command_on_remote_with_passwd_without_timeout(hostname, user, passwd, command):
+        local_cmd = (r'''sshpass -p %(pwd)s ssh -t -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s "echo %(pwd)s | sudo -S %(remote_cmd)s"''' %
+                   {'user'       : user,
+                    'hostname'   : hostname,
+                    'pwd'        : passwd,
+                    'log'        : const.LOG_FILE,
+                    'remote_cmd' : command,
+                   })
+        return Helper.run_command_on_local_without_timeout(local_cmd)
+
+
+    @staticmethod
     def copy_file_to_remote_with_passwd(node, src_file, dst_dir, dst_file, mode=777):
         """
         Copy file from local node to remote node,
@@ -304,7 +316,8 @@ class Helper(object):
         if 'skip' not in node_config:
             node_config['skip'] = env.skip
         if 'deploy_mode' not in node_config:
-            node_config['deploy_mode'] = env.deploy_mode
+
+            node_confiu['deploy_mode'] = env.deploy_mode
         if 'os' not in node_config:
             node_config['os'] = env.os
         if 'os_version' not in node_config:
@@ -336,6 +349,21 @@ class Helper(object):
             return node_dic
         for hostname, node_yaml_config in node_yaml_config_map.iteritems():
             node_yaml_config = Helper.__load_node_yaml_config__(node_yaml_config, env)
+
+            # get existing ivs version
+            node_yaml_config['old_ivs_version'] = None
+            output,errors = Helper.run_command_on_remote_with_passwd_without_timeout(
+                node_yaml_config['hostname'],
+                node_yaml_config['user'],
+                node_yaml_config['passwd'],
+                'ivs --version')
+            if errors or not output:
+                node_yaml_config['skip'] = True
+                node_yaml_config['error'] = ("Fail to retrieve ivs version from %(hostname)s" %
+                                            {'hostname' : node_yaml_config['hostname']})
+            if 'command not found' not in output:
+                node_yaml_config['old_ivs_version'] = output.split()[1]
+
             node = Node(node_yaml_config, env)
             node_dic[node.hostname] = node
         return node_dic
@@ -407,6 +435,17 @@ class Helper(object):
             Helper.safe_print("Error parsing node %(hostname)s yaml file:\n%(e)s\n"
                               % {'hostname' : node_config['hostname'], 'e' : e})
             return None
+
+        # get existing ivs version
+        node_config['old_ivs_version'] = None
+        output, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
+            'ivs --version')
+        if errors or not output:
+            Helper.safe_print("Error retrieving ivs version from node %(hostname)s:\n%(errors)s\n"
+                              % {'hostname' : node_config['hostname'], 'errors' : errors})
+            return None
+        if 'command not found' not in output:
+            node_config['old_ivs_version'] = output.split()[1]
 
         # physnet and vlan range
         physnets = node_yaml_config['quantum_settings']['L2']['phys_nets']
