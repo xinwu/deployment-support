@@ -316,7 +316,6 @@ class Helper(object):
         if 'skip' not in node_config:
             node_config['skip'] = env.skip
         if 'deploy_mode' not in node_config:
-
             node_confiu['deploy_mode'] = env.deploy_mode
         if 'os' not in node_config:
             node_config['os'] = env.os
