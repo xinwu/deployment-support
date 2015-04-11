@@ -18,7 +18,7 @@ yum groupinstall -y 'Development Tools'
 yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
 
 # install bsnstacklib
-if [ $install_bsnstacklib = true ]; then
+if [[ $install_bsnstacklib = true ]]; then
     pip install bsnstacklib==%(bsnstacklib_version)s
 fi
 
@@ -27,7 +27,7 @@ if [ $install_ivs = true ]; then
     # check ivs version compatability
     pass=true
     ivs --version
-    if [ $?==0 ]; then
+    if [[ $? == 0 ]]; then
         old_version=$(ivs --version | awk '{print $2}')
         old_version_numbers=(${old_version//./ })
         new_version_numbers=(${ivs_version//./ })
@@ -38,16 +38,18 @@ if [ $install_ivs = true ]; then
         fi
     fi
 
-    if [ $pass == true ]; then
+    if [[ $pass == true ]]; then
         rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
         if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
             rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
         fi
+    else
+        echo "ivs upgrade fails version validation"
     fi
 fi
 
 # full installation of bcf
-if [ $install_all == true ]; then
+if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
     puppet module install jfryman-selinux

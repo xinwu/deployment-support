@@ -9,8 +9,8 @@ ivs_packages:
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
 bcf_controllers:
-- 10.212.1.250:8000
-- 10.212.1.251:8000
+- 10.212.1.220:8000
+- 10.212.1.221:8000
 bcf_controller_user: admin
 bcf_controller_passwd: adminadmin
 
@@ -28,7 +28,7 @@ nodes:
 - hostname: 10.4.9.100
   role: controller
 - hostname: 10.4.9.101
-- hostname: 10.4.9.102
   uplink_interfaces:
   - p1p1
   - p1p2
+- hostname: 10.4.9.102

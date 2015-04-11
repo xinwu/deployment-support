@@ -16,11 +16,12 @@ node_q = Queue.Queue()
 def worker_setup_node():
     while True:
         node = node_q.get()
+        # copy ivs pkg to node
+        Helper.copy_pkg_scripts_to_remote(node)
+
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        # copy ivs pkg to node
-        Helper.copy_pkg_scripts_to_remote(node)
         if node.role == const.ROLE_NEUTRON_SERVER:
             Helper.run_command_on_remote(node,
                 (r'''/bin/bash %(dst_dir)s/%(hostname)s_ospurge.sh >> %(log)s 2>&1''' %
