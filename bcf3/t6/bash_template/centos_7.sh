@@ -74,14 +74,15 @@ if [[ $install_all == true ]]; then
 fi
 
 # restart libvirtd and nova compute on compute node
-systemctl status openstack-nova-compute
-if [ $?==0 ]; then
+systemctl status openstack-nova-compute | grep 'not-found'
+if [[ $? != 0 ]]; then
     systemctl restart libvirtd
     systemctl restart openstack-nova-compute
 fi
 
 # restart neutron-server on controller node
-systemctl status neutron-server
-if [ $?==0 ]; then
+systemctl status neutron-server | grep 'not-found'
+if [[ $? != 0 ]]; then
     systemctl restart neutron-server
 fi
+
