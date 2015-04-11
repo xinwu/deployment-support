@@ -10,6 +10,7 @@ install_bsnstacklib=%(install_bsnstacklib)s
 install_ivs=%(install_ivs)s
 install_all=%(install_all)s
 ivs_version=%(ivs_version)s
+is_controller=%(is_controller)s
 
 # prepare dependencies
 rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
@@ -19,7 +20,7 @@ yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
 
 # install bsnstacklib
 if [[ $install_bsnstacklib = true ]]; then
-    pip install bsnstacklib==%(bsnstacklib_version)s
+    pip install --upgrade "bsnstacklib<%(bsnstacklib_version)s"
 fi
 
 # install ivs
@@ -74,15 +75,15 @@ if [[ $install_all == true ]]; then
 fi
 
 # restart libvirtd and nova compute on compute node
-systemctl status openstack-nova-compute | grep 'not-found'
-if [[ $? != 0 ]]; then
+if [[ $is_controller == false ]]; then
+    echo 'Restart libvirtd and openstack-nova-compute'
     systemctl restart libvirtd
     systemctl restart openstack-nova-compute
 fi
 
 # restart neutron-server on controller node
-systemctl status neutron-server | grep 'not-found'
-if [[ $? != 0 ]]; then
+if [[ $is_controller == true ]]; then
+    echo 'Restart neutron-server'
     systemctl restart neutron-server
 fi
 

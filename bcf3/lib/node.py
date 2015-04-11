@@ -15,7 +15,6 @@ class Node(object):
         self.deploy_mode           = node_config['deploy_mode']
         self.os                    = node_config['os'].lower()
         self.os_version            = str(node_config['os_version']).split(".")[0]
-        self.bsnstacklib_version   = node_config['bsnstacklib_version']
         self.user                  = node_config['user']
         self.passwd                = node_config['passwd']
         self.uplink_interfaces     = node_config['uplink_interfaces']
@@ -25,6 +24,8 @@ class Node(object):
         self.bridges               = node_config.get('bridges')
         self.br_bond               = node_config.get('br_bond')
 
+        self.openstack_release     = env.openstack_release
+        self.bsnstacklib_version   = env.bsnstacklib_version
         self.bcf_controllers       = env.bcf_controllers
         self.bcf_controller_ips    = env.bcf_controller_ips
         self.bcf_controller_user   = env.bcf_controller_user
@@ -164,7 +165,6 @@ skip                   : %(skip)s,
 deploy_mode            : %(deploy_mode)s,
 os                     : %(os)s,
 os_version             : %(os_version)s,
-bsnstacklib_version    : %(bsnstacklib_version)s,
 user                   : %(user)s,
 passwd                 : %(passwd)s,
 uplink_interfaces      : %(uplink_interfaces)s,
@@ -173,6 +173,8 @@ install_bsnstacklib    : %(install_bsnstacklib)s,
 install_all            : %(install_all)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
+openstack_release      : %(openstack_release)s,
+bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
 bcf_controller_ips     : %(bcf_controller_ips)s,
 bcf_controller_user    : %(bcf_controller_user)s,
@@ -204,7 +206,6 @@ error                  : %(error)s,
 'deploy_mode'           : self.deploy_mode,
 'os'                    : self.os,
 'os_version'            : self.os_version,
-'bsnstacklib_version'   : self.bsnstacklib_version,
 'user'                  : self.user,
 'passwd'                : self.passwd,
 'uplink_interfaces'     : self.uplink_interfaces,
@@ -213,6 +214,8 @@ error                  : %(error)s,
 'install_all'           : self.install_all,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
+'openstack_release'     : self.openstack_release,
+'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,
 'bcf_controller_ips'    : self.bcf_controller_ips,
 'bcf_controller_user'   : self.bcf_controller_user,

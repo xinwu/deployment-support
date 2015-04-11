@@ -310,5 +310,5 @@ service { 'neutron-dhcp-agent':
 
 # patch for packstack nova
 package { "device-mapper-libs":
-  ensure => installed,
+  ensure => latest,
 }

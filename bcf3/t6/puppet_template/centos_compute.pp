@@ -104,7 +104,7 @@ service { 'neutron-openvswitch-agent':
 
 # patch for packstack nova
 package { "device-mapper-libs":
-  ensure => installed,
+  ensure => latest,
   notify => Service['libvirtd'],
 }
 service { "libvirtd":

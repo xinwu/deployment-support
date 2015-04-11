@@ -83,9 +83,10 @@ class Environment(object):
         self.skip = False
         if 'default_skip' in config:
             self.skip = config['default_skip']
+        self.openstack_release = str(config['openstack_release']).lower()
+        self.bsnstacklib_version = const.OS_RELEASE_TO_BSN_LIB[self.openstack_release]
         self.os = config.get('default_os')
         self.os_version = config.get('default_os_version')
-        self.bsnstacklib_version = config.get('default_bsnstacklib_version')
         self.role = config.get('default_role')
         self.user = config.get('default_user')
         self.passwd = config.get('default_passwd')

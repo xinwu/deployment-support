@@ -13,6 +13,12 @@ ROLE_COMPUTE        = 'compute'
 T6 = 't6'
 T5 = 't5'
 
+# openstack release to bsnstacklib version
+OS_RELEASE_TO_BSN_LIB = { 'juno' : '2015.1',
+    'kilo'   : '2015.2',
+    'liberty': '2016.1',
+}
+
 # constant file, directory names for each node
 PRE_REQUEST_BASH     = 'pre_request.sh'
 DST_DIR              = '/tmp'

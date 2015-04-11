@@ -1,5 +1,5 @@
 # configuration won't be overrided by fuel
-default_bsnstacklib_version: 2014.2.25
+openstack_release: juno
 default_deploy_mode: t6
 default_skip: false
 default_install_bsnstacklib: true
@@ -30,7 +30,4 @@ nodes:
 - hostname: 172.16.54.5
   role: controller
 - hostname: 172.16.54.6
-#- hostname: 172.16.54.7
-#  role: controller
-#- hostname: 172.16.54.8
 

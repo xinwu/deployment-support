@@ -225,10 +225,14 @@ class Helper(object):
                    'bash_template'     : const.CENTOS,
                    'os_version'        : node.os_version}), "r") as bash_template_file:
             bash_template = bash_template_file.read()
+            is_controller = False
+            if node.role == const.ROLE_NEUTRON_SERVER:
+                is_controller = True
             bash = (bash_template %
                    {'install_ivs'         : str(node.install_ivs).lower(),
                     'install_bsnstacklib' : str(node.install_bsnstacklib).lower(),
                     'install_all'         : str(node.install_all).lower(),
+                    'is_controller'       : str(is_controller).lower(),
                     'ivs_version'         : node.ivs_version,
                     'bsnstacklib_version' : node.bsnstacklib_version,
                     'dst_dir'             : node.dst_dir,
@@ -321,8 +325,6 @@ class Helper(object):
             node_config['os'] = env.os
         if 'os_version' not in node_config:
             node_config['os_version'] = env.os_version
-        if 'bsnstacklib_version' not in node_config:
-            node_config['bsnstacklib_version'] = env.bsnstacklib_version
         if 'user' not in node_config:
             node_config['user'] = env.user
         if 'passwd' not in node_config:
