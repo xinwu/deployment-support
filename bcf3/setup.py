@@ -35,7 +35,7 @@ def worker_setup_node():
              'log'      : node.log}))
         Helper.safe_print("Finish deploying %(hostname)s\n" %
                          {'hostname' : node.hostname})
-    node_q.task_done()
+        node_q.task_done()
 
 
 def deploy_bcf(config, fuel_cluster_id):
