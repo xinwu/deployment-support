@@ -83,7 +83,7 @@ ini_setting { "neutron-bsn-agent.service ExecStart":
   value             => '/usr/bin/neutron-bsn-agent --config-file /usr/share/neutron/neutron-dist.conf --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini --log-file /var/log/neutron/neutron-bsn-agent.log',
 }
 file { '/etc/systemd/system/multi-user.target.wants/neutron-bsn-agent.service':
-   ensure => 'link',
+   ensure => link,
    target => '/usr/lib/systemd/system/neutron-bsn-agent.service',
    notify => Service['neutron-bsn-agent'],
 }
@@ -104,7 +104,7 @@ service { 'neutron-openvswitch-agent':
 
 # patch for packstack nova
 package { "device-mapper-libs":
-  ensure => "installed",
+  ensure => installed,
   notify => Service['libvirtd'],
 }
 service { "libvirtd":
