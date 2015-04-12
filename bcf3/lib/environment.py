@@ -83,14 +83,21 @@ class Environment(object):
         self.skip = False
         if 'default_skip' in config:
             self.skip = config['default_skip']
-        self.openstack_release = str(config['openstack_release']).lower()
-        self.bsnstacklib_version = const.OS_RELEASE_TO_BSN_LIB[self.openstack_release]
         self.os = config.get('default_os')
         self.os_version = config.get('default_os_version')
         self.role = config.get('default_role')
         self.user = config.get('default_user')
         self.passwd = config.get('default_passwd')
         self.uplink_interfaces = config.get('default_uplink_interfaces')
+
+        # openstack bsnstacklib version and horizon patch
+        self.openstack_release = str(config['openstack_release']).lower()
+        self.bsnstacklib_version = const.OS_RELEASE_TO_BSN_LIB[self.openstack_release]
+        self.deploy_horizon_patch = const.DEPLOY_HORIZON_PATCH
+        self.horizon_patch_url = const.HORIZON_PATCH_URL[self.openstack_release]
+        self.horizon_patch = os.path.basename(self.horizon_patch_url)
+        self.horizon_patch_dir = const.HORIZON_PATCH_DIR[self.openstack_release]
+        self.horizon_base_dir = const.HORIZON_BASE_DIR
 
         # mast bcf controller and cookie
         self.bcf_master = None

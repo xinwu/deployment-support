@@ -11,8 +11,10 @@ install_ivs=%(install_ivs)s
 install_all=%(install_all)s
 ivs_version=%(ivs_version)s
 is_controller=%(is_controller)s
+deploy_horizon_patch=%(deploy_horizon_patch)s
 
 # prepare dependencies
+set +e
 rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
 rpm -ivh https://yum.puppetlabs.com/el/7/products/x86_64/puppetlabs-release-7-10.noarch.rpm
 yum groupinstall -y 'Development Tools'
@@ -41,7 +43,7 @@ if [ $install_ivs = true ]; then
 
     if [[ $pass == true ]]; then
         rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
-        if [ -f %(dst_dir)s/%(ivs_debug_pkg)s ]; then
+        if [[ -f %(dst_dir)s/%(ivs_debug_pkg)s ]]; then
             rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
         fi
     else
@@ -72,6 +74,20 @@ if [[ $install_all == true ]]; then
 
     # assign ip to ivs internal ports
     bash /etc/rc.d/rc.local
+
+    # deploy bcf horizon patch to controller node
+    if [[ $is_controller == true && $deploy_horizon_patch == true ]]; then
+        if [[ -f %(dst_dir)s/%(horizon_patch)s ]]; then
+            chmod -R 777 '/etc/neutron/'
+            tar -xzf %(dst_dir)s/%(horizon_patch)s -C %(dst_dir)s
+            fs=('openstack_dashboard/dashboards/admin/dashboard.py' 'openstack_dashboard/dashboards/project/dashboard.py' 'openstack_dashboard/dashboards/admin/connections' 'openstack_dashboard/dashboards/project/connections')
+            for f in "${fs[@]}"
+            do
+                yes | cp -rfp %(dst_dir)s/%(horizon_patch_dir)s/$f %(horizon_base_dir)s/$f
+            done
+            find "%(horizon_base_dir)s" -name "*.pyc" -exec rm -rf {} \;
+        fi
+    fi
 fi
 
 # restart libvirtd and nova compute on compute node
@@ -86,4 +102,6 @@ if [[ $is_controller == true ]]; then
     echo 'Restart neutron-server'
     systemctl restart neutron-server
 fi
+
+set -e
 

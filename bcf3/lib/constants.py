@@ -19,6 +19,16 @@ OS_RELEASE_TO_BSN_LIB = { 'juno' : '2015.1',
     'liberty': '2016.1',
 }
 
+# horizon patch
+DEPLOY_HORIZON_PATCH = True
+HORIZON_PATCH_URL = {
+    'juno' : 'https://github.com/bigswitch/horizon/archive/stable/juno.tar.gz',
+}
+HORIZON_PATCH_DIR = {
+    'juno' : 'horizon-stable-juno',
+}
+HORIZON_BASE_DIR = '/usr/share/openstack-dashboard'
+
 # constant file, directory names for each node
 PRE_REQUEST_BASH     = 'pre_request.sh'
 DST_DIR              = '/tmp'

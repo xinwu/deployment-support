@@ -233,11 +233,15 @@ class Helper(object):
                     'install_bsnstacklib' : str(node.install_bsnstacklib).lower(),
                     'install_all'         : str(node.install_all).lower(),
                     'is_controller'       : str(is_controller).lower(),
+                    'deploy_horizon_patch': str(node.deploy_horizon_patch).lower(),
                     'ivs_version'         : node.ivs_version,
                     'bsnstacklib_version' : node.bsnstacklib_version,
                     'dst_dir'             : node.dst_dir,
                     'hostname'            : node.hostname,
                     'ivs_pkg'             : node.ivs_pkg,
+                    'horizon_patch'       : node.horizon_patch,
+                    'horizon_patch_dir'   : node.horizon_patch_dir,
+                    'horizon_base_dir'    : node.horizon_base_dir,
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
                     'ovs_br'              : node.get_all_ovs_brs(),
                     'br-int'              : const.BR_NAME_INT})
@@ -586,6 +590,8 @@ class Helper(object):
                        {'setup_node_dir' : setup_node_dir}, shell=True)
         subprocess.call("rm -rf %(setup_node_dir)s/*ivs*.deb" %
                        {'setup_node_dir' : setup_node_dir}, shell=True)
+        subprocess.call("rm -rf %(setup_node_dir)s/*.tar.gz" %
+                       {'setup_node_dir' : setup_node_dir}, shell=True)
         subprocess.call("mkdir -p %(setup_node_dir)s/%(generated_script)s" %
                        {'setup_node_dir'   : setup_node_dir,
                         'generated_script' : const.GENERATED_SCRIPT_DIR}, shell=True)
@@ -607,9 +613,25 @@ class Helper(object):
                                             {'url' : url, 'setup_node_dir' : setup_node_dir},
                                              shell=True)
         if env.deploy_mode == const.T6 and code_web != 0 and code_local != 0:
-            Helper.safe_print("Required packages are not correctly downloaded.\n")
+            Helper.safe_print("Required ivs packages are not correctly downloaded.\n")
             exit(1)
         # TODO: deal with tarball
+
+        # wget horizon patch
+        code_web = 1
+        code_local = 1
+        url = env.horizon_patch_url
+        if 'http://' in url or 'https://' in url:
+            code_web = subprocess.call("wget --no-check-certificate %(url)s -P %(setup_node_dir)s" %
+                                          {'url' : url, 'setup_node_dir' : setup_node_dir},
+                                           shell=True)
+        if os.path.isfile(url):
+            code_local = subprocess.call("cp %(url)s %(setup_node_dir)s" %
+                                        {'url' : url, 'setup_node_dir' : setup_node_dir},
+                                         shell=True)
+        if env.deploy_horizon_patch and code_web != 0 and code_local != 0:
+            Helper.safe_print("Required horizon packages are not correctly downloaded.\n")
+            exit(1)
 
 
     @staticmethod
@@ -685,6 +707,17 @@ class Helper(object):
                node.ospurge_script_path,
                node.dst_dir,
                "%(hostname)s_ospurge.sh" % {'hostname' : node.hostname})
+
+        # copy horizon patch to node
+        if node.role == const.ROLE_NEUTRON_SERVER and node.deploy_horizon_patch:
+            Helper.safe_print("Copy horizon patch to %(hostname)s\n" %
+                             {'hostname' : node.hostname})
+            Helper.copy_file_to_remote(node,
+                (r'''%(src_dir)s/%(horizon_patch)s''' %
+                {'src_dir' : node.setup_node_dir,
+                 'horizon_patch' : node.horizon_patch}),
+                node.dst_dir,
+                node.horizon_patch)
 
 
 
