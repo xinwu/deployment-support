@@ -1,12 +1,6 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
-# purge bcf controller public key
-exec { 'purge bcf key':
-    command => "rm -rf /etc/neutron/plugins/ml2/host_certs/*",
-    path    => $binpath,
-}
-
 # assign ip to ivs internal port
 define ivs_internal_port_ip {
     $port_ip = split($name, ',')
@@ -314,7 +308,7 @@ service { 'neutron-server':
   ensure  => running,
   enable  => true,
   path    => $binpath,
-  require => [Selinux::Module['selinux-bcf'], Exec['purge bcf key']],
+  require => Selinux::Module['selinux-bcf'],
 }
 service { 'neutron-dhcp-agent':
   ensure  => running,

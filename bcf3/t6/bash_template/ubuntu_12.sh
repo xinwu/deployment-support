@@ -21,9 +21,9 @@ if [[ $? != 0 ]]; then
     echo -e "\ndeb http://archive.ubuntu.com/ubuntu $release main\n" >> /etc/apt/sources.list
 fi
 apt-get update -y
-apt-get install -y linux-headers-$(sharon -r) build-essential
+apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
-apt-get install -y libffi6 libffi-dev libssl-dev puppet
+apt-get install -y libssl-dev libffi6 libffi-dev puppet
 easy_install pip
 
 # install bsnstacklib
@@ -61,8 +61,7 @@ fi
 if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
-    # TODO
-    cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/system/neutron-bsn-agent.service
+    cp /etc/init/neutron-plugin-openvswitch-agent.conf /etc/init/neutron-plugin-bsn-agent.conf
 
     # remove ovs, example ("br-storage" "br-prv" "br-ex")
     declare -a ovs_br=(%(ovs_br)s)
@@ -94,18 +93,17 @@ if [[ $install_all == true ]]; then
     fi
 fi
 
-# TODO
 # restart libvirtd and nova compute on compute node
 if [[ $is_controller == false ]]; then
     echo 'Restart libvirtd and openstack-nova-compute'
-    systemctl restart libvirtd
-    systemctl restart openstack-nova-compute
+    service libvirt-bin restart 
+    service nova-compute restart
 fi
 
 # restart neutron-server on controller node
 if [[ $is_controller == true ]]; then
     echo 'Restart neutron-server'
-    systemctl restart neutron-server
+    service neutron-server restart
 fi
 
 set -e
