@@ -1,6 +1,48 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
+# comment out heat domain related configurations
+$heat_config = file('/etc/heat/heat.conf','/dev/null')
+if($heat_config != '') {
+    ini_setting { "heat stack_domain_admin_password":
+        ensure            => absent,
+        path              => '/etc/heat/heat.conf',
+        section           => 'DEFAULT',
+        key_val_separator => '=',
+        setting           => 'stack_domain_admin_password',
+        notify            => Service['heat-engine'],
+    }
+    ini_setting { "heat stack_domain_admin":
+        ensure            => absent,
+        path              => '/etc/heat/heat.conf',
+        section           => 'DEFAULT',
+        key_val_separator => '=',
+        setting           => 'stack_domain_admin',
+        notify            => Service['heat-engine'],
+    }
+    ini_setting { "heat stack_user_domain":
+        ensure            => absent,
+        path              => '/etc/heat/heat.conf',
+        section           => 'DEFAULT',
+        key_val_separator => '=',
+        setting           => 'stack_user_domain',
+        notify            => Service['heat-engine'],
+    }
+    ini_setting {"heat_deferred_auth_method":
+        path              => '/etc/heat/heat.conf',
+        section           => 'DEFAULT',
+        setting           => 'deferred_auth_method',
+        value             => 'password',
+        ensure            => present,
+        notify            => Service['heat-engine'],
+    }
+    service { 'heat-engine':
+        ensure            => running,
+        enable            => true,
+        path              => $binpath,
+    }
+}
+
 # assign ip to ivs internal port
 define ivs_internal_port_ip {
     $port_ip = split($name, ',')
@@ -51,8 +93,6 @@ ini_setting { "keystone paste config":
     value             => '/etc/keystone/keystone-paste.ini',
 }
 
-
-#TODO
 # reserve keystone ephemeral port
 exec { "reserve keystone port":
     command => "sysctl -w 'net.ipv4.ip_local_reserved_ports=49000,35357,41055,58882'",
@@ -65,28 +105,23 @@ file_line { "reserve keystone port":
 }
 
 # load 8021q module on boot
-file {'/etc/sysconfig/modules/8021q.modules':
-    ensure  => file,
-    mode    => 0777,
-    content => "modprobe 8021q",
+package { 'vlan':
+    ensure  => latest,
+}
+file_line {'load 8021q on boot':
+    path    => '/etc/modules',
+    line    => '8021q',
+    match   => '^8021q$',
+    require => Package['vlan'],
 }
 exec { "load 8021q":
     command => "modprobe 8021q",
     path    => $binpath,
-}
-
-# install selinux policies
-Package { allow_virtual => true }
-class { selinux:
-    mode => '%(selinux_mode)s'
-}
-selinux::module { 'selinux-bcf':
-    ensure => 'present',
-    source => 'puppet:///modules/selinux/centos.te',
+    require => Package['vlan'],
 }
 
 # ivs configruation and service
-file { '/etc/sysconfig/ivs':
+file { '/etc/default/ivs':
     ensure  => file,
     mode    => 0644,
     content => "%(ivs_daemon_args)s",
@@ -96,43 +131,48 @@ service{ 'ivs':
     ensure  => running,
     enable  => true,
     path    => $binpath,
-    require => Selinux::Module['selinux-bcf'],
 }
 
-# fix centos symbolic link problem for ivs debug logging
-file { '/usr/lib64/debug':
-   ensure => link,
-   target => '/lib/debug',
+# add pkg for ivs debug logging
+package { 'binutils':
+   ensure => latest,
 }
 
-# config neutron-bsn-agent service
-ini_setting { "neutron-bsn-agent.service Description":
-  ensure            => present,
-  path              => '/usr/lib/systemd/system/neutron-bsn-agent.service',
-  section           => 'Unit',
-  key_val_separator => '=',
-  setting           => 'Description',
-  value             => 'OpenStack Neutron BSN Agent',
+# config neutron-plugin-bsn-agent conf
+file_line { "neutron-plugin-bsn-agent.conf remove start on neutron-ovs-cleanup":
+    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
+    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
+    line    => 'start on neutron-ovs-cleanup or runlevel [2345]',
+    ensure  => absent,
 }
-ini_setting { "neutron-bsn-agent.service ExecStart":
-  notify            => File['/etc/systemd/system/multi-user.target.wants/neutron-bsn-agent.service'],
-  ensure            => present,
-  path              => '/usr/lib/systemd/system/neutron-bsn-agent.service',
-  section           => 'Service',
-  key_val_separator => '=',
-  setting           => 'ExecStart',
-  value             => '/usr/bin/neutron-bsn-agent --config-file /usr/share/neutron/neutron-dist.conf --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini --log-file /var/log/neutron/neutron-bsn-agent.log',
+file_line { "neutron-plugin-bsn-agent.conf remove stop on runlevel":
+    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
+    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
+    line    => 'stop on runlevel [!2345]',
+    ensure  => absent,
 }
-file { '/etc/systemd/system/multi-user.target.wants/neutron-bsn-agent.service':
-   ensure => link,
-   target => '/usr/lib/systemd/system/neutron-bsn-agent.service',
-   notify => Service['neutron-bsn-agent'],
+file_line { "neutron-plugin-bsn-agent.conf exec":
+    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
+    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
+    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/bin/neutron-plugin-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/bsn-agent.log',
+    match   => '^exec start-stop-daemon --start*$',
 }
-service {'neutron-bsn-agent':
+file { '/etc/init.d/neutron-plugin-bsn-agent':
+    ensure => link,
+    target => '/lib/init/upstart-job',
+    notify => Service['neutron-plugin-bsn-agent'],
+}
+service {'neutron-plugin-bsn-agent':
     ensure  => running,
     enable  => true,
     path    => $binpath,
-    require => Selinux::Module['selinux-bcf'],
+}
+
+# purge bcf controller public key
+exec { 'purge bcf key':
+    command => "rm -rf /etc/neutron/plugins/ml2/host_certs/*",
+    path    => $binpath,
+    notify  => Service['neutron-server'],
 }
 
 # config /etc/neutron/neutron.conf
@@ -296,11 +336,10 @@ file { '/etc/neutron/plugins/ml2':
 }
 
 # stop and disable neutron-openvswitch-agent
-service { 'neutron-openvswitch-agent':
+service { 'neutron-plugin-openvswitch-agent':
   ensure  => stopped,
   enable  => false,
   path    => $binpath,
-  require => Selinux::Module['selinux-bcf'],
 }
 
 # neutron-server and neutron-dhcp-agent
@@ -308,16 +347,10 @@ service { 'neutron-server':
   ensure  => running,
   enable  => true,
   path    => $binpath,
-  require => Selinux::Module['selinux-bcf'],
 }
 service { 'neutron-dhcp-agent':
   ensure  => running,
   enable  => true,
   path    => $binpath,
-  require => Selinux::Module['selinux-bcf'],
 }
 
-# patch for packstack nova
-package { "device-mapper-libs":
-  ensure => latest,
-}
