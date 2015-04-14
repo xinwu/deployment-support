@@ -335,7 +335,7 @@ file { '/etc/neutron/plugins/ml2':
   notify  => Service['neutron-server'],
 }
 
-# stop and disable neutron-openvswitch-agent
+# stop and disable neutron-plugin-openvswitch-agent
 service { 'neutron-plugin-openvswitch-agent':
   ensure  => stopped,
   enable  => false,
