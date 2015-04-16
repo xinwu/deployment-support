@@ -5,6 +5,7 @@ $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 exec { 'purge bcf key':
     command => "rm -rf /etc/neutron/plugins/ml2/host_certs/*",
     path    => $binpath,
+    notify  => Service['neutron-server'],
 }
 
 # comment out heat domain related configurations
