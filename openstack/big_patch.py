@@ -1193,6 +1193,33 @@ ini_setting {"heat_deferred_auth_method":
   notify => Exec['restartheatservices'],
   require => Exec['heatconfexists']
 }
+ini_setting { "heat stack_domain_admin":
+  ensure            => absent,
+  path              => '/etc/heat/heat.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'stack_domain_admin',
+  notify            => Exec['restartheatservices'],
+  require           => Exec['heatconfexists'],
+}
+ini_setting { "heat stack_user_domain":
+  ensure            => absent,
+  path              => '/etc/heat/heat.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'stack_user_domain',
+  notify            => Exec['restartheatservices'],
+  require           => Exec['heatconfexists'],
+}
+ini_setting { "heat stack_domain_admin_password":
+  ensure            => absent,
+  path              => '/etc/heat/heat.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'stack_domain_admin_password',
+  notify            => Exec['restartheatservices'],
+  require           => Exec['heatconfexists'],
+}
 $heat_services = 'heat-api heat-engine heat-api-cfn'
 exec{"restartheatservices":
     refreshonly=> true,
