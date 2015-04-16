@@ -9,8 +9,8 @@ ivs_packages:
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
 bcf_controllers:
-- 10.212.1.230:8000
 - 10.212.1.231:8000
+- 10.212.1.230:8000
 bcf_controller_user: admin
 bcf_controller_passwd: adminadmin
 
