@@ -1,16 +1,9 @@
 
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
 
-# purge bcf controller public key
-exec { 'purge bcf key':
-    command => "rm -rf /etc/neutron/plugins/ml2/host_certs/*",
-    path    => $binpath,
-    notify  => Service['neutron-server'],
-}
-
 # comment out heat domain related configurations
-$heat_flag = file('/etc/heat/heat.conf','/dev/null')
-if($heat_flag != '') {
+$heat_config = file('/etc/heat/heat.conf','/dev/null')
+if($heat_config != '') {
     ini_setting { "heat stack_domain_admin_password":
         ensure            => absent,
         path              => '/etc/heat/heat.conf',
@@ -173,6 +166,13 @@ service {'neutron-bsn-agent':
     enable  => true,
     path    => $binpath,
     require => Selinux::Module['selinux-bcf'],
+}
+
+# purge bcf controller public key
+exec { 'purge bcf key':
+    command => "rm -rf /etc/neutron/plugins/ml2/host_certs/*",
+    path    => $binpath,
+    notify  => Service['neutron-server'],
 }
 
 # config /etc/neutron/neutron.conf
