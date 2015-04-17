@@ -1,9 +1,9 @@
 #!/bin/bash
 
+# This template deletes all network related resources for fresh installation.
+# We are not using it anywhere for now, but keep it hear for future uses.
+
 source %(openrc)s
-
-# by default delete all networks using vxlan
-
 
 # delete all routers
 routers=$(neutron router-list | awk '$2 != "id" {print $2}' | awk 'NF && $1!~/^#/')
