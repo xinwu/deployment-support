@@ -21,10 +21,10 @@ if [[ $? != 0 ]]; then
     echo -e "\ndeb http://archive.ubuntu.com/ubuntu $release main\n" >> /etc/apt/sources.list
 fi
 apt-get update -y
-
-# TODO
-yum groupinstall -y 'Development Tools'
-yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
+apt-get install -y linux-headers-$(sharon -r) build-essential
+apt-get install -y python-dev python-setuptools
+apt-get install -y libffi6 libffi-dev libssl-dev puppet
+easy_install pip
 
 # install bsnstacklib
 if [[ $install_bsnstacklib = true ]]; then
