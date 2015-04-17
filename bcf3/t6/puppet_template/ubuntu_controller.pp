@@ -128,9 +128,11 @@ file { '/etc/default/ivs':
     notify  => Service['ivs'],
 }
 service{ 'ivs':
-    ensure  => running,
-    enable  => true,
-    path    => $binpath,
+    ensure     => 'running',
+    provider   => 'upstart',
+    hasrestart => 'true',
+    hasstatus  => 'true',
+    subscribe  => File['/etc/default/ivs'],
 }
 
 # add pkg for ivs debug logging
@@ -139,17 +141,8 @@ package { 'binutils':
 }
 
 # config neutron-plugin-bsn-agent conf
-file_line { "neutron-plugin-bsn-agent.conf remove start on neutron-ovs-cleanup":
-    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
-    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
-    line    => 'start on neutron-ovs-cleanup or runlevel [2345]',
-    ensure  => absent,
-}
-file_line { "neutron-plugin-bsn-agent.conf remove stop on runlevel":
-    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
-    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
-    line    => 'stop on runlevel [!2345]',
-    ensure  => absent,
+file { '/etc/init/neutron-plugin-bsn-agent.conf':
+    ensure => present,
 }
 file_line { "neutron-plugin-bsn-agent.conf exec":
     notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
@@ -163,9 +156,11 @@ file { '/etc/init.d/neutron-plugin-bsn-agent':
     notify => Service['neutron-plugin-bsn-agent'],
 }
 service {'neutron-plugin-bsn-agent':
-    ensure  => running,
-    enable  => true,
-    path    => $binpath,
+    ensure     => 'running',
+    provider   => 'upstart',
+    hasrestart => 'true',
+    hasstatus  => 'true',
+    subscribe  => [File['/etc/init/neutron-plugin-bsn-agent.conf'], File['/etc/init.d/neutron-plugin-bsn-agent']],
 }
 
 # purge bcf controller public key
@@ -337,20 +332,20 @@ file { '/etc/neutron/plugins/ml2':
 
 # stop and disable neutron-plugin-openvswitch-agent
 service { 'neutron-plugin-openvswitch-agent':
-  ensure  => stopped,
-  enable  => false,
-  path    => $binpath,
+  ensure   => 'stopped',
+  enable   => false,
+  provider => 'upstart',
 }
 
 # neutron-server and neutron-dhcp-agent
 service { 'neutron-server':
-  ensure  => running,
-  enable  => true,
-  path    => $binpath,
+  ensure     => running,
+  provider   => 'upstart',
+  enable     => true,
 }
 service { 'neutron-dhcp-agent':
-  ensure  => running,
-  enable  => true,
-  path    => $binpath,
+  ensure     => running,
+  provider   => 'upstart',
+  enable     => true,
 }
 
