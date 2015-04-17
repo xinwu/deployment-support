@@ -215,6 +215,93 @@ class Helper(object):
 
 
     @staticmethod
+    def generate_scripts_for_ubuntu(node):
+        # generate bash script
+        with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(bash_template_dir)s/%(bash_template)s_%(os_version)s.sh''' %
+                  {'setup_node_dir'    : node.setup_node_dir,
+                   'deploy_mode'       : node.deploy_mode,
+                   'bash_template_dir' : const.BASH_TEMPLATE_DIR,
+                   'bash_template'     : const.UBUNTU,
+                   'os_version'        : node.os_version}), "r") as bash_template_file:
+            bash_template = bash_template_file.read()
+            is_controller = False
+            if node.role == const.ROLE_NEUTRON_SERVER:
+                is_controller = True
+            bash = (bash_template %
+                   {'install_ivs'         : str(node.install_ivs).lower(),
+                    'install_bsnstacklib' : str(node.install_bsnstacklib).lower(),
+                    'install_all'         : str(node.install_all).lower(),
+                    'is_controller'       : str(is_controller).lower(),
+                    'deploy_horizon_patch': str(node.deploy_horizon_patch).lower(),
+                    'ivs_version'         : node.ivs_version,
+                    'bsnstacklib_version' : node.bsnstacklib_version,
+                    'dst_dir'             : node.dst_dir,
+                    'hostname'            : node.hostname,
+                    'ivs_pkg'             : node.ivs_pkg,
+                    'horizon_patch'       : node.horizon_patch,
+                    'horizon_patch_dir'   : node.horizon_patch_dir,
+                    'horizon_base_dir'    : node.horizon_base_dir,
+                    'ivs_debug_pkg'       : node.ivs_debug_pkg,
+                    'ovs_br'              : node.get_all_ovs_brs(),
+                    'br-int'              : const.BR_NAME_INT})
+        bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
+                           {'setup_node_dir'       : node.setup_node_dir,
+                            'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
+                            'hostname'             : node.hostname})
+        with open(bash_script_path, "w") as bash_file:
+            bash_file.write(bash)
+        node.set_bash_script_path(bash_script_path)
+
+        # generate puppet script
+        ivs_daemon_args = (const.IVS_DAEMON_ARGS %
+                          {'inband_vlan'       : const.INBAND_VLAN,
+                           'internal_ports'    : node.get_ivs_internal_ports(),
+                           'uplink_interfaces' : node.get_uplink_intfs_for_ivs()})
+        with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(puppet_template_dir)s/%(puppet_template)s_%(role)s.pp''' %
+                  {'setup_node_dir'      : node.setup_node_dir,
+                   'deploy_mode'         : node.deploy_mode,
+                   'puppet_template_dir' : const.PUPPET_TEMPLATE_DIR,
+                   'puppet_template'     : const.UBUNTU,
+                   'role'                : node.role}), "r") as puppet_template_file:
+            puppet_template = puppet_template_file.read()
+            puppet = (puppet_template %
+                     {'ivs_daemon_args'       : ivs_daemon_args,
+                      'network_vlan_ranges'   : node.get_network_vlan_ranges(),
+                      'bcf_controllers'       : node.get_controllers_for_neutron(),
+                      'bcf_controller_user'   : node.bcf_controller_user,
+                      'bcf_controller_passwd' : node.bcf_controller_passwd,
+                      'port_ips'              : node.get_ivs_internal_port_ips()})
+        puppet_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.pp''' %
+                             {'setup_node_dir'       : node.setup_node_dir,
+                              'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
+                              'hostname'             : node.hostname})
+        with open(puppet_script_path, "w") as puppet_file:
+            puppet_file.write(puppet)
+        node.set_puppet_script_path(puppet_script_path)
+
+        # generate ospurge script
+        if node.role != const.ROLE_NEUTRON_SERVER:
+            return
+        openrc = const.PACKSTACK_OPENRC
+        if node.fuel_cluster_id:
+            openrc = const.FUEL_OPENRC
+        with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.sh''' %
+                  {'setup_node_dir'       : node.setup_node_dir,
+                   'deploy_mode'          : node.deploy_mode,
+                   'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
+                   'ospurge_template'     : const.UBUNTU}), "r") as ospurge_template_file:
+            ospurge_template = ospurge_template_file.read()
+            ospurge = (ospurge_template % {'openrc' : openrc})
+        ospurge_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s_ospurge.sh''' %
+                              {'setup_node_dir'       : node.setup_node_dir,
+                               'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
+                               'hostname'             : node.hostname})
+        with open(ospurge_script_path, "w") as ospurge_file:
+            ospurge_file.write(ospurge)
+        node.set_ospurge_script_path(ospurge_script_path)
+
+
+    @staticmethod
     def generate_scripts_for_centos(node):
 
         # generate bash script

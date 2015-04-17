@@ -78,6 +78,8 @@ class Node(object):
         if self.deploy_mode == const.T6 and self.old_ivs_version:
             ivs_version_num = self.ivs_version.split('.')
             old_ivs_version_num = self.old_ivs_version.split('.')
+            if not old_ivs_version_num[0].isdigit():
+                return
             diff = int(ivs_version_num[0]) - int(old_ivs_version_num[0])
             if self.ivs_version < self.old_ivs_version:
                 self.skip = True

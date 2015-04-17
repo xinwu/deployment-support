@@ -23,7 +23,7 @@ fi
 apt-get update -y
 apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
-apt-get install -y libssl-dev libffi6 libffi-dev puppet
+apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200
 easy_install pip
 
 # install bsnstacklib
@@ -48,9 +48,9 @@ if [[ $install_ivs = true ]]; then
     fi
 
     if [[ $pass == true ]]; then
-        rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
+        dpkg --force-all -i %(dst_dir)s/%(ivs_pkg)s
         if [[ -f %(dst_dir)s/%(ivs_debug_pkg)s ]]; then
-            rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
+            dpkg --force-all -i %(dst_dir)s/%(ivs_debug_pkg)s
         fi
     else
         echo "ivs upgrade fails version validation"

@@ -72,10 +72,10 @@ class Environment(object):
             elif '.rpm' in ivs_pkg and '-debuginfo-' in ivs_pkg:
                 self.ivs_url_map['debug_rpm'] = ivs_url
                 self.ivs_pkg_map['debug_rpm'] = ivs_pkg
-            elif '.deb' in ivs_pkg and '-debuginfo-' not in ivs_pkg:
+            elif '.deb' in ivs_pkg and 'dbg' not in ivs_pkg:
                 self.ivs_url_map['deb'] = ivs_url
                 self.ivs_pkg_map['deb'] = ivs_pkg
-            elif '.deb' in ivs_pkg and '-debuginfo-' in ivs_pkg:
+            elif '.deb' in ivs_pkg and 'dbg' in ivs_pkg:
                 self.ivs_url_map['debug_deb'] = ivs_url
                 self.ivs_pkg_map['debug_deb'] = ivs_pkg
 

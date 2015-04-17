@@ -121,10 +121,10 @@ exec { "load 8021q":
 }
 
 # ivs configruation and service
-file { '/etc/default/ivs':
-    ensure  => file,
-    mode    => 0644,
-    content => "%(ivs_daemon_args)s",
+file_line { 'ivs daemon arg':
+    path    => '/etc/init/ivs.conf',
+    line    => "%(ivs_daemon_args)s",
+    match   => "^.*DAEMON_ARGS=.*$",
     notify  => Service['ivs'],
 }
 service{ 'ivs':
@@ -155,7 +155,7 @@ file_line { "neutron-plugin-bsn-agent.conf exec":
     notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
     path    => '/etc/init/neutron-plugin-bsn-agent.conf',
     line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/bin/neutron-plugin-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/bsn-agent.log',
-    match   => '^exec start-stop-daemon --start*$',
+    match   => '^exec start-stop-daemon --start.*$',
 }
 file { '/etc/init.d/neutron-plugin-bsn-agent':
     ensure => link,
