@@ -30,7 +30,13 @@ for router in $routers; do
     done
 done
 
-# delete all vxlan subnet
+# delete all vxlan subnets
 for subnet in "${!subnet_to_net[@]}"; do
     neutron subnet-delete $subnet
 done
+
+# delete all vxlan nets
+for subnet in "${!subnet_to_net[@]}"; do
+    neutron net-delete ${subnet_to_net[$subnet]}
+done
+
