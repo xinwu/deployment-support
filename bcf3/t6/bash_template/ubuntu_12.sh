@@ -61,9 +61,7 @@ fi
 if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
-    puppet module install jfryman-selinux
-    mkdir -p /etc/puppet/modules/selinux/files
-    cp %(dst_dir)s/%(hostname)s.te /etc/puppet/modules/selinux/files/centos.te
+    # TODO
     cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/system/neutron-bsn-agent.service
 
     # remove ovs, example ("br-storage" "br-prv" "br-ex")
@@ -79,7 +77,7 @@ if [[ $install_all == true ]]; then
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
 
     # assign ip to ivs internal ports
-    bash /etc/rc.d/rc.local
+    bash /etc/rc.local
 
     # deploy bcf horizon patch to controller node
     if [[ $is_controller == true && $deploy_horizon_patch == true ]]; then
@@ -96,6 +94,7 @@ if [[ $install_all == true ]]; then
     fi
 fi
 
+# TODO
 # restart libvirtd and nova compute on compute node
 if [[ $is_controller == false ]]; then
     echo 'Restart libvirtd and openstack-nova-compute'
