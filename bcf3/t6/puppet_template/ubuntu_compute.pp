@@ -37,16 +37,18 @@ class ivs_internal_port_ips {
 include ivs_internal_port_ips
 
 # ivs configruation and service
-file_line { 'ivs daemon args':
-    path    => '/etc/init/ivs.conf',
-    line    => "%(ivs_daemon_args)s",
-    match   => "^.*DAEMON_ARGS=.*$",
+file { '/etc/default/ivs':
+    ensure  => file,
+    mode    => 0644,
+    content => "%(ivs_daemon_args)s",
     notify  => Service['ivs'],
-} 
+}
 service { 'ivs':
-    ensure  => running,
-    enable  => true,
-    path    => $binpath,
+    ensure     => 'running',
+    provider   => 'upstart',
+    hasrestart => 'true',
+    hasstatus  => 'true',
+    subscribe  => File['/etc/default/ivs'],
 }
 
 # load 8021q module on boot
@@ -66,20 +68,11 @@ exec { "load 8021q":
 }
 
 # config neutron-bsn-agent service
-file_line { "neutron-plugin-bsn-agent.conf remove start on neutron-ovs-cleanup":
-    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
-    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
-    line    => 'start on neutron-ovs-cleanup or runlevel [2345]',
-    ensure  => absent,
-}
-file_line { "neutron-plugin-bsn-agent.conf remove stop on runlevel":
-    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
-    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
-    line    => 'stop on runlevel [!2345]',
-    ensure  => absent,
+file { '/etc/init/neutron-plugin-bsn-agent.conf':
+    ensure => present,
 }
 file_line { "neutron-plugin-bsn-agent.conf exec":
-    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
+    require => File['/etc/init/neutron-plugin-bsn-agent.conf'],
     path    => '/etc/init/neutron-plugin-bsn-agent.conf',
     line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/bin/neutron-plugin-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/bsn-agent.log',
     match   => '^exec start-stop-daemon --start.*$',
@@ -90,14 +83,16 @@ file { '/etc/init.d/neutron-plugin-bsn-agent':
     notify => Service['neutron-plugin-bsn-agent'],
 }
 service {'neutron-plugin-bsn-agent':
-    ensure  => running,
-    enable  => true,
-    path    => $binpath,
+    ensure     => 'running',
+    provider   => 'upstart',
+    hasrestart => 'true',
+    hasstatus  => 'true',
+    subscribe  => [File['/etc/init/neutron-plugin-bsn-agent.conf'], File['/etc/init.d/neutron-plugin-bsn-agent']],
 }
 
 # stop and disable neutron-plugin-openvswitch-agent
 service { 'neutron-plugin-openvswitch-agent':
-  ensure  => stopped,
-  enable  => false,
-  path    => $binpath,
+  ensure   => 'stopped',
+  enable   => false,
+  provider => 'upstart',
 }

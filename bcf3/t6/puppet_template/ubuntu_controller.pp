@@ -121,10 +121,10 @@ exec { "load 8021q":
 }
 
 # ivs configruation and service
-file_line { 'ivs daemon arg':
-    path    => '/etc/init/ivs.conf',
-    line    => "%(ivs_daemon_args)s",
-    match   => "^.*DAEMON_ARGS=.*$",
+file { '/etc/default/ivs':
+    ensure  => file,
+    mode    => 0644,
+    content => "%(ivs_daemon_args)s",
     notify  => Service['ivs'],
 }
 service{ 'ivs':
