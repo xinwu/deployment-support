@@ -27,6 +27,11 @@ class ivs_internal_port_ips {
         line    => "service ivs restart",
         match   => "^service ivs restart$",
     }->
+    file_line { "sleep 2":
+        path    => '/etc/rc.local',
+        line    => "sleep 2",
+        match   => "^sleep 2$",
+    }->
     ivs_internal_port_ip { $port_ips:
     }->
     file_line { "add exit 0":

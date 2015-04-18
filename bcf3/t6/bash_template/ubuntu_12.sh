@@ -24,6 +24,7 @@ apt-get update -y
 apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
 apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200
+apt-get -f install -y
 easy_install pip
 
 # install bsnstacklib
@@ -77,6 +78,7 @@ if [[ $install_all == true ]]; then
         if [[ $? != 0 ]]; then
             break
         fi
+        sleep 1
     done
 
     # deploy bcf
