@@ -37,9 +37,9 @@ if($heat_config != '') {
         notify            => Service['heat-engine'],
     }
     service { 'heat-engine':
-        ensure            => running,
-        enable            => true,
-        path              => $binpath,
+        ensure     => running,
+        provider   => 'upstart',
+        enable     => true,
     }
 }
 

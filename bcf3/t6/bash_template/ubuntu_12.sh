@@ -69,8 +69,15 @@ if [[ $install_all == true ]]; then
     for (( i=0; i<$len; i++ )); do
         ovs-vsctl del-br ${ovs_br[$i]}
     done
+
     # delete ovs br-int
-    ovs-vsctl del-br %(br-int)s
+    while true; do
+        ovs-vsctl del-br %(br-int)s
+        ovs-vsctl show | grep %(br-int)s
+        if [[ $? != 0 ]]; then
+            break
+        fi
+    done
 
     # deploy bcf
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
