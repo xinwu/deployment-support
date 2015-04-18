@@ -678,10 +678,16 @@ class ConfigDeployer(object):
         return remotefile
 
     def install_puppet_prereqs(self, node):
+        #self.env.run_command_on_node(
+        #    node,
+        #    "yum -y remove facter && gem install puppet facter "
+        #    "--no-ri --no-rdoc")
         self.env.run_command_on_node(
             node,
-            "yum -y remove facter && gem install puppet facter "
-            "--no-ri --no-rdoc")
+            "yum install -y facter puppet")
+        self.env.run_command_on_node(
+            node,
+            "apt-get install -y facter puppet")
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         # stdlib is missing on 1404. install it and don't worry about return.
         # connectivity issues should be caught in the inifile install
