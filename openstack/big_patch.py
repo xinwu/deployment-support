@@ -96,6 +96,8 @@ class Environment(object):
     bigswitch_auth = None
     bigswitch_servers = None
     neutron_id = 'neutron'
+    report_interval = 30
+    agent_down_time = 75
     extra_template_params = {}
     offline_mode = False
     check_interface_errors = True
@@ -127,6 +129,10 @@ class Environment(object):
         if not neutron_id:
             raise Exception("A non-empty cluster-id must be specified.")
         self.neutron_id = neutron_id
+
+    def set_report_interval(self, report_interval):
+        self.report_interval = "%d" % report_interval
+        self.agent_down_time = "%d" % (report_interval * 2.5)
 
     def set_bigswitch_servers(self, servers):
         for s in servers.split(','):
@@ -589,6 +595,8 @@ class ConfigDeployer(object):
         puppet_settings = {
             'bond_interfaces': ','.join(bond_interfaces),
             'neutron_id': self.env.neutron_id,
+            'report_interval': self.env.report_interval,
+            'agent_down_time': self.env.agent_down_time,
             'bigswitch_servers': self.env.bigswitch_servers,
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges,
@@ -940,14 +948,14 @@ class PuppetTemplate(object):
             gen_ini('DEFAULT', 'core_plugin', 'ml2'),
             # TODO: make this config driven for t6 to enable our l3 plugin
             gen_ini('DEFAULT', 'service_plugins', 'router'),
-            gen_ini('DEFAULT', 'agent_down_time', '75'),
+            gen_ini('DEFAULT', 'agent_down_time', '$agent_down_time'),
             gen_ini('DEFAULT', 'rpc_conn_pool_size', '4'),
             gen_ini('DEFAULT', 'rpc_thread_pool_size', '4'),
             gen_ini('DEFAULT', 'allow_automatic_l3agent_failover', 'True'),
             gen_ini('DATABASE', 'max_overflow', '30'),
             gen_ini('DATABASE', 'max_pool_size', '15'),
-            gen_ini('AGENT', 'report_interval', '30'),
-            gen_ini('AGENT', 'report_interval', '30',
+            gen_ini('AGENT', 'report_interval', '$report_interval'),
+            gen_ini('AGENT', 'report_interval', '$report_interval',
                     path='$neutron_conf_path'),
             gen_ini('AGENT', 'root_helper',
                     'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
@@ -1042,6 +1050,8 @@ class PuppetTemplate(object):
     main_body = r"""
 # all of these values are set by the puppet template class above
 $neutron_id = '%(neutron_id)s'
+$report_interval = '%(report_interval)s'
+$agent_down_time = '%(agent_down_time)s'
 $bigswitch_serverauth = '%(bigswitch_serverauth)s'
 $bigswitch_servers = '%(bigswitch_servers)s'
 $bond_interfaces = '%(bond_interfaces)s'
@@ -1703,6 +1713,8 @@ if __name__ == '__main__':
     parser.add_argument("--bond-mode", default="xor",
                         help="Mode to set on node bonds (xor or round-robin). "
                              "(Default is xor.)")
+    parser.add_argument("-t", "--report-interval", default=30,
+                        help="Neutron agent report-interval in seconds")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1785,6 +1797,7 @@ if __name__ == '__main__':
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     environment.set_neutron_id(neutron_id)
+    environment.set_report_interval(int(args.report_interval))
     environment.set_offline_mode(args.offline_mode)
     environment.set_extra_template_params(
         {'force_services_restart': args.force_services_restart})
