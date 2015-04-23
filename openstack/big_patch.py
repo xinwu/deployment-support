@@ -681,8 +681,8 @@ class ConfigDeployer(object):
                 raise Exception("error installing lldp prereqs net-snmp on %s:\n%s"
                                % (node, errors))
             resp, errors = self.env.run_command_on_node(
-                node, "wget --no-check-certificate https://yum.puppetlabs.com/el/6/products/x86_64/puppet-3.7.5-1.el6.noarch.rpm -O /root/puppet-3.7.5-1.el6.noarch.rpm", 30, 2)
-            if errors:
+                node, "wget --no-check-certificate https://yum.puppetlabs.com/el/6/products/x86_64/puppet-3.7.5-1.el6.noarch.rpm -O /root/puppet-3.7.5-1.el6.noarch.rpm", 60, 2)
+            if errors and '200 OK' not in errors:
                 raise Exception("error downloading puppet rpm package on %s:\n%s"
                                % (node, errors))
             resp, errors = self.env.run_command_on_node(
@@ -1532,8 +1532,8 @@ if $operatingsystem == 'CentOS' {
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/CentOS_CentOS-6/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/CentOS_7/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/CentOS_CentOS-6/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/CentOS_7/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
