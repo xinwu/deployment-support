@@ -1429,8 +1429,8 @@ if $operatingsystem == 'RedHat' {
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/RedHat_RHEL-6/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/RHEL_7/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/RedHat_RHEL-6/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/RHEL_7/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
@@ -1517,8 +1517,8 @@ if $operatingsystem == 'CentOS' {
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/CentOS_CentOS-6/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/CentOS_7/x86_64/lldpd-0.7.13-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/CentOS_CentOS-6/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/CentOS_7/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
