@@ -686,10 +686,25 @@ class ConfigDeployer(object):
         return remotefile
 
     def install_puppet_prereqs(self, node):
-        self.env.run_command_on_node(
-            node,
-            "yum -y remove facter && gem install puppet facter "
-            "--no-ri --no-rdoc")
+        resp, errors = self.env.run_command_on_node(
+            node, "python -mplatform", 30, 2)
+        if 'centos-6.5' in resp:
+            resp, errors = self.env.run_command_on_node(node, "yum install -y net-snmp", 30, 2)
+            if errors:
+                raise Exception("error installing lldp prereqs net-snmp on %s:\n%s"
+                               % (node, errors))
+            resp, errors = self.env.run_command_on_node(
+                node, "wget --no-check-certificate https://yum.puppetlabs.com/el/6/products/x86_64/puppet-3.7.5-1.el6.noarch.rpm -O /root/puppet-3.7.5-1.el6.noarch.rpm", 60, 2)
+            if errors and '200 OK' not in errors:
+                raise Exception("error downloading puppet rpm package on %s:\n%s"
+                               % (node, errors))
+            resp, errors = self.env.run_command_on_node(
+                node, "yum install -y /root/puppet-3.7.5-1.el6.noarch.rpm", 30, 2)
+        else:
+            self.env.run_command_on_node(
+                node,
+                "yum -y remove facter && gem install puppet facter "
+                "--no-ri --no-rdoc")
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         # stdlib is missing on 1404. install it and don't worry about return.
         # connectivity issues should be caught in the inifile install
