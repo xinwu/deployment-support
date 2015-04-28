@@ -692,6 +692,12 @@ class ConfigDeployer(object):
         self.env.run_command_on_node(
             node,
             "apt-get install -y facter")
+        self.env.run_command_on_node(
+            node,
+            "systemctl restart libvirtd")
+        self.env.run_command_on_node(
+            node,
+            "systemctl restart openstack-nova-compute")
         resp, errors = self.env.run_command_on_node(
             node, "python -mplatform", 30, 2)
         if 'centos-6.5' in resp or 'centos-7' in resp:
