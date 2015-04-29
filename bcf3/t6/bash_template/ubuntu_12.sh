@@ -28,12 +28,12 @@ apt-get -f install -y
 easy_install pip
 
 # install bsnstacklib
-if [[ $install_bsnstacklib = true ]]; then
+if [[ $install_bsnstacklib == true ]]; then
     pip install --upgrade "bsnstacklib<%(bsnstacklib_version)s"
 fi
 
 # install ivs
-if [[ $install_ivs = true ]]; then
+if [[ $install_ivs == true ]]; then
     # check ivs version compatability
     pass=true
     ivs --version
@@ -43,7 +43,7 @@ if [[ $install_ivs = true ]]; then
         new_version_numbers=(${ivs_version//./ })
         if [[ $old_version > $ivs_version ]]; then
             pass=false
-        elif [[ $((${new_version_numbers[0]}-1)) > ${old_version_numbers[0]} ]]; then
+        elif [[ $((${new_version_numbers[0]}-1)) -gt ${old_version_numbers[0]} ]]; then
             pass=false
         fi
     fi
