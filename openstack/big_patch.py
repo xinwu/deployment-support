@@ -688,10 +688,10 @@ class ConfigDeployer(object):
     def install_puppet_prereqs(self, node):
         self.env.run_command_on_node(
             node,
-            "yum install -y wget facter device-mapper-libs")
+            "yum install -y wget facter device-mapper-libs puppet")
         self.env.run_command_on_node(
             node,
-            "apt-get install -y facter")
+            "apt-get install -y facter puppet")
         self.env.run_command_on_node(
             node,
             "systemctl restart libvirtd")
@@ -705,13 +705,6 @@ class ConfigDeployer(object):
             if errors:
                 raise Exception("error installing lldp prereqs net-snmp on %s:\n%s"
                                % (node, errors))
-            resp, errors = self.env.run_command_on_node(
-                node, "wget --no-check-certificate https://yum.puppetlabs.com/el/6/products/x86_64/puppet-3.7.5-1.el6.noarch.rpm -O /root/puppet-3.7.5-1.el6.noarch.rpm", 60, 2)
-            if errors and '200 OK' not in errors:
-                raise Exception("error downloading puppet rpm package on %s:\n%s"
-                               % (node, errors))
-            resp, errors = self.env.run_command_on_node(
-                node, "yum install -y /root/puppet-3.7.5-1.el6.noarch.rpm", 30, 2)
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         # stdlib is missing on 1404. install it and don't worry about return.
         # connectivity issues should be caught in the inifile install
