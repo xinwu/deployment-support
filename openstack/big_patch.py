@@ -1358,6 +1358,14 @@ file { "/etc/sysconfig/modules/bonding.modules":
    mode    => 0777,
    content => "modprobe bonding",
 }
+file { "/etc/modprobe.d/bonding.conf":
+   ensure  => file,
+   mode    => 0777,
+   content => "
+alias bond0 bonding
+options bond0 mode=2 miimon=50 updelay=15000 xmit_hash_policy=1
+",
+}
 exec {"loadbond":
    command => 'modprobe bonding',
    path    => $binpath,
