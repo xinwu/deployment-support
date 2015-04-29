@@ -688,7 +688,7 @@ class ConfigDeployer(object):
     def install_puppet_prereqs(self, node):
         self.env.run_command_on_node(
             node,
-            "yum install -y facter device-mapper-libs")
+            "yum install -y wget facter device-mapper-libs")
         self.env.run_command_on_node(
             node,
             "apt-get install -y facter")
