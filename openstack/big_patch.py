@@ -1021,6 +1021,12 @@ class PuppetTemplate(object):
                 'DEFAULT', 'interface_driver',
                 'neutron.agent.linux.interface.OVSInterfaceDriver',
                 path='$neutron_dhcp_conf_path'),
+            gen_ini(
+                'DEFAULT', 'enable_isolated_metadata', 'True',
+                path='$neutron_dhcp_conf_path'),
+            gen_ini(
+                'DEFAULT', 'enable_metadata_network', 'True',
+                path='$neutron_dhcp_conf_path'),
             # don't specify bridge for external networks so they are treated like
             # a normal VLAN network
             gen_ini(
