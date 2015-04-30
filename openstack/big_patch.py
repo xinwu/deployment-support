@@ -1366,6 +1366,7 @@ file { "/etc/modprobe.d/bonding.conf":
 alias bond0 bonding
 options bond0 mode=2 miimon=50 updelay=15000 xmit_hash_policy=1
 ",
+   notify  => Exec['loadbond'],
 }
 exec {"loadbond":
    command => 'modprobe bonding',
