@@ -112,6 +112,7 @@ fi
 # restart neutron-server on controller node
 if [[ $is_controller == true ]]; then
     echo 'Restart neutron-server'
+    rm -rf /etc/neutron/plugins/ml2/host_certs/*
     service neutron-server restart
 fi
 
