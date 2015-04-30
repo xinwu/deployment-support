@@ -1,0 +1,34 @@
+# configuration won't be overrided by fuel
+openstack_release: juno
+default_deploy_mode: t6
+default_skip: false
+default_install_bsnstacklib: true
+default_install_ivs: true
+default_install_all: true
+ivs_packages:
+- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-0.5-1.el7.centos.x86_64.rpm
+- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-0.5-1.el7.centos.x86_64.rpm
+bcf_controllers:
+- 10.212.1.231:8000
+- 10.212.1.230:8000
+bcf_controller_user: admin
+bcf_controller_passwd: adminadmin
+
+# configuration can be overrided by fuel
+default_user: root
+default_passwd: bsn
+default_os: centos
+default_os_version: 7.0.1406
+network_vlan_ranges: physnet1:500:2000
+default_role: compute
+default_uplink_interfaces:
+- p2p1
+- p2p2
+nodes:
+- hostname: 10.4.9.100
+  role: controller
+- hostname: 10.4.9.101
+  uplink_interfaces:
+  - p1p1
+  - p1p2
+- hostname: 10.4.9.102
