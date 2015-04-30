@@ -1343,6 +1343,7 @@ allow neutron_t etc_t:file create;
                    semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
                    semodule -i /root/neutroncerts.pp' ||:",
         path    => $binpath,
+
     }
 }
 '''  # noqa
@@ -1565,6 +1566,7 @@ DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
+NM_CONTROLLED=no
 BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_policy=1'
 ",
     }
@@ -1574,7 +1576,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
     }
     if $bond_int0 != $bond_int1 {
         file{'bond_int1config':
@@ -1583,7 +1585,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
             ensure => file,
             mode => 0644,
             path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
         }
     }
 
