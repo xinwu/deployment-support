@@ -203,7 +203,7 @@ class SSHEnvironment(Environment):
             sshcomm = ' '.join(sshcomm)
         self.ensure_connectivity(node)
         resp, errors = TimedCommand(sshcomm).run(timeout, retries, shell=shell)
-        return resp, errors
+        return resp, errors.replace("Error: NetworkManager is not running.", "")
 
     def ensure_connectivity(self, node):
         # This might be worth caching if many SSH calls are made to each node.
@@ -968,6 +968,8 @@ class PuppetTemplate(object):
             gen_ini('ovs', 'enable_tunneling', 'False',
                     path='$neutron_ovs_conf_path'),
             gen_ini('ovs', 'ovs_enable_tunneling', 'False',
+                    path='$neutron_ovs_conf_path'),
+            gen_ini('agent', 'tunnel_types', value='',
                     path='$neutron_ovs_conf_path'),
             gen_ini('AGENT', 'tunnel_types', value=None, ensure='absent'),
             gen_ini('OVS', 'tunnel_bridge', value=None, ensure='absent'),

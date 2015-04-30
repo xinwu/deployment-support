@@ -1,0 +1,19 @@
+
+module bsn-selinux-policy 1.0;
+
+require {
+	type neutron_t;
+	type etc_t;
+        type httpd_t;
+        type keystone_log_t;
+        class dir search;
+        class dir create;
+        class file create;
+	class netlink_socket { bind create setopt getattr };
+}
+
+#============= neutron_t ==============
+allow httpd_t keystone_log_t:dir search;
+allow neutron_t etc_t:dir create;
+allow neutron_t etc_t:file create;
+allow neutron_t self:netlink_socket { bind create setopt getattr };
