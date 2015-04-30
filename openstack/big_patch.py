@@ -1343,7 +1343,6 @@ allow neutron_t etc_t:file create;
                    semodule_package -m /root/neutroncerts.mod -o /root/neutroncerts.pp;
                    semodule -i /root/neutroncerts.pp' ||:",
         path    => $binpath,
-
     }
 }
 '''  # noqa
