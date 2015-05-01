@@ -688,7 +688,7 @@ class ConfigDeployer(object):
     def install_puppet_prereqs(self, node):
         self.env.run_command_on_node(
             node,
-            "yum install -y wget facter device-mapper-libs puppet NetworkManager-libnm-devel libnm-gtk libnm-gtk-devel")
+            "yum install -y wget facter device-mapper-libs puppet NetworkManager-libnm-devel libnm-gtk libnm-gtk-devel net-snmp")
         self.env.run_command_on_node(
             node,
             "apt-get install -y facter puppet")
@@ -702,9 +702,6 @@ class ConfigDeployer(object):
             node, "python -mplatform", 30, 2)
         if 'centos-6.5' in resp or 'centos-7' in resp:
             resp, errors = self.env.run_command_on_node(node, "yum install -y net-snmp", 30, 2)
-            if errors:
-                raise Exception("error installing lldp prereqs net-snmp on %s:\n%s"
-                               % (node, errors))
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         # stdlib is missing on 1404. install it and don't worry about return.
         # connectivity issues should be caught in the inifile install
