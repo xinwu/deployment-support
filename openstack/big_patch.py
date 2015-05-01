@@ -686,25 +686,25 @@ class ConfigDeployer(object):
         return remotefile
 
     def install_puppet_prereqs(self, node):
+        self.env.run_command_on_node(
+            node,
+            "yum install -y wget facter device-mapper-libs puppet")
+        self.env.run_command_on_node(
+            node,
+            "apt-get install -y facter puppet")
+        self.env.run_command_on_node(
+            node,
+            "systemctl restart libvirtd")
+        self.env.run_command_on_node(
+            node,
+            "systemctl restart openstack-nova-compute")
         resp, errors = self.env.run_command_on_node(
             node, "python -mplatform", 30, 2)
-        if 'centos-6.5' in resp:
+        if 'centos-6.5' in resp or 'centos-7' in resp:
             resp, errors = self.env.run_command_on_node(node, "yum install -y net-snmp", 30, 2)
             if errors:
                 raise Exception("error installing lldp prereqs net-snmp on %s:\n%s"
                                % (node, errors))
-            resp, errors = self.env.run_command_on_node(
-                node, "wget --no-check-certificate https://yum.puppetlabs.com/el/6/products/x86_64/puppet-3.7.5-1.el6.noarch.rpm -O /root/puppet-3.7.5-1.el6.noarch.rpm", 60, 2)
-            if errors and '200 OK' not in errors:
-                raise Exception("error downloading puppet rpm package on %s:\n%s"
-                               % (node, errors))
-            resp, errors = self.env.run_command_on_node(
-                node, "yum install -y /root/puppet-3.7.5-1.el6.noarch.rpm", 30, 2)
-        else:
-            self.env.run_command_on_node(
-                node,
-                "yum -y remove facter && gem install puppet facter "
-                "--no-ri --no-rdoc")
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         # stdlib is missing on 1404. install it and don't worry about return.
         # connectivity issues should be caught in the inifile install
@@ -1359,6 +1359,20 @@ if !defined(Package['wget']) {
         ensure => installed,
     }
 }
+file { "/etc/sysconfig/modules/bonding.modules":
+   ensure  => file,
+   mode    => 0777,
+   content => "modprobe bonding",
+}
+file { "/etc/modprobe.d/bonding.conf":
+   ensure  => file,
+   mode    => 0777,
+   content => "
+alias bond0 bonding
+options bond0 mode=2 miimon=50 updelay=15000 xmit_hash_policy=1
+",
+   notify  => Exec['loadbond'],
+}
 exec {"loadbond":
    command => 'modprobe bonding',
    path    => $binpath,
@@ -1369,7 +1383,7 @@ exec {"deleteovsbond":
   command => "bash -c 'for int in \$(/usr/bin/ovs-appctl bond/list | grep -v slaves | grep \"${bond_int0}\" | awk -F '\"' ' '{ print \$1 }'\"'); do ovs-vsctl --if-exists del-port \$int; done'",
   path    => $binpath,
   require => Exec['lldpdinstall'],
-  onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
+  #onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
   notify => Exec['networkingrestart']
 }
 exec {"clearint0":
@@ -1558,6 +1572,7 @@ DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
+NM_CONTROLLED=no
 BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_policy=1'
 ",
     }
@@ -1567,7 +1582,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
     }
     if $bond_int0 != $bond_int1 {
         file{'bond_int1config':
@@ -1576,7 +1591,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
             ensure => file,
             mode => 0644,
             path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
         }
     }
 
@@ -1633,6 +1648,7 @@ DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
+NM_CONTROLLED=no
 BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_policy=1'
 ",
     }
@@ -1642,7 +1658,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
     }
     if $bond_int0 != $bond_int1 {
         file{'bond_int1config':
@@ -1651,7 +1667,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
             ensure => file,
             mode => 0644,
             path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
         }
     }
     if $operatingsystemrelease =~ /^6.*/ {
