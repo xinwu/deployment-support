@@ -1147,16 +1147,32 @@ exec{"neutronl3restart":
     refreshonly => true,
     command => "service neutron-l3-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-l3-agent'],
 }
 exec{"neutronmetarestart":
     refreshonly => true,
     command => "service neutron-metadata-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-metadata-agent'],
 }
 exec{"neutrondhcprestart":
     refreshonly => true,
     command => "service neutron-dhcp-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-dhcp-agent'],
+}
+
+service{"neutron-dhcp-agent":
+    enable => true,
+    ensure => running,
+}
+service{"neutron-metadata-agent":
+    enable => true,
+    ensure => running,
+}
+service{"neutron-l3-agent":
+    enable => true,
+    ensure => running,
 }
 
 # several other openstack services to restart since we interrupt network connectivity.
