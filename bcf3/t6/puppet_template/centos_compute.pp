@@ -39,6 +39,17 @@ selinux::module { 'selinux-bcf':
   source => 'puppet:///modules/selinux/centos.te',
 }
 
+# install and enable ntp
+package { "ntp":
+    ensure  => installed,
+}
+service { "ntpd":
+    ensure  => running,
+    enable  => true,
+    path    => $binpath,
+    require => Package['ntp'],
+}
+
 # ivs configruation and service
 file{'/etc/sysconfig/ivs':
     ensure  => file,

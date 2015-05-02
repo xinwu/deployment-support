@@ -71,6 +71,17 @@ class ivs_internal_port_ips {
 }
 include ivs_internal_port_ips
 
+# install and enable ntp
+package { "ntp":
+    ensure  => installed,
+}
+service { "ntpd":
+    ensure  => running,
+    enable  => true,
+    path    => $binpath,
+    require => Package['ntp'],
+}
+
 # make sure known_hosts is cleaned up
 file { "/root/.ssh/known_hosts":
     ensure => absent,

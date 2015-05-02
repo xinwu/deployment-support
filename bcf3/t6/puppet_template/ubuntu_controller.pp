@@ -125,6 +125,17 @@ exec { "load 8021q":
     require => Package['vlan'],
 }
 
+# install and enable ntp
+package { "ntp":
+    ensure  => installed,
+}
+service { "ntp":
+    ensure  => running,
+    enable  => true,
+    path    => $binpath,
+    require => Package['ntp'],
+}
+
 # ivs configruation and service
 file { '/etc/default/ivs':
     ensure  => file,
