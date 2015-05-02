@@ -1153,16 +1153,32 @@ exec{"neutronl3restart":
     refreshonly => true,
     command => "service neutron-l3-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-l3-agent'],
 }
 exec{"neutronmetarestart":
     refreshonly => true,
     command => "service neutron-metadata-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-metadata-agent'],
 }
 exec{"neutrondhcprestart":
     refreshonly => true,
     command => "service neutron-dhcp-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-dhcp-agent'],
+}
+
+service{"neutron-dhcp-agent":
+    enable => true,
+    ensure => running,
+}
+service{"neutron-metadata-agent":
+    enable => true,
+    ensure => running,
+}
+service{"neutron-l3-agent":
+    enable => true,
+    ensure => running,
 }
 
 # several other openstack services to restart since we interrupt network connectivity.
@@ -1380,7 +1396,7 @@ exec {"deleteovsbond":
   command => "bash -c 'for int in \$(/usr/bin/ovs-appctl bond/list | grep -v slaves | grep \"${bond_int0}\" | awk -F '\"' ' '{ print \$1 }'\"'); do ovs-vsctl --if-exists del-port \$int; done'",
   path    => $binpath,
   require => Exec['lldpdinstall'],
-  #onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
+  onlyif  => "/sbin/ifconfig ${phy_bridge} && ovs-vsctl show | grep '\"${bond_int0}\"'",
   notify => Exec['networkingrestart']
 }
 exec {"clearint0":
