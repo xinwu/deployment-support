@@ -41,6 +41,17 @@ class ivs_internal_port_ips {
 }
 include ivs_internal_port_ips
 
+# install and enable ntp
+package { "ntp":
+    ensure  => installed,
+}
+service { "ntp":
+    ensure  => running,
+    enable  => true,
+    path    => $binpath,
+    require => Package['ntp'],
+}
+
 # ivs configruation and service
 file { '/etc/default/ivs':
     ensure  => file,
