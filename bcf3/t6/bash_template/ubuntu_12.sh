@@ -98,9 +98,17 @@ if [[ $install_all == true ]]; then
                 yes | cp -rfp %(dst_dir)s/%(horizon_patch_dir)s/$f %(horizon_base_dir)s/$f
             done
             find "%(horizon_base_dir)s" -name "*.pyc" -exec rm -rf {} \;
+            find "%(horizon_base_dir)s" -name "*.pyo" -exec rm -rf {} \;
             service apache2 restart
         fi
     fi
+
+    # patch linux/dhcp.py to make sure static host route is pushed to instances
+    dhcp_py=$(find / -name dhcp.py | grep linux)
+    dhcp_dir=$(dirname "${dhcp_py}")
+    sed -i 's/if (isolated_subnets\[subnet.id\] and/if (True and/g' $dhcp_py
+    find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
+    find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
 fi
 
 # restart libvirtd and nova compute on compute node
