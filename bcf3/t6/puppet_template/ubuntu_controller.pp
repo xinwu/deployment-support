@@ -245,6 +245,37 @@ ini_setting { "dhcp agent enable isolated metadata":
   value             => 'True',
   notify            => Service['neutron-dhcp-agent'],
 }
+ini_setting { "dhcp agent disable metadata network":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'enable_metadata_network',
+  value             => 'False',
+  notify            => Service['neutron-dhcp-agent'],
+}
+
+# disable l3 agent
+service { 'neutron-l3-agent':
+  ensure  => stopped,
+  enable  => false,
+  path    => $binpath,
+}
+ini_setting { "l3 agent disable metadata proxy":
+  ensure            => present,
+  path              => '/etc/neutron/l3_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'enable_metadata_proxy',
+  value             => 'False',
+}
+
+# make sure metadata agent is running
+service { 'neutron-metadata-agent':
+  ensure  => running,
+  enable  => true,
+  path    => $binpath,
+}
 
 # config /etc/neutron/plugins/ml2/ml2_conf.ini 
 ini_setting { "ml2 type dirvers":

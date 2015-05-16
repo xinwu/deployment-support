@@ -112,3 +112,46 @@ service { 'neutron-plugin-openvswitch-agent':
   enable   => false,
   provider => 'upstart',
 }
+
+# make sure dhcp and metadata agent
+# are not running on compute node
+ini_setting { "dhcp agent disable metadata network":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'enable_metadata_network',
+  value             => 'False',
+}
+ini_setting { "dhcp agent enable isolated metadata":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'enable_isolated_metadata',
+  value             => 'True',
+}
+ini_setting { "l3 agent disable metadata proxy":
+  ensure            => present,
+  path              => '/etc/neutron/l3_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'enable_metadata_proxy',
+  value             => 'False',
+}
+service { 'neutron-dhcp-agent':
+  ensure  => stopped,
+  enable  => false,
+  path    => $binpath,
+}
+service { 'neutron-l3-agent':
+  ensure  => stopped,
+  enable  => false,
+  path    => $binpath,
+}
+service { 'neutron-metadata-agent':
+  ensure  => stopped,
+  enable  => false,
+  path    => $binpath,
+}
+
