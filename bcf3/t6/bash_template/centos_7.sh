@@ -93,6 +93,7 @@ if [[ $install_all == true ]]; then
                 yes | cp -rfp %(dst_dir)s/%(horizon_patch_dir)s/$f %(horizon_base_dir)s/$f
             done
             find "%(horizon_base_dir)s" -name "*.pyc" -exec rm -rf {} \;
+            systemctl restart httpd
         fi
     fi
 fi
