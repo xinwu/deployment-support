@@ -33,6 +33,9 @@ HORIZON_TGZ_PATH = {
     'juno': ('https://github.com/bigswitch/horizon/archive/'
              'stable/juno.tar.gz',
              'horizon_stable_juno.tar.gz'),
+    'kilo': ('https://github.com/bigswitch/horizon/archive/'
+             'stable/kilo.tar.gz',
+             'horizon_stable_kilo.tar.gz'),
 }
 NEUTRON_TGZ_PATH = {
     'icehouse': ('https://github.com/bigswitch/neutron/archive/'
@@ -40,7 +43,8 @@ NEUTRON_TGZ_PATH = {
                  'neutron_stable_icehouse.tar.gz'),
     'juno': ('https://github.com/bigswitch/neutron/archive/'
              'stable/juno.tar.gz',
-             'neutron_stable_juno.tar.gz')
+             'neutron_stable_juno.tar.gz'),
+    'kilo': ''
 }
 
 # paths to extract from tgz to local horizon install. Don't include
@@ -605,8 +609,11 @@ class ConfigDeployer(object):
                                                        False)
             ).lower(),
             'offline_mode': str(self.env.offline_mode).lower(),
-            'bond_mode': self.env.bond_mode
+            'bond_mode': self.env.bond_mode,
+            'ml2_mechdriver': 'openvswitch,bigswitch'
         }
+        if self.os_release == 'kilo':
+            puppet_settings['ml2_mechdriver'] = 'openvswitch,bsn_ml2'
         if bond_interfaces:
             self.check_health_of_bond_interfaces(node, bond_interfaces)
             lldp_name = self.get_lldp_advertisement_hostname(node)
@@ -823,6 +830,15 @@ class ConfigDeployer(object):
                 pass
 
     def copy_neutron_files_to_node(self, node):
+        # Install bsnstacklib if it is kilo release
+        if self.os_release == 'kilo':
+            cmd = 'pip install \"bsnstacklib<2015.2\"'
+            resp, errors = self.env.run_command_on_node(
+                node, "bash -c '%s'" % cmd)
+            if errors:
+                raise Exception("error installing bsnstacklib to %s:\n%s"
+                                % (node, errors))
+        
         # Find where python libs are installed
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
         # we need to replace all of neutron plugins dir in CentOS
@@ -931,7 +947,8 @@ class PuppetTemplate(object):
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
             'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
             'neutron_path': '', 'neutron_restart_refresh_only': '',
-            'offline_mode': '', 'bond_mode': '', 'lldp_advertised_name': ''
+            'offline_mode': '', 'bond_mode': '', 'lldp_advertised_name': '',
+            'ml2_mechdriver': 'openvswitch,bigswitch'
         }
         for key in settings:
             self.settings[key] = settings[key]
@@ -982,7 +999,8 @@ class PuppetTemplate(object):
                     path='$neutron_conf_path'),
             # TODO: change the value of this to 'openvswitch,bsn_ml2' once the
             # switch to bsnstacklib is done
-            gen_ini('ml2', 'mechanism_drivers', 'openvswitch,bigswitch',
+           
+            gen_ini('ml2', 'mechanism_drivers', '$ml2_mechdriver',
                     path='$neutron_conf_path'),
             gen_ini('ml2_type_vlan', 'network_vlan_ranges',
                     '$network_vlan_ranges', path='$neutron_conf_path'),
@@ -1086,6 +1104,7 @@ $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
 $bond_mode = %(bond_mode)s
 $lldp_advertised_name = '%(lldp_advertised_name)s'
+$ml2_mechdriver = '%(ml2_mechdriver)s'
 
 # all of the exec statements use this path
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
@@ -1728,7 +1747,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("-r", "--openstack-release", required=True,
-                        help="Name of OpenStack release (Juno or Icehouse).")
+                        help=("Name of OpenStack release "
+                              "(Kilo, Juno or Icehouse)."))
     group.add_argument("-i", "--stand-alone", action='store_true',
                        help="Configure the server running this script "
                             "(root privileges required).")
