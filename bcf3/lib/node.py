@@ -21,6 +21,7 @@ class Node(object):
         self.install_ivs           = node_config['install_ivs']
         self.install_bsnstacklib   = node_config['install_bsnstacklib']
         self.install_all           = node_config['install_all']
+        self.deploy_dhcp_agent     = node_config['deploy_dhcp_agent']
         self.bridges               = node_config.get('bridges')
         self.br_bond               = node_config.get('br_bond')
 
@@ -178,6 +179,7 @@ uplink_interfaces      : %(uplink_interfaces)s,
 install_ivs            : %(install_ivs)s,
 install_bsnstacklib    : %(install_bsnstacklib)s,
 install_all            : %(install_all)s,
+deploy_dhcp_agent      : %(deploy_dhcp_agent)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
 openstack_release      : %(openstack_release)s,
@@ -224,6 +226,7 @@ error                  : %(error)s,
 'install_ivs'           : self.install_ivs,
 'install_bsnstacklib'   : self.install_bsnstacklib,
 'install_all'           : self.install_all,
+'deploy_dhcp_agent'     : self.deploy_dhcp_agent,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
 'openstack_release'     : self.openstack_release,
