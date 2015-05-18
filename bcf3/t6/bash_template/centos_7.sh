@@ -99,7 +99,7 @@ if [[ $install_all == true ]]; then
     fi
 
     # patch linux/dhcp.py to make sure static host route is pushed to instances
-    dhcp_py=$(find / -name dhcp.py | grep linux)
+    dhcp_py=$(find /usr -name dhcp.py | grep linux)
     dhcp_dir=$(dirname "${dhcp_py}")
     sed -i 's/if (isolated_subnets\[subnet.id\] and/if (True and/g' $dhcp_py
     find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
