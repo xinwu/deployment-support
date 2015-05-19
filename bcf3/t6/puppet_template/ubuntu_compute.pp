@@ -85,12 +85,16 @@ exec { "load 8021q":
 # config neutron-bsn-agent conf
 file { '/etc/init/neutron-bsn-agent.conf':
     ensure => present,
-}
-file_line { "neutron-bsn-agent.conf exec":
-    notify  => File['/etc/init.d/neutron-bsn-agent'],
-    path    => '/etc/init/neutron-bsn-agent.conf',
-    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/local/bin/neutron-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/neutron-bsn-agent.log',
-    match   => '^exec start-stop-daemon --start.*$',
+    content => "
+# vim:set ft=upstart ts=2 et:
+description \"Neutron BSN Agent\"
+start on runlevel [2345]
+stop on runlevel [!2345]
+respawn
+script
+    exec /usr/local/bin/neutron-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugins/ml2/ml2_conf.ini --log-file=/var/log/neutron/neutron-bsn-agent.log
+end script
+",
 }
 file { '/etc/init.d/neutron-bsn-agent':
     ensure => link,
