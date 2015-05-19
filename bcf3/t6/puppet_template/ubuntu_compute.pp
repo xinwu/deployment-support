@@ -82,27 +82,27 @@ exec { "load 8021q":
     require => Package['vlan'],
 }
 
-# config neutron-bsn-agent service
-file { '/etc/init/neutron-plugin-bsn-agent.conf':
+# config neutron-bsn-agent conf
+file { '/etc/init/neutron-bsn-agent.conf':
     ensure => present,
 }
-file_line { "neutron-plugin-bsn-agent.conf exec":
-    require => File['/etc/init/neutron-plugin-bsn-agent.conf'],
-    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
-    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/bin/neutron-plugin-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/bsn-agent.log',
+file_line { "neutron-bsn-agent.conf exec":
+    notify  => File['/etc/init.d/neutron-bsn-agent'],
+    path    => '/etc/init/neutron-bsn-agent.conf',
+    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/local/bin/neutron-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/neutron-bsn-agent.log',
     match   => '^exec start-stop-daemon --start.*$',
 }
-file { '/etc/init.d/neutron-plugin-bsn-agent':
+file { '/etc/init.d/neutron-bsn-agent':
     ensure => link,
     target => '/lib/init/upstart-job',
-    notify => Service['neutron-plugin-bsn-agent'],
+    notify => Service['neutron-bsn-agent'],
 }
-service {'neutron-plugin-bsn-agent':
+service {'neutron-bsn-agent':
     ensure     => 'running',
     provider   => 'upstart',
     hasrestart => 'true',
     hasstatus  => 'true',
-    subscribe  => [File['/etc/init/neutron-plugin-bsn-agent.conf'], File['/etc/init.d/neutron-plugin-bsn-agent']],
+    subscribe  => [File['/etc/init/neutron-bsn-agent.conf'], File['/etc/init.d/neutron-bsn-agent']],
 }
 
 # stop and disable neutron-plugin-openvswitch-agent

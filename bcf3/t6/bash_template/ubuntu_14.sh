@@ -62,7 +62,7 @@ fi
 if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
-    cp /etc/init/neutron-plugin-openvswitch-agent.conf /etc/init/neutron-plugin-bsn-agent.conf
+    cp /etc/init/neutron-plugin-openvswitch-agent.conf /etc/init/neutron-bsn-agent.conf
 
     # remove ovs, example ("br-storage" "br-prv" "br-ex")
     declare -a ovs_br=(%(ovs_br)s)

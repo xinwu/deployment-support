@@ -45,9 +45,9 @@ IVS_DAEMON_ARGS = (r'''DAEMON_ARGS=\"--syslog --inband-vlan %(inband_vlan)d%(upl
 
 # constants of supported OSes and versions
 CENTOS          = 'centos'
-CENTOS_VERSIONS = ['6', '7']
+CENTOS_VERSIONS = ['7']
 UBUNTU          = 'ubuntu'
-UBUNTU_VERSIONS = ['12', '14']
+UBUNTU_VERSIONS = ['14']
 
 # OSes that uses rpm or deb packages
 RPM_OS_SET = [CENTOS]
