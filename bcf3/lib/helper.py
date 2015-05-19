@@ -282,7 +282,7 @@ class Helper(object):
         # generate ospurge script
         if node.role != const.ROLE_NEUTRON_SERVER:
             return
-        openrc = const.PACKSTACK_OPENRC
+        openrc = const.MANUAL_OPENRC
         if node.fuel_cluster_id:
             openrc = const.FUEL_OPENRC
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(ospurge_template_dir)s/%(ospurge_template)s.sh''' %
