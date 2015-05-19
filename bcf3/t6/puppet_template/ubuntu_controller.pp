@@ -132,7 +132,6 @@ package { "ntp":
 service { "ntp":
     ensure  => running,
     enable  => true,
-    path    => $binpath,
     require => Package['ntp'],
 }
 
@@ -259,7 +258,6 @@ ini_setting { "dhcp agent disable metadata network":
 service { 'neutron-l3-agent':
   ensure  => stopped,
   enable  => false,
-  path    => $binpath,
 }
 ini_setting { "l3 agent disable metadata proxy":
   ensure            => present,
@@ -274,7 +272,6 @@ ini_setting { "l3 agent disable metadata proxy":
 service { 'neutron-metadata-agent':
   ensure  => running,
   enable  => true,
-  path    => $binpath,
 }
 
 # config /etc/neutron/plugins/ml2/ml2_conf.ini 

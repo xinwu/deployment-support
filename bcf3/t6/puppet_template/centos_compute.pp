@@ -156,18 +156,4 @@ ini_setting { "l3 agent disable metadata proxy":
   setting           => 'enable_metadata_proxy',
   value             => 'False',
 }
-service { 'neutron-dhcp-agent':
-  ensure  => stopped,
-  enable  => false,
-  path    => $binpath,
-}
-service { 'neutron-l3-agent':
-  ensure  => stopped,
-  enable  => false,
-  path    => $binpath,
-}
-service { 'neutron-metadata-agent':
-  ensure  => stopped,
-  enable  => false,
-  path    => $binpath,
-}
+
