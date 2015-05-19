@@ -162,7 +162,7 @@ file { '/etc/init/neutron-bsn-agent.conf':
 file_line { "neutron-bsn-agent.conf exec":
     notify  => File['/etc/init.d/neutron-bsn-agent'],
     path    => '/etc/init/neutron-bsn-agent.conf',
-    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/local/bin/neutron-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/neutron-bsn-agent.log',
+    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/local/bin/neutron-bsn-agent -- --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/neutron-bsn-agent.log',
     match   => '^exec start-stop-daemon --start.*$',
 }
 file { '/etc/init.d/neutron-bsn-agent':
