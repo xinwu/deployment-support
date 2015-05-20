@@ -156,4 +156,16 @@ ini_setting { "l3 agent disable metadata proxy":
   setting           => 'enable_metadata_proxy',
   value             => 'False',
 }
+ini_setting { "dhcp agent disable dhcp_delete_namespaces":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'dhcp_delete_namespaces',
+  value             => 'False',
+}
+file { '/etc/neutron/dnsmasq-neutron.conf':
+  ensure            => file,
+  content           => 'dhcp-option-force=26,1400',
+}
 

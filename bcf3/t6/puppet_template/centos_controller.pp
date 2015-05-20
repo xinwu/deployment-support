@@ -254,6 +254,20 @@ ini_setting { "dhcp agent disable metadata network":
   value             => 'False',
   notify            => Service['neutron-dhcp-agent'],
 }
+ini_setting { "dhcp agent disable dhcp_delete_namespaces":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'dhcp_delete_namespaces',
+  value             => 'False',
+  notify            => Service['neutron-dhcp-agent'],
+}
+file { '/etc/neutron/dnsmasq-neutron.conf':
+  ensure            => file,
+  content           => 'dhcp-option-force=26,1400',
+  notify            => Service['neutron-dhcp-agent'],
+}
 
 # disable l3 agent
 service { 'neutron-l3-agent':

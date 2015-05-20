@@ -159,7 +159,6 @@ package { 'binutils':
 file { '/etc/init/neutron-bsn-agent.conf':
     ensure => present,
     content => "
-# vim:set ft=upstart ts=2 et:
 description \"Neutron BSN Agent\"
 start on runlevel [2345]
 stop on runlevel [!2345]
@@ -255,6 +254,20 @@ ini_setting { "dhcp agent disable metadata network":
   key_val_separator => '=',
   setting           => 'enable_metadata_network',
   value             => 'False',
+  notify            => Service['neutron-dhcp-agent'],
+}
+ini_setting { "dhcp agent disable dhcp_delete_namespaces":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'dhcp_delete_namespaces',
+  value             => 'False',
+  notify            => Service['neutron-dhcp-agent'],
+}
+file { '/etc/neutron/dnsmasq-neutron.conf':
+  ensure            => file,
+  content           => 'dhcp-option-force=26,1400',
   notify            => Service['neutron-dhcp-agent'],
 }
 

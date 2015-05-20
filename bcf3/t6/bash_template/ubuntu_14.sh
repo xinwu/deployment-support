@@ -20,11 +20,17 @@ if [[ $? != 0 ]]; then
     release=$(lsb_release -sc)
     echo -e "\ndeb http://archive.ubuntu.com/ubuntu $release main\n" >> /etc/apt/sources.list
 fi
+
+apt-get install ubuntu-cloud-keyring
+echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu" \
+"trusty-updates/juno main" > /etc/apt/sources.list.d/cloudarchive-juno.list
 apt-get update -y
+apt-get -y upgrade
 apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
 apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan
 apt-get -f install -y
+apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y neutron-common
 easy_install pip
 
 # install bsnstacklib
