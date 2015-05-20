@@ -32,6 +32,8 @@ apt-get install -y python-dev python-setuptools
 apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan
 apt-get -f install -y
 apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y neutron-common
+apt-get install -o Dpkg::Options::="--force-confold" -y neutron-metadata-agent
+apt-get install -o Dpkg::Options::="--force-confold" -y neutron-dhcp-agent
 easy_install pip
 
 # install bsnstacklib
