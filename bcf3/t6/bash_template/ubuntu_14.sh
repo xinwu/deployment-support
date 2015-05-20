@@ -118,8 +118,8 @@ if [[ $install_all == true ]]; then
     find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
     find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
     if [[ $deploy_dhcp_agent == true ]]; then
-        systemctl restart neutron-metadata-agent
-        systemctl restart neutron-dhcp-agent
+        service neutron-metadata-agent restart
+        service neutron-dhcp-agent restart
     fi
 fi
 
