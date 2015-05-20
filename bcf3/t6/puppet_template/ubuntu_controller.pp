@@ -132,7 +132,6 @@ package { "ntp":
 service { "ntp":
     ensure  => running,
     enable  => true,
-    path    => $binpath,
     require => Package['ntp'],
 }
 
@@ -156,27 +155,30 @@ package { 'binutils':
    ensure => latest,
 }
 
-# config neutron-plugin-bsn-agent conf
-file { '/etc/init/neutron-plugin-bsn-agent.conf':
+# config neutron-bsn-agent conf
+file { '/etc/init/neutron-bsn-agent.conf':
     ensure => present,
+    content => "
+description \"Neutron BSN Agent\"
+start on runlevel [2345]
+stop on runlevel [!2345]
+respawn
+script
+    exec /usr/local/bin/neutron-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugins/ml2/ml2_conf.ini --log-file=/var/log/neutron/neutron-bsn-agent.log
+end script
+",
 }
-file_line { "neutron-plugin-bsn-agent.conf exec":
-    notify  => File['/etc/init.d/neutron-plugin-bsn-agent'],
-    path    => '/etc/init/neutron-plugin-bsn-agent.conf',
-    line    => 'exec start-stop-daemon --start --chuid neutron --exec /usr/bin/neutron-plugin-bsn-agent --config-file=/etc/neutron/neutron.conf --config-file=/etc/neutron/plugin.ini --log-file=/var/log/neutron/bsn-agent.log',
-    match   => '^exec start-stop-daemon --start.*$',
-}
-file { '/etc/init.d/neutron-plugin-bsn-agent':
+file { '/etc/init.d/neutron-bsn-agent':
     ensure => link,
     target => '/lib/init/upstart-job',
-    notify => Service['neutron-plugin-bsn-agent'],
+    notify => Service['neutron-bsn-agent'],
 }
-service {'neutron-plugin-bsn-agent':
+service {'neutron-bsn-agent':
     ensure     => 'running',
     provider   => 'upstart',
     hasrestart => 'true',
     hasstatus  => 'true',
-    subscribe  => [File['/etc/init/neutron-plugin-bsn-agent.conf'], File['/etc/init.d/neutron-plugin-bsn-agent']],
+    subscribe  => [File['/etc/init/neutron-bsn-agent.conf'], File['/etc/init.d/neutron-bsn-agent']],
 }
 
 # purge bcf controller public key
@@ -254,12 +256,25 @@ ini_setting { "dhcp agent disable metadata network":
   value             => 'False',
   notify            => Service['neutron-dhcp-agent'],
 }
+ini_setting { "dhcp agent disable dhcp_delete_namespaces":
+  ensure            => present,
+  path              => '/etc/neutron/dhcp_agent.ini',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'dhcp_delete_namespaces',
+  value             => 'False',
+  notify            => Service['neutron-dhcp-agent'],
+}
+file { '/etc/neutron/dnsmasq-neutron.conf':
+  ensure            => file,
+  content           => 'dhcp-option-force=26,1400',
+  notify            => Service['neutron-dhcp-agent'],
+}
 
 # disable l3 agent
 service { 'neutron-l3-agent':
   ensure  => stopped,
   enable  => false,
-  path    => $binpath,
 }
 ini_setting { "l3 agent disable metadata proxy":
   ensure            => present,
@@ -274,7 +289,6 @@ ini_setting { "l3 agent disable metadata proxy":
 service { 'neutron-metadata-agent':
   ensure  => running,
   enable  => true,
-  path    => $binpath,
 }
 
 # config /etc/neutron/plugins/ml2/ml2_conf.ini 

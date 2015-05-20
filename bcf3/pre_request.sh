@@ -17,4 +17,12 @@ if [[ $? == 0 ]]; then
     exit 0
 fi
 
+python -mplatform | grep Ubuntu-14.04
+if [[ $? == 0 ]]; then
+    apt-get install -y puppet python-dev python-yaml sshpass python-pip
+    apt-get install -y linux-headers-$(uname -r) build-essential
+    pip install --upgrade subprocess32 futures
+    exit 0
+fi
+
 echo "Unsupported operating system."
