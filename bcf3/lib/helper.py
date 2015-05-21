@@ -158,7 +158,7 @@ class Helper(object):
         """
         mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
         Helper.run_command_on_remote_with_passwd(node, mkdir_cmd)
-        scp_cmd = (r'''sshpass -p %(pwd)s scp %(src_file)s  %(user)s@%(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
+        scp_cmd = (r'''sshpass -p %(pwd)s scp -oStrictHostKeyChecking=no -o LogLevel=quiet %(src_file)s  %(user)s@%(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
                   {'user'       : node.user,
                    'hostname'   : node.hostname,
                    'pwd'        : node.passwd,
@@ -185,7 +185,7 @@ class Helper(object):
         """
         mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
         Helper.run_command_on_local(mkdir_cmd)
-        scp_cmd = (r'''sshpass -p %(pwd)s scp %(user)s@%(hostname)s:%(src_dir)s/%(src_file)s %(dst_dir)s/%(src_file)s >> %(log)s 2>&1''' %
+        scp_cmd = (r'''sshpass -p %(pwd)s scp -oStrictHostKeyChecking=no -o LogLevel=quiet %(user)s@%(hostname)s:%(src_dir)s/%(src_file)s %(dst_dir)s/%(src_file)s >> %(log)s 2>&1''' %
                   {'pwd'        : node.passwd,
                    'user'       : node.user,
                    'hostname'   : node.hostname,
@@ -225,7 +225,7 @@ class Helper(object):
         """
         mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
         Helper.run_command_on_remote_with_key(node, mkdir_cmd)
-        scp_cmd = (r'''scp %(src_file)s %(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
+        scp_cmd = (r'''scp -oStrictHostKeyChecking=no -o LogLevel=quiet %(src_file)s %(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
                   {'hostname'   : node.hostname,
                    'log'        : node.log,
                    'src_file'   : src_file,
@@ -250,7 +250,7 @@ class Helper(object):
         """
         mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
         Helper.run_command_on_local(mkdir_cmd)
-        scp_cmd = (r'''scp %(hostname)s:%(src_dir)s/%(src_file)s %(dst_dir)s/%(src_file)s >> %(log)s 2>&1''' %
+        scp_cmd = (r'''scp -oStrictHostKeyChecking=no -o LogLevel=quiet %(hostname)s:%(src_dir)s/%(src_file)s %(dst_dir)s/%(src_file)s >> %(log)s 2>&1''' %
                   {'hostname'   : node.hostname,
                    'log'        : node.log,
                    'src_dir'    : src_dir,

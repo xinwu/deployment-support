@@ -32,6 +32,10 @@ apt-get install -y python-dev python-setuptools
 apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan
 apt-get -f install -y
 apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y neutron-common
+if [[ $deploy_dhcp_agent == true ]]; then
+    apt-get install -o Dpkg::Options::="--force-confold" -y neutron-metadata-agent
+    apt-get install -o Dpkg::Options::="--force-confold" -y neutron-dhcp-agent
+fi
 easy_install pip
 
 # install bsnstacklib
@@ -118,8 +122,8 @@ if [[ $install_all == true ]]; then
     find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
     find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
     if [[ $deploy_dhcp_agent == true ]]; then
-        systemctl restart neutron-metadata-agent
-        systemctl restart neutron-dhcp-agent
+        service neutron-metadata-agent restart
+        service neutron-dhcp-agent restart
     fi
 fi
 
