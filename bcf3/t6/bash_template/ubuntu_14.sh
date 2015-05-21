@@ -26,7 +26,6 @@ apt-get install ubuntu-cloud-keyring
 echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu" \
 "trusty-updates/juno main" > /etc/apt/sources.list.d/cloudarchive-juno.list
 apt-get update -y
-apt-get -y upgrade
 apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
 apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan
