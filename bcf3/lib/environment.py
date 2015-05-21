@@ -15,6 +15,9 @@ class Environment(object):
         self.install_bsnstacklib = config.get('default_install_bsnstacklib')
         self.install_all = config.get('default_install_all')
 
+        # flags for dhcp and metadata agent
+        self.deploy_dhcp_agent = config.get('default_deploy_dhcp_agent')
+
         # setup node ip and directory
         self.setup_node_ip  = Helper.get_setup_node_ip()
         self.setup_node_dir = os.getcwd()

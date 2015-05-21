@@ -130,24 +130,7 @@ service { "openstack-nova-compute":
   path    => $binpath,
 }
 
-# make sure dhcp and metadata agent
-# are not running on compute node
-ini_setting { "dhcp agent disable metadata network":
-  ensure            => present,
-  path              => '/etc/neutron/dhcp_agent.ini',
-  section           => 'DEFAULT',
-  key_val_separator => '=',
-  setting           => 'enable_metadata_network',
-  value             => 'False',
-}
-ini_setting { "dhcp agent enable isolated metadata":
-  ensure            => present,
-  path              => '/etc/neutron/dhcp_agent.ini',
-  section           => 'DEFAULT',
-  key_val_separator => '=',
-  setting           => 'enable_isolated_metadata',
-  value             => 'True',
-}
+# disable l3 agent
 ini_setting { "l3 agent disable metadata proxy":
   ensure            => present,
   path              => '/etc/neutron/l3_agent.ini',

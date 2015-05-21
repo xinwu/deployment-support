@@ -177,6 +177,33 @@ class Helper(object):
 
 
     @staticmethod
+    def copy_file_from_remote_with_passwd(node, src_dir, src_file, dst_dir, mode=777):
+        """
+        Copy file from remote node to local node,
+        create directory if local directory doesn't exist,
+        change the file mode as well.
+        """
+        mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
+        Helper.run_command_on_local(mkdir_cmd)
+        scp_cmd = (r'''sshpass -p %(pwd)s scp %(user)s@%(hostname)s:%(src_dir)s/%(src_file)s %(dst_dir)s/%(src_file)s >> %(log)s 2>&1''' %
+                  {'pwd'        : node.passwd,
+                   'user'       : node.user,
+                   'hostname'   : node.hostname,
+                   'log'        : node.log,
+                   'src_dir'    : src_dir,
+                   'dst_dir'    : dst_dir,
+                   'src_file'   : src_file
+                  })
+        Helper.run_command_on_local(scp_cmd)
+        chmod_cmd = (r'''chmod -R %(mode)d %(dst_dir)s/%(src_file)s''' %
+                    {'mode'     : mode,
+                     'dst_dir'  : dst_dir,
+                     'src_file' : src_file
+                    })
+        Helper.run_command_on_local(chmod_cmd)
+
+
+    @staticmethod
     def run_command_on_remote_with_key(node, command):
         """
         Run cmd on remote node.
@@ -215,6 +242,31 @@ class Helper(object):
 
 
     @staticmethod
+    def copy_file_from_remote_with_key(node, src_dir, src_file, dst_dir, mode=777):
+        """
+        Copy file from remote node to local node,
+        create directory if local directory doesn't exist,
+        change the file mode as well.
+        """
+        mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
+        Helper.run_command_on_local(mkdir_cmd)
+        scp_cmd = (r'''scp %(hostname)s:%(src_dir)s/%(src_file)s %(dst_dir)s/%(src_file)s >> %(log)s 2>&1''' %
+                  {'hostname'   : node.hostname,
+                   'log'        : node.log,
+                   'src_dir'    : src_dir,
+                   'dst_dir'    : dst_dir,
+                   'src_file'   : src_file
+                  })
+        Helper.run_command_on_local(scp_cmd)
+        chmod_cmd = (r'''chmod -R %(mode)d %(dst_dir)s/%(src_file)s''' %
+                    {'mode'     : mode,
+                     'dst_dir'  : dst_dir,
+                     'src_file' : src_file
+                    })
+        Helper.run_command_on_local(chmod_cmd)
+
+
+    @staticmethod
     def generate_scripts_for_ubuntu(node):
         # generate bash script
         with open((r'''%(setup_node_dir)s/%(deploy_mode)s/%(bash_template_dir)s/%(bash_template)s_%(os_version)s.sh''' %
@@ -231,6 +283,7 @@ class Helper(object):
                    {'install_ivs'         : str(node.install_ivs).lower(),
                     'install_bsnstacklib' : str(node.install_bsnstacklib).lower(),
                     'install_all'         : str(node.install_all).lower(),
+                    'deploy_dhcp_agent'   : str(node.deploy_dhcp_agent).lower(),
                     'is_controller'       : str(is_controller).lower(),
                     'deploy_horizon_patch': str(node.deploy_horizon_patch).lower(),
                     'ivs_version'         : node.ivs_version,
@@ -319,6 +372,7 @@ class Helper(object):
                    {'install_ivs'         : str(node.install_ivs).lower(),
                     'install_bsnstacklib' : str(node.install_bsnstacklib).lower(),
                     'install_all'         : str(node.install_all).lower(),
+                    'deploy_dhcp_agent'   : str(node.deploy_dhcp_agent).lower(),
                     'is_controller'       : str(is_controller).lower(),
                     'deploy_horizon_patch': str(node.deploy_horizon_patch).lower(),
                     'ivs_version'         : node.ivs_version,
@@ -428,6 +482,8 @@ class Helper(object):
             node_config['install_bsnstacklib'] = env.install_bsnstacklib
         if 'install_all' not in node_config:
             node_config['install_all'] = env.install_all
+        if 'deploy_dhcp_agent' not in node_config:
+            node_config['deploy_dhcp_agent'] = env.deploy_dhcp_agent
         return node_config
 
 
@@ -727,6 +783,14 @@ class Helper(object):
             Helper.run_command_on_remote_with_key(node, command)
         else:
             Helper.run_command_on_remote_with_passwd(node, command)
+
+
+    @staticmethod
+    def copy_file_from_remote(node, src_dir, src_file, dst_dir, mode=777):
+        if node.fuel_cluster_id:
+            Helper.copy_file_from_remote_with_key(node, src_dir, src_file, dst_dir, mode)
+        else:
+            Helper.copy_file_from_remote_with_passwd(node, src_dir, src_file, dst_dir, mode)
 
 
     @staticmethod

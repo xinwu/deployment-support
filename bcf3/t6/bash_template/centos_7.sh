@@ -9,6 +9,7 @@ fi
 install_bsnstacklib=%(install_bsnstacklib)s
 install_ivs=%(install_ivs)s
 install_all=%(install_all)s
+deploy_dhcp_agent=%(deploy_dhcp_agent)s
 ivs_version=%(ivs_version)s
 is_controller=%(is_controller)s
 deploy_horizon_patch=%(deploy_horizon_patch)s
@@ -103,6 +104,10 @@ if [[ $install_all == true ]]; then
     sed -i 's/if (isolated_subnets\[subnet.id\] and/if (True and/g' $dhcp_py
     find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
     find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
+    if [[ $deploy_dhcp_agent == true ]]; then
+        systemctl restart neutron-metadata-agent
+        systemctl restart neutron-dhcp-agent
+    fi
 fi
 
 # restart libvirtd and nova compute on compute node
