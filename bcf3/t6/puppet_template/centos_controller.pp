@@ -196,6 +196,15 @@ ini_setting { "neutron.conf service_plugins":
   value             => 'bsn_l3',
   notify            => Service['neutron-server'],
 }
+ini_setting { "neutron.conf dhcp_agents_per_network":
+  ensure            => present,
+  path              => '/etc/neutron/neutron.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'dhcp_agents_per_network',
+  value             => '2',
+  notify            => Service['neutron-server'],
+}
 
 # config /etc/neutron/plugin.ini
 ini_setting { "neutron plugin.ini firewall_driver":
