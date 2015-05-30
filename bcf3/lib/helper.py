@@ -509,7 +509,7 @@ class Helper(object):
                 node_yaml_config['skip'] = True
                 node_yaml_config['error'] = ("Fail to retrieve ivs version from %(hostname)s" %
                                             {'hostname' : node_yaml_config['hostname']})
-            if 'command not found' not in output:
+            if output and 'command not found' not in output:
                 node_yaml_config['old_ivs_version'] = output.split()[1]
 
             node = Node(node_yaml_config, env)
