@@ -100,7 +100,9 @@ if [[ $install_all == true ]]; then
 
     # chmod neutron config since bigswitch horizon patch reads neutron config as well
     chmod -R a+r /usr/share/neutron
+    chmod -R a+x /usr/share/neutron
     chmod -R a+r /etc/neutron
+    chmod -R a+x /etc/neutron
 
     # deploy bcf horizon patch to controller node
     if [[ $is_controller == true && $deploy_horizon_patch == true ]]; then
