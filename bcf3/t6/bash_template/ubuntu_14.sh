@@ -98,6 +98,10 @@ if [[ $install_all == true ]]; then
     # assign ip to ivs internal ports
     bash /etc/rc.local
 
+    # chmod neutron config since bigswitch horizon patch reads neutron config as well
+    chmod -R a+r /usr/share/neutron
+    chmod -R a+r /etc/neutron
+
     # deploy bcf horizon patch to controller node
     if [[ $is_controller == true && $deploy_horizon_patch == true ]]; then
         if [[ -f %(dst_dir)s/%(horizon_patch)s ]]; then
