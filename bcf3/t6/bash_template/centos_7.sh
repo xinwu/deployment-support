@@ -111,8 +111,11 @@ if [[ $install_all == true ]]; then
     find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
     find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
     if [[ $deploy_dhcp_agent == true ]]; then
+        echo 'Restart neutron-metadata-agent and neutron-dhcp-agent'
         systemctl restart neutron-metadata-agent
+        systemctl enable neutron-metadata-agent
         systemctl restart neutron-dhcp-agent
+        systemctl enable neutron-dhcp-agent
     fi
 fi
 
@@ -120,7 +123,9 @@ fi
 if [[ $is_controller == false ]]; then
     echo 'Restart libvirtd and openstack-nova-compute'
     systemctl restart libvirtd
+    systemctl enable libvirtd
     systemctl restart openstack-nova-compute
+    systemctl enable openstack-nova-compute
 fi
 
 # restart neutron-server on controller node
