@@ -51,7 +51,7 @@ def worker_setup_dhcp_agent():
                                    '/etc/neutron', 'dhcp_agent.ini')
         Helper.safe_print("Copy metadata_agent.ini to %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        Helper.copy_file_to_remote(node, r'''%(dir)/metadata_agent.ini''' % {'dir': node.setup_node_dir},
+        Helper.copy_file_to_remote(node, r'''%(dir)s/metadata_agent.ini''' % {'dir': node.setup_node_dir},
                                    '/etc/neutron', 'metadata_agent.ini')
         Helper.safe_print("Restart neutron-metadata-agent and neutron-dhcp-agent on %(hostname)s\n" %
                          {'hostname' : node.hostname})
