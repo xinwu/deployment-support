@@ -47,13 +47,18 @@ def worker_setup_dhcp_agent():
         node = dhcp_node_q.get()
         Helper.safe_print("Copy dhcp_agent.ini to %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        Helper.copy_file_to_remote(node, '/tmp/dhcp_agent.ini', '/etc/neutron', 'dhcp_agent.ini')
+        Helper.copy_file_to_remote(node, r'''%(dir)s/dhcp_agent.ini''' % {'dir' : node.setup_node_dir},
+                                   '/etc/neutron', 'dhcp_agent.ini')
         Helper.safe_print("Copy metadata_agent.ini to %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        Helper.copy_file_to_remote(node, '/tmp/metadata_agent.ini', '/etc/neutron', 'metadata_agent.ini')
+        Helper.copy_file_to_remote(node, r'''%(dir)/metadata_agent.ini''' % {'dir': node.setup_node_dir},
+                                   '/etc/neutron', 'metadata_agent.ini')
+        Helper.safe_print("Restart neutron-metadata-agent and neutron-dhcp-agent on %(hostname)s\n" %
+                         {'hostname' : node.hostname})
+        Helper.run_command_on_remote(node, 'service neutron-metadata-agent restart')
+        Helper.run_command_on_remote(node, 'service neutron-dhcp-agent restart')
         Helper.safe_print("Finish deploying dhcp agent and metadata agent on %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        # TODO
         dhcp_node_q.task_done()
 
 
@@ -101,15 +106,17 @@ def deploy_bcf(config, fuel_cluster_id):
     if controller_node:
         Helper.safe_print("Copy dhcp_agent.ini from openstack controller %(controller_node)s\n" %
                          {'controller_node' : controller_node.hostname})
-        Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'dhcp_agent.ini', '/tmp')
+        Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'dhcp_agent.ini',
+                                     controller_node.setup_node_dir)
         Helper.safe_print("Copy metadata_agent.ini from openstack controller %(controller_node)s\n" %
                          {'controller_node' : controller_node.hostname})
-        Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'metadata_agent.ini', '/tmp')
-        for i in range(const.MAX_WORKERS):
-            t = threading.Thread(target=worker_setup_dhcp_agent)
-            t.daemon = True
-            t.start()
-        dhcp_node_q.join()
+        Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'metadata_agent.ini',
+                                     controller_node.setup_node_dir)
+    for i in range(const.MAX_WORKERS):
+        t = threading.Thread(target=worker_setup_dhcp_agent)
+        t.daemon = True
+        t.start()
+    dhcp_node_q.join()
 
     Helper.safe_print("Big Cloud Fabric deployment finished! Check %(log)s on each node for details.\n" %
                      {'log' : const.LOG_FILE})
