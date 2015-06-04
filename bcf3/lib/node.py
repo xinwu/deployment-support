@@ -81,6 +81,8 @@ class Node(object):
             old_ivs_version_num = self.old_ivs_version.split('.')
             if not old_ivs_version_num[0].isdigit():
                 return
+            if old_ivs_version_num[0] == 0
+                return
             diff = int(ivs_version_num[0]) - int(old_ivs_version_num[0])
             if self.ivs_version < self.old_ivs_version:
                 self.skip = True
@@ -90,7 +92,7 @@ class Node(object):
                 self.skip = True
                 self.error = (r'''Existing ivs %(old_ivs_version)s is %(diff)d version behind %(ivs_version)s''' %
                              {'old_ivs_version' : self.old_ivs_version, 'diff' : diff,
-                              'ivs_version' : ivs_version})
+                              'ivs_version' : self.ivs_version})
 
 
     def set_bash_script_path(self, bash_script_path):
