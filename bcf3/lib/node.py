@@ -81,7 +81,7 @@ class Node(object):
             old_ivs_version_num = self.old_ivs_version.split('.')
             if not old_ivs_version_num[0].isdigit():
                 return
-            if old_ivs_version_num[0] == 0
+            if old_ivs_version_num[0] == 0:
                 return
             diff = int(ivs_version_num[0]) - int(old_ivs_version_num[0])
             if self.ivs_version < self.old_ivs_version:
