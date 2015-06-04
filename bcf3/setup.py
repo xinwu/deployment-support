@@ -13,7 +13,6 @@ from lib.environment import Environment
 node_q = Queue.Queue()
 
 # data structure to setup dhcp agent and metadata agent
-controller_node = None
 dhcp_node_q = Queue.Queue()
 
 
@@ -67,6 +66,7 @@ def deploy_bcf(config, fuel_cluster_id):
     Helper.safe_print("Start to prepare setup node\n")
     env = Environment(config, fuel_cluster_id)
     Helper.common_setup_node_preparation(env)
+    controller_node = None
 
     # Generate detailed node information
     Helper.safe_print("Start to setup Big Cloud Fabric\n")
