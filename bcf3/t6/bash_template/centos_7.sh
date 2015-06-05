@@ -20,6 +20,7 @@ rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarc
 rpm -ivh https://yum.puppetlabs.com/el/7/products/x86_64/puppetlabs-release-7-10.noarch.rpm
 yum groupinstall -y 'Development Tools'
 yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
+yum update -y
 
 # install bsnstacklib
 if [[ $install_bsnstacklib == true ]]; then
