@@ -136,6 +136,12 @@ if [[ $install_all == true ]]; then
         update-rc.d neutron-metadata-agent defaults
         service neutron-dhcp-agent restart
         update-rc.d neutron-dhcp-agent defaults
+    else
+        echo 'Stop and disable neutron-metadata-agent and neutron-dhcp-agent'
+        service neutron-metadata-agent stop
+        update-rc.d neutron-metadata-agent disable
+        service neutron-dhcp-agent stop
+        update-rc.d neutron-dhcp-agent disable
     fi
 fi
 
