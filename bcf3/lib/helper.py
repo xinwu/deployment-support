@@ -63,9 +63,10 @@ class Helper(object):
                     command, shell=True, stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE, close_fds=True, bufsize=1)
             except Exception as e:
-                errors = 'Error opening process "%s": %s' % (command, e)
+                msg = "Error opening process %s: %s\n" % (command, e)
+                Helper.safe_print(msg)
                 return
-            output, errors = p.communicate()
+            p.communicate()
 
         thread = threading.Thread(target=target)
         thread.start()
@@ -73,9 +74,8 @@ class Helper(object):
         if thread.is_alive():
             p.terminate()
             thread.join()
-            errors = "Timed out waiting for command '%s' to finish." % command
-
-        return output, errors
+            msg = "Timed out waiting for command %s to finish." % command
+            Helper.safe_print(msg)
 
 
     @staticmethod
