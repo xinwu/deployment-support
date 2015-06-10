@@ -597,29 +597,7 @@ class Helper(object):
                 node_config['uplink_interfaces'] = tran['interfaces']
                 break
 
-        # get bridge vlan
-        # TODO XXXX
-        br_vlan_map = {}
-        for tran in trans:
-            if 'tags' not in tran:
-                continue
-            if tran['action'] != 'add-patch':
-                continue
-            bridges = list(tran['bridges'])
-            bridges.remove(node_config['br_bond'])
-            if not len(bridges):
-                continue
-            bridge = bridges[0]
-            vlan_ids = list(tran['vlan_ids'])
-            if 0 in vlan_ids:
-                vlan_ids.remove(0)
-            if not len(vlan_ids):
-                continue
-            vlan_id = vlan_ids[0]
-            br_vlan_map[bridge] = vlan_id
-            
-
-        # get bridge ip and construct bridge obj
+        # get bridge ip, vlan and construct bridge obj
         # TODO XXXX
         bridges = []
         endpoints = node_yaml_config['network_scheme']['endpoints']
@@ -631,7 +609,11 @@ class Helper(object):
                 ip = None
             else:
                 ip = ip[0]
-            bridge = Bridge(br_key, br_name, ip, br_vlan_map.get(br_name))
+            vlan = None
+            vendor_specific = endpoints[br_name].get('vendor_specific')
+            if vendor_specific:
+                vlan = vendor_specific.get('vlans')
+            bridge = Bridge(br_key, br_name, ip, vlan)
             bridges.append(bridge)
         node_config['bridges'] = bridges
 
