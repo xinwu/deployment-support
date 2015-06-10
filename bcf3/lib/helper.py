@@ -22,29 +22,6 @@ class Helper(object):
     __print_lock = Lock()
 
     @staticmethod
-    def __read_output__(pipe, func):
-        """
-        Read from a pipe, remove unknown spaces.
-        """
-        for lines in iter(pipe.readline, ''):
-            for line in lines.splitlines(True):
-                l = ''.join(filter(lambda x: 32 <= ord(x) <= 126, line.strip()))
-                if len(l):
-                    func(l + '\n')
-        pipe.close()
-
-
-    @staticmethod
-    def __kill_on_timeout__(command, event, timeout, proc):
-        """
-        Kill a thread when timeout expires.
-        """
-        if not event.wait(timeout):
-            Helper.safe_print('Timeout when running %s' % command)
-            proc.kill()
-
-
-    @staticmethod
     def get_setup_node_ip():
         """
         Get the setup node's eth0 ip
@@ -79,32 +56,26 @@ class Helper(object):
     def run_command_on_local(command, timeout=1800):
         """
         Use subprocess to run a shell command on local node.
-        A watcher threading stops the subprocess when it expires.
-        stdout and stderr are captured.
         """
-        # TODO: fix it in python 2.6
-        event = threading.Event()
-        p = subprocess.Popen(
-            command, shell=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, close_fds=True, bufsize=1)
+        def target():
+            try:
+                p = subprocess.Popen(
+                    command, shell=True, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE, close_fds=True, bufsize=1)
+            except Exception as e:
+                errors = 'Error opening process "%s": %s' % (command, e)
+                return
+            output, errors = p.communicate()
 
-        tout = threading.Thread(
-            target=Helper.__read_output__, args=(p.stdout, Helper.safe_print))
-        terr = threading.Thread(
-            target=Helper.__read_output__, args=(p.stderr, Helper.safe_print))
-        for t in (tout, terr):
-            t.daemon = True
-            t.start()
+        thread = threading.Thread(target=target)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            p.terminate()
+            thread.join()
+            errors = "Timed out waiting for command '%s' to finish." % command
 
-        watcher = threading.Thread(
-            target=Helper.__kill_on_timeout__, args=(command, event, timeout, p))
-        watcher.daemon = True
-        watcher.start()
-
-        p.wait()
-        event.set()
-        for t in (tout, terr):
-            t.join()
+        return output, errors
 
 
     @staticmethod
@@ -527,7 +498,7 @@ class Helper(object):
         except Exception as e:
             raise Exception("Error encountered trying to execute the Fuel CLI\n%(e)s\n"
                             % {'e' : e})
-        if errors:
+        if errors and 'DEPRECATION WARNING' not in errors:
             raise Exception("Error Loading cluster %(fuel_cluster_id)s\n%(errors)s\n"
                             % {'fuel_cluster_id' : str(fuel_cluster_id),
                                'errors'          : errors})
@@ -557,7 +528,7 @@ class Helper(object):
         # get node operating system information
         os_info, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
             'python -mplatform')
-        if errors or not os_info:
+        if errors or (not os_info):
             Helper.safe_print("Error retrieving operating system info from node %(hostname)s:\n%(errors)s\n"
                               % {'hostname' : node_config['hostname'], 'errors' : errors})
             return None
@@ -627,6 +598,7 @@ class Helper(object):
                 break
 
         # get bridge vlan
+        # TODO XXXX
         br_vlan_map = {}
         for tran in trans:
             if 'tags' not in tran:
@@ -648,6 +620,7 @@ class Helper(object):
             
 
         # get bridge ip and construct bridge obj
+        # TODO XXXX
         bridges = []
         endpoints = node_yaml_config['network_scheme']['endpoints']
         for br_key, br_name in roles.iteritems():
@@ -673,7 +646,7 @@ class Helper(object):
         cmd = (r'''fuel nodes --env %(fuel_cluster_id)s''' %
               {'fuel_cluster_id' : str(env.fuel_cluster_id)})
         node_list, errors = Helper.run_command_on_local_without_timeout(cmd)
-        if errors:
+        if errors and 'DEPRECATION WARNING' not in errors:
             raise Exception("Error Loading node list %(fuel_cluster_id)s:\n%(errors)s\n"
                             % {'fuel_cluster_id' : env.fuel_cluster_id,
                                'errors'          : errors})

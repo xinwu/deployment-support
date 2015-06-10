@@ -68,7 +68,8 @@ MANUAL_OPENRC          = '/root/admin-openrc.sh'
 
 # fuel constants
 NONE_IP                = 'none'
-BR_KEY_PRIVATE         = 'private'
+BR_KEY_PRIVATE         = 'neutron/private'
+BR_KEY_FLOATING        = 'neutron/floating'
 BR_NAME_PRIVATE        = 'br-prv'
 BR_NAME_INT            = 'br-int'
 BR_KEY_MGMT            = 'management'
