@@ -590,6 +590,15 @@ class Helper(object):
             node_config['br_bond'] = bridges[0]
             break
 
+        # get bond name
+        for tran in trans:
+            if (tran['action'] != 'add-bond'):
+                continue
+            if (node_config['br_bond'] != tran.get('bridge')):
+                continue
+            node_config['bond'] = tran['name']
+            break
+
         # bond intfs
         for tran in trans:
             if (tran['action'] == 'add-bond'
@@ -598,7 +607,6 @@ class Helper(object):
                 break
 
         # get bridge ip, vlan and construct bridge obj
-        # TODO XXXX
         bridges = []
         endpoints = node_yaml_config['network_scheme']['endpoints']
         for br_key, br_name in roles.iteritems():

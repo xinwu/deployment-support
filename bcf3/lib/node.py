@@ -24,6 +24,7 @@ class Node(object):
         self.deploy_dhcp_agent     = node_config['deploy_dhcp_agent']
         self.bridges               = node_config.get('bridges')
         self.br_bond               = node_config.get('br_bond')
+        self.bond                  = node_config.get('bond')
 
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
@@ -186,6 +187,7 @@ install_all            : %(install_all)s,
 deploy_dhcp_agent      : %(deploy_dhcp_agent)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
+bond                   : %(bond)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -233,6 +235,7 @@ error                  : %(error)s,
 'deploy_dhcp_agent'     : self.deploy_dhcp_agent,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
+'bond'                  : self.bond,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,
