@@ -625,7 +625,6 @@ class Helper(object):
                 continue
             node_config['pxe_interface'] = tran['name']
             break
-        #TODO XXX
 
         # get bridge ip, vlan and construct bridge obj
         bridges = []

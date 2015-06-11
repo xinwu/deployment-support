@@ -70,7 +70,7 @@ MANUAL_OPENRC          = '/root/admin-openrc.sh'
 NONE_IP                = 'none'
 BR_KEY_PRIVATE         = 'neutron/private'
 BR_KEY_FW_ADMIN        = 'fw-admin'
-BR_KEY_EXCEPTION       = [BR_KEY_FW_ADMIN, BR_KEY_PRIVATE]
+BR_KEY_EXCEPTION       = [BR_KEY_FW_ADMIN]
 BR_NAME_INT            = 'br-int'
 
 OS_MGMT_TENANT         = 'os-mgmt'
