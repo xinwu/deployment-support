@@ -119,7 +119,7 @@ if [[ $install_all == true ]]; then
                 if [[ -f %(dst_dir)s/%(horizon_patch_dir)s/$f ]]; then
                     yes | cp -rfp %(dst_dir)s/%(horizon_patch_dir)s/$f %(horizon_base_dir)s/$f
                 else
-                    mkdir -p %(dst_dir)s/%(horizon_patch_dir)s/$f
+                    mkdir -p %(horizon_base_dir)s/$f
                     yes | cp -rfp %(dst_dir)s/%(horizon_patch_dir)s/$f/* %(horizon_base_dir)s/$f
                 fi
             done
