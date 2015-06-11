@@ -137,8 +137,11 @@ class Node(object):
         internal_ports = []
         if self.bridges:
             for br in self.bridges:
+                if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
+                    continue
+                segments = br.br_key.split('/')
                 internal_ports.append(' --internal-port=')
-                internal_ports.append(br.br_key)
+                internal_ports.append(segments[len(segments)-1])
         return ''.join(internal_ports)
 
 
