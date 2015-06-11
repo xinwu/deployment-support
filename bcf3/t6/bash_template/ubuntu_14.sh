@@ -13,6 +13,7 @@ deploy_dhcp_agent=%(deploy_dhcp_agent)s
 ivs_version=%(ivs_version)s
 is_controller=%(is_controller)s
 deploy_horizon_patch=%(deploy_horizon_patch)s
+fuel_cluster_id=%(fuel_cluster_id)s
 
 # prepare dependencies
 set +e
@@ -76,7 +77,9 @@ fi
 if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
-    cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
+    if [[ -f /etc/init/neutron-plugin-openvswitch-agent.override ]]; then
+        cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
+    fi
     cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/ivs.override
 
     # stop ovs agent, otherwise, ovs bridges cannot be removed
@@ -115,6 +118,23 @@ if [[ $install_all == true ]]; then
 
     # deploy bcf
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
+
+    # /etc/network/interfaces
+    # TODO XXX
+    if [[ ${fuel_cluster_id} != 'None' ]]; then
+        echo '' > /etc/network/interfaces
+        declare -a interfaces=(%(interfaces)s)
+        len=${#interfaces[@]}
+        for (( i=0; i<$len; i++ )); do
+            echo -e 'auto' ${interfaces[$i]} >>/etc/network/interfaces 
+            echo -e 'iface' ${interfaces[$i]} 'inet manual\n' >>/etc/network/interfaces
+        done
+        echo -e 'auto' %(br_fw_admin)s >>/etc/network/interfaces
+        echo -e 'iface' %(br_fw_admin)s 'inet static' >>/etc/network/interfaces
+        echo -e 'bridge_ports' %(bridge_ports)s >>/etc/network/interfaces
+        echo -e 'address' %(br_fw_admin_address)s >>/etc/network/interfaces
+        echo -e 'up ip route add default via' %(br_fw_admin_gw)s
+    fi
 
     # assign ip to ivs internal ports
     bash /etc/rc.local
