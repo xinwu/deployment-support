@@ -25,17 +25,17 @@ def worker_setup_node():
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        #if node.role == const.ROLE_NEUTRON_SERVER:
-        #    Helper.run_command_on_remote(node,
-        #        (r'''/bin/bash %(dst_dir)s/%(hostname)s_ospurge.sh >> %(log)s 2>&1''' %
-        #        {'dst_dir'  : node.dst_dir,
-        #         'hostname' : node.hostname,
-        #         'log'      : node.log}))
-        #Helper.run_command_on_remote(node,
-        #    (r'''/bin/bash %(dst_dir)s/%(hostname)s.sh >> %(log)s 2>&1''' %
-        #    {'dst_dir'  : node.dst_dir,
-        #     'hostname' : node.hostname,
-        #     'log'      : node.log}))
+        if node.role == const.ROLE_NEUTRON_SERVER:
+            Helper.run_command_on_remote(node,
+                (r'''/bin/bash %(dst_dir)s/%(hostname)s_ospurge.sh >> %(log)s 2>&1''' %
+                {'dst_dir'  : node.dst_dir,
+                 'hostname' : node.hostname,
+                 'log'      : node.log}))
+        Helper.run_command_on_remote(node,
+            (r'''/bin/bash %(dst_dir)s/%(hostname)s.sh >> %(log)s 2>&1''' %
+            {'dst_dir'  : node.dst_dir,
+             'hostname' : node.hostname,
+             'log'      : node.log}))
         Helper.safe_print("Finish deploying %(hostname)s\n" %
                          {'hostname' : node.hostname})
         node_q.task_done()
