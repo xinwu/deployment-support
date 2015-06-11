@@ -6,8 +6,8 @@ default_install_ivs: true
 default_install_all: true
 default_deploy_dhcp_agent: true
 ivs_packages:
-- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-3.0.0-beta1.el7.centos.x86_64.rpm
-- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-3.0.0-beta1.el7.centos.x86_64.rpm
+- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-3.0.0-1.el7.centos.x86_64.rpm
+- http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-3.0.0-1.el7.centos.x86_64.rpm
 bcf_controllers:
 - 10.212.1.231:8000
 - 10.212.1.230:8000
