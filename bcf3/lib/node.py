@@ -150,6 +150,8 @@ class Node(object):
         if not self.bridges:
             return ' '.join(port_ips)
         for br in self.bridges:
+            if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
+                continue
             port_ips.append(r'''"%(internal_port)s,%(ip)s"''' %
                                  {'internal_port' : br.br_key,
                                   'ip'            : br.br_ip})
