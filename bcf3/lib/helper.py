@@ -678,7 +678,7 @@ class Helper(object):
                 
                 # get node bridges
                 for br in node.bridges:
-                    if not br.br_vlan:
+                    if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
                         continue
                     rule = MembershipRule(br.br_key, br.br_vlan)
                     membership_rules[rule.br_key] = rule
