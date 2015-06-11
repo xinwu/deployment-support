@@ -26,12 +26,9 @@ class Node(object):
         self.br_bond               = node_config.get('br_bond')
         self.bond                  = node_config.get('bond')
 
-        #TODO XXX
         self.pxe_interface            = node_config.get('pxe_interface')
         self.br_fw_admin              = node_config.get('br_fw_admin')
-        self.br_fw_admin_bridge_ports = node_config.get('br_fw_admin_bridge_ports')
         self.br_fw_admin_address      = node_config.get('br_fw_admin_address')
-        self.br_fw_admin_gw           = node_config.get('br_fw_admin_gw')
 
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
@@ -161,8 +158,6 @@ class Node(object):
         if self.bridges:
             for br in self.bridges:
                 ovs_brs.append(r'''"%(br)s"''' % {'br' : br.br_name})
-            for br in const.TO_BE_CLEANED_BR_NAME:
-                ovs_brs.append(r'''"%(br)s"''' % {'br' : br})
             ovs_brs.append(r'''"%(br)s"''' % {'br' : self.br_bond})
         return ' '.join(ovs_brs)
 
@@ -215,11 +210,9 @@ deploy_dhcp_agent      : %(deploy_dhcp_agent)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
 bond                   : %(bond)s,
-pxe_interface            : %(pxe_interface)s,
-br_fw_admin              : %(br_fw_admin)s,
-br_fw_admin_bridge_ports : %(br_fw_admin_bridge_ports)s,
-br_fw_admin_address      : %(br_fw_admin_address)s,
-br_fw_admin_gw           : %(br_fw_admin_gw)s,
+pxe_interface          : %(pxe_interface)s,
+br_fw_admin            : %(br_fw_admin)s,
+br_fw_admin_address    : %(br_fw_admin_address)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -268,11 +261,9 @@ error                  : %(error)s,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
 'bond'                  : self.bond,
-'pxe_interface'            : self.pxe_interface,
-'br_fw_admin'              : self.br_fw_admin,
-'br_fw_admin_bridge_ports' : self.br_fw_admin_bridge_ports,
-'br_fw_admin_address'      : self.br_fw_admin_address,
-'br_fw_admin_gw'           : self.br_fw_admin_gw,
+'pxe_interface'         : self.pxe_interface,
+'br_fw_admin'           : self.br_fw_admin,
+'br_fw_admin_address'   : self.br_fw_admin_address,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,

@@ -69,26 +69,12 @@ MANUAL_OPENRC          = '/root/admin-openrc.sh'
 # fuel constants
 NONE_IP                = 'none'
 BR_KEY_PRIVATE         = 'neutron/private'
-BR_KEY_FLOATING        = 'neutron/floating'
-BR_NAME_PRIVATE        = 'br-prv'
+BR_KEY_FW_ADMIN        = 'fw-admin'
+BR_KEY_EXCEPTION       = [BR_KEY_FW_ADMIN, BR_KEY_PRIVATE]
 BR_NAME_INT            = 'br-int'
-BR_KEY_MGMT            = 'management'
-BR_KEY_EXCEPTION       = ['fw-admin', BR_KEY_PRIVATE]
-# these ovs bridges needs to be cleaned up from compute node,
-# but this script doesn't program any membership rules to bcf
-# controller about these bridges.
-TO_BE_CLEANED_BR_NAME  = [BR_NAME_INT, BR_NAME_PRIVATE]
+
 OS_MGMT_TENANT         = 'os-mgmt'
 HASH_HEADER            = 'BCF-SETUP'
 BCF_CONTROLLER_PORT    = 8443
 ANY                    = 'any'
-
-# this map is not used in the script, but is
-# helpful to understand the fuel created bridge
-# and BCF membership rules
-FUEL_GUI_TO_BR_KEY_MAP = {'management' : BR_KEY_MGMT,
-    'storage' : 'storage',
-    'public'  : 'ex',
-    'private' : BR_KEY_PRIVATE}
-
 

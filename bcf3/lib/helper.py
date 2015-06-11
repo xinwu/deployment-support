@@ -270,12 +270,11 @@ class Helper(object):
                     'bonds'               : node.get_all_bonds(),
                     'br-int'              : const.BR_NAME_INT,
                     'fuel_cluster_id'     : str(node.fuel_cluster_id),
-                    #TODO XXX
-                    'interfaces'               : node.get_all_interfaces(),
-                    'br_fw_admin'              : node.br_fw_admin,
-                    'br_fw_admin_bridge_ports' : node.br_fw_admin_bridge_ports,
-                    'br_fw_admin_address'      : node.br_fw_admin_address,
-                    'br_fw_admin_gw'           : node.br_fw_admin_gw})
+                    'interfaces'          : node.get_all_interfaces(),
+                    'br_fw_admin'         : node.br_fw_admin,
+                    'pxe_interface'       : node.pxe_interface,
+                    'br_fw_admin_address' : node.br_fw_admin_address,
+                    'br_fw_admin_gw'      : node.setup_node_ip})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
                             'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
@@ -615,9 +614,21 @@ class Helper(object):
                 node_config['uplink_interfaces'] = tran['interfaces']
                 break
 
+        # get br-fw-admin information
+        endpoints = node_yaml_config['network_scheme']['endpoints']
+        node_config['br_fw_admin'] = roles[const.BR_KEY_FW_ADMIN]
+        node_config['br_fw_admin_address'] = endpoints[node_config['br_fw_admin']]['IP']
+        for tran in trans:
+            if (tran['action'] != 'add-port'):
+                continue
+            if (tran.get('bridge') != node_config['br_fw_admin']):
+                continue
+            node_config['pxe_interface'] = tran['name']
+            break
+        #TODO XXX
+
         # get bridge ip, vlan and construct bridge obj
         bridges = []
-        endpoints = node_yaml_config['network_scheme']['endpoints']
         for br_key, br_name in roles.iteritems():
             if br_key in const.BR_KEY_EXCEPTION:
                 continue
