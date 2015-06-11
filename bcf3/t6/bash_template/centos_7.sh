@@ -72,6 +72,10 @@ if [[ $install_all == true ]]; then
     for (( i=0; i<$len; i++ )); do
         ovs-vsctl del-br ${ovs_br[$i]}
     done
+    for (( i=0; i<$len; i++ )); do
+        ifconfig ${ovs_br[$i]} down
+        brctl delbr ${ovs_br[$i]}
+    done
 
     # delete ovs br-int
     while true; do
