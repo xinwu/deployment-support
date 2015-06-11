@@ -79,6 +79,10 @@ if [[ $install_all == true ]]; then
     cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
     cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/ivs.override
 
+    # stop ovs agent, otherwise, ovs bridges cannot be removed
+    service neutron-plugin-openvswitch-agent stop
+    update-rc.d neutron-plugin-openvswitch-agent disable
+
     # remove ovs, example ("br-storage" "br-prv" "br-ex")
     declare -a ovs_br=(%(ovs_br)s)
     len=${#ovs_br[@]}
@@ -93,11 +97,13 @@ if [[ $install_all == true ]]; then
     # delete ovs br-int
     while true; do
         ovs-vsctl del-br %(br-int)s
+        sleep 1
         ovs-vsctl show | grep %(br-int)s
         if [[ $? != 0 ]]; then
             break
         fi
-        sleep 1
+        service neutron-plugin-openvswitch-agent stop
+        update-rc.d neutron-plugin-openvswitch-agent disable
     done
 
     #bring down tagged bonds
