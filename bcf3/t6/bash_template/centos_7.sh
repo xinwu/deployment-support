@@ -86,6 +86,13 @@ if [[ $install_all == true ]]; then
         fi
     done
 
+    #bring down tagged bonds
+    declare -a bonds=(%(bonds)s)
+    len=${#bonds[@]}
+    for (( i=0; i<$len; i++ )); do
+        ifconfig ${bonds[$i]} down
+    done
+
     # deploy bcf
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
 

@@ -267,6 +267,7 @@ class Helper(object):
                     'horizon_base_dir'    : node.horizon_base_dir,
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
                     'ovs_br'              : node.get_all_ovs_brs(),
+                    'bonds'               : node.get_all_bonds(),
                     'br-int'              : const.BR_NAME_INT})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
@@ -356,6 +357,7 @@ class Helper(object):
                     'horizon_base_dir'    : node.horizon_base_dir,
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
                     'ovs_br'              : node.get_all_ovs_brs(),
+                    'bonds'               : node.get_all_bonds(),
                     'br-int'              : const.BR_NAME_INT})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,

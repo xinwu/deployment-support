@@ -160,6 +160,18 @@ class Node(object):
         return ' '.join(ovs_brs)
 
 
+    def get_all_bonds(self):
+        bonds = []
+        if self.bond:
+            for br in self.bridges:
+                if br.br_vlan:
+                    bonds.append(r'''%(bond)s.%(vlan)s''' %
+                                {'bond' : self.bond,
+                                 'vlan' : br.br_vlan})
+            bonds.append(r'''%(bond)s''' % {'bond' : self.bond})
+        return ' '.join(bonds)
+
+
     def get_controllers_for_neutron(self):
         return ','.join(self.bcf_controllers)
 
