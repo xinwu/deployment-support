@@ -155,6 +155,7 @@ class Node(object):
 
     def get_all_ovs_brs(self):
         ovs_brs = []
+        ovs_brs.append(r'''"%(br)s"''' % {'br' : const.BR_NAME_INT})
         if self.bridges:
             for br in self.bridges:
                 ovs_brs.append(r'''"%(br)s"''' % {'br' : br.br_name})
