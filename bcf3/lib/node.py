@@ -179,8 +179,8 @@ class Node(object):
     def get_all_uplinks(self):
         uplinks = []
         for intf in self.uplink_interfaces:
-            interfaces.append(intf)
-        return ' '.join(interfaces)
+            uplinks.append(intf)
+        return ' '.join(uplinks)
 
 
     def get_all_bonds(self):
