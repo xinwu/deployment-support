@@ -678,6 +678,8 @@ class Helper(object):
                 
                 # get node bridges
                 for br in node.bridges:
+                    if not br.br_vlan:
+                        continue
                     rule = MembershipRule(br.br_key, br.br_vlan)
                     membership_rules[rule.br_key] = rule
 
@@ -702,7 +704,7 @@ class Helper(object):
             # program membership rules to controller
             for br_key, rule in membership_rules.iteritems():
                 #TODO XXX
-                continue    
+                Helper.safe_print("!!!!!! %s\n" % rule)
             #RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
             return node_dic
 
