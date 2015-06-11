@@ -618,7 +618,11 @@ class Helper(object):
         # get br-fw-admin information
         endpoints = node_yaml_config['network_scheme']['endpoints']
         node_config['br_fw_admin'] = roles[const.BR_KEY_FW_ADMIN]
-        node_config['br_fw_admin_address'] = endpoints[node_config['br_fw_admin']]['IP']
+        ip = endpoints[node_config['br_fw_admin']]['IP']
+        if ip == const.NONE_IP:
+            node_config['br_fw_admin_address'] = None
+        else:
+            node_config['br_fw_admin_address'] = ip[0]
         for tran in trans:
             if (tran['action'] != 'add-port'):
                 continue

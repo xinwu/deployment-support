@@ -139,7 +139,7 @@ if [[ $install_all == true ]]; then
         echo -e 'iface' %(br_fw_admin)s 'inet static' >>/etc/network/interfaces
         echo -e 'bridge_ports' %(pxe_interface)s >>/etc/network/interfaces
         echo -e 'address' %(br_fw_admin_address)s >>/etc/network/interfaces
-        echo -e 'up ip route add default via' %(br_fw_admin_gw)s
+        echo -e 'up ip route add default via' %(br_fw_admin_gw)s >>/etc/network/interfaces
     fi
 
     # assign ip to ivs internal ports
