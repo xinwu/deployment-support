@@ -703,9 +703,7 @@ class Helper(object):
             node_dic, membership_rules = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
             # program membership rules to controller
             for br_key, rule in membership_rules.iteritems():
-                #TODO XXX
-                Helper.safe_print("!!!!!! %s\n" % rule)
-            #RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
+                RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
             return node_dic
 
 
