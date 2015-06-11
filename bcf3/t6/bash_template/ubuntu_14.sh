@@ -82,7 +82,7 @@ if [[ $install_all == true ]]; then
     if [[ -f /etc/init/neutron-plugin-openvswitch-agent.override ]]; then
         cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
     fi
-    cp /etc/init/neutron-plugin-openvswitch-agent.conf /etc/init/neutron-bsn-agent.conf
+    rm -f /etc/init/neutron-plugin-openvswitch-agent.conf
 
     # stop ovs agent, otherwise, ovs bridges cannot be removed
     service neutron-plugin-openvswitch-agent stop
