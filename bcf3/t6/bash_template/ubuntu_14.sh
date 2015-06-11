@@ -66,6 +66,8 @@ if [[ $install_ivs == true ]]; then
     if [[ $pass == true ]]; then
         dpkg --force-all -i %(dst_dir)s/%(ivs_pkg)s
         if [[ -f %(dst_dir)s/%(ivs_debug_pkg)s ]]; then
+            apt-get install -y libnl-genl-3-200
+            apt-get -f install -y
             dpkg --force-all -i %(dst_dir)s/%(ivs_debug_pkg)s
         fi
     else
