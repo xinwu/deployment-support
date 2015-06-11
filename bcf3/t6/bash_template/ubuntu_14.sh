@@ -131,7 +131,7 @@ if [[ $install_all == true ]]; then
         done
         echo -e 'auto' %(br_fw_admin)s >>/etc/network/interfaces
         echo -e 'iface' %(br_fw_admin)s 'inet static' >>/etc/network/interfaces
-        echo -e 'bridge_ports' %(bridge_ports)s >>/etc/network/interfaces
+        echo -e 'bridge_ports' %(br_fw_admin_bridge_ports)s >>/etc/network/interfaces
         echo -e 'address' %(br_fw_admin_address)s >>/etc/network/interfaces
         echo -e 'up ip route add default via' %(br_fw_admin_gw)s
     fi

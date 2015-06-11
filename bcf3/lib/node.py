@@ -26,6 +26,13 @@ class Node(object):
         self.br_bond               = node_config.get('br_bond')
         self.bond                  = node_config.get('bond')
 
+        #TODO XXX
+        self.pxe_interface            = node_config.get('pxe_interface')
+        self.br_fw_admin              = node_config.get('br_fw_admin')
+        self.br_fw_admin_bridge_ports = node_config.get('br_fw_admin_bridge_ports')
+        self.br_fw_admin_address      = node_config.get('br_fw_admin_address')
+        self.br_fw_admin_gw           = node_config.get('br_fw_admin_gw')
+
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
         self.bcf_controllers       = env.bcf_controllers
@@ -160,6 +167,14 @@ class Node(object):
         return ' '.join(ovs_brs)
 
 
+    def get_all_interfaces(self):
+        interfaces = []
+        interfaces.append(self.pxe_interface)
+        for intf in self.uplink_interfaces:
+            interfaces.append(intf)
+        return ' '.join(interfaces)
+
+
     def get_all_bonds(self):
         bonds = []
         if self.bond:
@@ -200,6 +215,11 @@ deploy_dhcp_agent      : %(deploy_dhcp_agent)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
 bond                   : %(bond)s,
+pxe_interface            : %(pxe_interface)s,
+br_fw_admin              : %(br_fw_admin)s,
+br_fw_admin_bridge_ports : %(br_fw_admin_bridge_ports)s,
+br_fw_admin_address      : %(br_fw_admin_address)s,
+br_fw_admin_gw           : %(br_fw_admin_gw)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -248,6 +268,11 @@ error                  : %(error)s,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
 'bond'                  : self.bond,
+'pxe_interface'            : self.pxe_interface,
+'br_fw_admin'              : self.br_fw_admin,
+'br_fw_admin_bridge_ports' : self.br_fw_admin_bridge_ports,
+'br_fw_admin_address'      : self.br_fw_admin_address,
+'br_fw_admin_gw'           : self.br_fw_admin_gw,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,

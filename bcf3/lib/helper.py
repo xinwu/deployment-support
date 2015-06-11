@@ -268,7 +268,14 @@ class Helper(object):
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
                     'ovs_br'              : node.get_all_ovs_brs(),
                     'bonds'               : node.get_all_bonds(),
-                    'br-int'              : const.BR_NAME_INT})
+                    'br-int'              : const.BR_NAME_INT,
+                    'fuel_cluster_id'     : str(node.fuel_cluster_id),
+                    #TODO XXX
+                    'interfaces'               : node.get_all_interfaces(),
+                    'br_fw_admin'              : node.br_fw_admin,
+                    'br_fw_admin_bridge_ports' : node.br_fw_admin_bridge_ports,
+                    'br_fw_admin_address'      : node.br_fw_admin_address,
+                    'br_fw_admin_gw'           : node.br_fw_admin_gw})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
                             'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
