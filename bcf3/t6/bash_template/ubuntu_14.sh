@@ -84,6 +84,8 @@ if [[ $install_all == true ]]; then
     fi
     rm -f /etc/init/neutron-plugin-openvswitch-agent.conf
     rm -f /etc/init/neutron-bsn-agent.conf
+    pkill neutron-openvswitch-agent
+    rm -f /usr/bin/neutron-openvswitch-agent
     service neutron-plugin-openvswitch-agent stop
     service neutron-bsn-agent stop
 
