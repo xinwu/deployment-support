@@ -120,7 +120,6 @@ if [[ $install_all == true ]]; then
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
 
     # /etc/network/interfaces
-    # TODO XXX
     if [[ ${fuel_cluster_id} != 'None' ]]; then
         echo '' > /etc/network/interfaces
         declare -a interfaces=(%(interfaces)s)
