@@ -1,6 +1,11 @@
 #!/bin/bash
 
 source %(openrc)s
+keystone tenant-list
+if [[ $? != 0 ]]; then
+    echo 'Unable to establish connection for ospurge'
+    exit 1
+fi
 
 # by default delete all networks using vxlan
 nets_string=$(neutron net-list | awk '$2 != "id" {print $2}' | awk 'NF && $1!~/^#/')
