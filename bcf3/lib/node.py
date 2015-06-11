@@ -176,6 +176,13 @@ class Node(object):
         return ' '.join(interfaces)
 
 
+    def get_all_uplinks(self):
+        uplinks = []
+        for intf in self.uplink_interfaces:
+            interfaces.append(intf)
+        return ' '.join(interfaces)
+
+
     def get_all_bonds(self):
         bonds = []
         if self.bond:

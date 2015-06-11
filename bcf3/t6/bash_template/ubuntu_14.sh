@@ -29,7 +29,7 @@ echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu" \
 apt-get update -y
 apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
-apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan
+apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan ethtool
 apt-get -f install -y
 apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y neutron-common
 if [[ $deploy_dhcp_agent == true ]]; then
@@ -140,6 +140,18 @@ if [[ $install_all == true ]]; then
         echo -e 'address' %(br_fw_admin_address)s >>/etc/network/interfaces
         echo -e 'up ip route add default via' %(br_fw_admin_gw)s >>/etc/network/interfaces
     fi
+
+    #reset uplinks to move them out of bond
+    apt-get install -y ethtool
+    apt-get -f install -y
+    declare -a uplinks=(%(uplinks)s)
+    len=${#uplinks[@]}
+    for (( i=0; i<$len; i++ )); do
+        ifdown ${uplinks[$i]}
+        sleep 1
+        ifdown ${uplinks[$i]}
+        ifup ${uplinks[$i]}
+    done
 
     # assign ip to ivs internal ports
     bash /etc/rc.local

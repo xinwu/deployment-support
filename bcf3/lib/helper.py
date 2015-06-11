@@ -274,7 +274,8 @@ class Helper(object):
                     'br_fw_admin'         : node.br_fw_admin,
                     'pxe_interface'       : node.pxe_interface,
                     'br_fw_admin_address' : node.br_fw_admin_address,
-                    'br_fw_admin_gw'      : node.setup_node_ip})
+                    'br_fw_admin_gw'      : node.setup_node_ip,
+                    'uplinks'             : node.get_all_uplinks()})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
                             'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
