@@ -175,7 +175,7 @@ class Node(object):
         bonds = []
         if self.bond:
             for br in self.bridges:
-                if (br.br_vlan) and (':' not in br.br_vlan):
+                if (br.br_vlan) and (':' not in str(br.br_vlan)):
                     bonds.append(r'''%(bond)s.%(vlan)s''' %
                                 {'bond' : self.bond,
                                  'vlan' : br.br_vlan})
