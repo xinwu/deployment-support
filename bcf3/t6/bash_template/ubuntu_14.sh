@@ -147,9 +147,11 @@ if [[ $install_all == true ]]; then
     declare -a uplinks=(%(uplinks)s)
     len=${#uplinks[@]}
     for (( i=0; i<$len; i++ )); do
-        ifdown ${uplinks[$i]}
+        ifconfig ${uplinks[$i]} down
         sleep 1
         ifdown ${uplinks[$i]}
+    done
+    for (( i=0; i<$len; i++ )); do
         ifup ${uplinks[$i]}
     done
 
