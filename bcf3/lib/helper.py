@@ -301,7 +301,8 @@ class Helper(object):
                       'bcf_controllers'       : node.get_controllers_for_neutron(),
                       'bcf_controller_user'   : node.bcf_controller_user,
                       'bcf_controller_passwd' : node.bcf_controller_passwd,
-                      'port_ips'              : node.get_ivs_internal_port_ips()})
+                      'port_ips'              : node.get_ivs_internal_port_ips(),
+                      'setup_node_ip'         : node.setup_node_ip})
         puppet_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.pp''' %
                              {'setup_node_dir'       : node.setup_node_dir,
                               'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
