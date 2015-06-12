@@ -24,6 +24,11 @@ class Node(object):
         self.deploy_dhcp_agent     = node_config['deploy_dhcp_agent']
         self.bridges               = node_config.get('bridges')
         self.br_bond               = node_config.get('br_bond')
+        self.bond                  = node_config.get('bond')
+
+        self.pxe_interface            = node_config.get('pxe_interface')
+        self.br_fw_admin              = node_config.get('br_fw_admin')
+        self.br_fw_admin_address      = node_config.get('br_fw_admin_address')
 
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
@@ -132,8 +137,11 @@ class Node(object):
         internal_ports = []
         if self.bridges:
             for br in self.bridges:
+                if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
+                    continue
+                segments = br.br_key.split('/')
                 internal_ports.append(' --internal-port=')
-                internal_ports.append(br.br_key)
+                internal_ports.append(segments[len(segments)-1])
         return ''.join(internal_ports)
 
 
@@ -142,6 +150,8 @@ class Node(object):
         if not self.bridges:
             return ' '.join(port_ips)
         for br in self.bridges:
+            if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
+                continue
             port_ips.append(r'''"%(internal_port)s,%(ip)s"''' %
                                  {'internal_port' : br.br_key,
                                   'ip'            : br.br_ip})
@@ -150,13 +160,39 @@ class Node(object):
 
     def get_all_ovs_brs(self):
         ovs_brs = []
+        ovs_brs.append(r'''"%(br)s"''' % {'br' : const.BR_NAME_INT})
         if self.bridges:
             for br in self.bridges:
                 ovs_brs.append(r'''"%(br)s"''' % {'br' : br.br_name})
-            for br in const.TO_BE_CLEANED_BR_NAME:
-                ovs_brs.append(r'''"%(br)s"''' % {'br' : br})
             ovs_brs.append(r'''"%(br)s"''' % {'br' : self.br_bond})
         return ' '.join(ovs_brs)
+
+
+    def get_all_interfaces(self):
+        interfaces = []
+        interfaces.append(self.pxe_interface)
+        for intf in self.uplink_interfaces:
+            interfaces.append(intf)
+        return ' '.join(interfaces)
+
+
+    def get_all_uplinks(self):
+        uplinks = []
+        for intf in self.uplink_interfaces:
+            uplinks.append(intf)
+        return ' '.join(uplinks)
+
+
+    def get_all_bonds(self):
+        bonds = []
+        if self.bond:
+            for br in self.bridges:
+                if (br.br_vlan) and (':' not in str(br.br_vlan)):
+                    bonds.append(r'''%(bond)s.%(vlan)s''' %
+                                {'bond' : self.bond,
+                                 'vlan' : br.br_vlan})
+            bonds.append(r'''%(bond)s''' % {'bond' : self.bond})
+        return ' '.join(bonds)
 
 
     def get_controllers_for_neutron(self):
@@ -186,6 +222,10 @@ install_all            : %(install_all)s,
 deploy_dhcp_agent      : %(deploy_dhcp_agent)s,
 bridges                : %(bridges)s,
 br_bond                : %(br_bond)s,
+bond                   : %(bond)s,
+pxe_interface          : %(pxe_interface)s,
+br_fw_admin            : %(br_fw_admin)s,
+br_fw_admin_address    : %(br_fw_admin_address)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -233,6 +273,10 @@ error                  : %(error)s,
 'deploy_dhcp_agent'     : self.deploy_dhcp_agent,
 'bridges'               : str(self.bridges),
 'br_bond'               : self.br_bond,
+'bond'                  : self.bond,
+'pxe_interface'         : self.pxe_interface,
+'br_fw_admin'           : self.br_fw_admin,
+'br_fw_admin_address'   : self.br_fw_admin_address,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,

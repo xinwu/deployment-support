@@ -22,29 +22,6 @@ class Helper(object):
     __print_lock = Lock()
 
     @staticmethod
-    def __read_output__(pipe, func):
-        """
-        Read from a pipe, remove unknown spaces.
-        """
-        for lines in iter(pipe.readline, ''):
-            for line in lines.splitlines(True):
-                l = ''.join(filter(lambda x: 32 <= ord(x) <= 126, line.strip()))
-                if len(l):
-                    func(l + '\n')
-        pipe.close()
-
-
-    @staticmethod
-    def __kill_on_timeout__(command, event, timeout, proc):
-        """
-        Kill a thread when timeout expires.
-        """
-        if not event.wait(timeout):
-            Helper.safe_print('Timeout when running %s' % command)
-            proc.kill()
-
-
-    @staticmethod
     def get_setup_node_ip():
         """
         Get the setup node's eth0 ip
@@ -79,32 +56,26 @@ class Helper(object):
     def run_command_on_local(command, timeout=1800):
         """
         Use subprocess to run a shell command on local node.
-        A watcher threading stops the subprocess when it expires.
-        stdout and stderr are captured.
         """
-        # TODO: fix it in python 2.6
-        event = threading.Event()
-        p = subprocess.Popen(
-            command, shell=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, close_fds=True, bufsize=1)
+        def target():
+            try:
+                p = subprocess.Popen(
+                    command, shell=True, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE, close_fds=True, bufsize=1)
+            except Exception as e:
+                msg = "Error opening process %s: %s\n" % (command, e)
+                Helper.safe_print(msg)
+                return
+            p.communicate()
 
-        tout = threading.Thread(
-            target=Helper.__read_output__, args=(p.stdout, Helper.safe_print))
-        terr = threading.Thread(
-            target=Helper.__read_output__, args=(p.stderr, Helper.safe_print))
-        for t in (tout, terr):
-            t.daemon = True
-            t.start()
-
-        watcher = threading.Thread(
-            target=Helper.__kill_on_timeout__, args=(command, event, timeout, p))
-        watcher.daemon = True
-        watcher.start()
-
-        p.wait()
-        event.set()
-        for t in (tout, terr):
-            t.join()
+        thread = threading.Thread(target=target)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            p.terminate()
+            thread.join()
+            msg = "Timed out waiting for command %s to finish." % command
+            Helper.safe_print(msg)
 
 
     @staticmethod
@@ -296,7 +267,15 @@ class Helper(object):
                     'horizon_base_dir'    : node.horizon_base_dir,
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
                     'ovs_br'              : node.get_all_ovs_brs(),
-                    'br-int'              : const.BR_NAME_INT})
+                    'bonds'               : node.get_all_bonds(),
+                    'br-int'              : const.BR_NAME_INT,
+                    'fuel_cluster_id'     : str(node.fuel_cluster_id),
+                    'interfaces'          : node.get_all_interfaces(),
+                    'br_fw_admin'         : node.br_fw_admin,
+                    'pxe_interface'       : node.pxe_interface,
+                    'br_fw_admin_address' : node.br_fw_admin_address,
+                    'br_fw_admin_gw'      : node.setup_node_ip,
+                    'uplinks'             : node.get_all_uplinks()})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
                             'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
@@ -323,7 +302,8 @@ class Helper(object):
                       'bcf_controllers'       : node.get_controllers_for_neutron(),
                       'bcf_controller_user'   : node.bcf_controller_user,
                       'bcf_controller_passwd' : node.bcf_controller_passwd,
-                      'port_ips'              : node.get_ivs_internal_port_ips()})
+                      'port_ips'              : node.get_ivs_internal_port_ips(),
+                      'setup_node_ip'         : node.setup_node_ip})
         puppet_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.pp''' %
                              {'setup_node_dir'       : node.setup_node_dir,
                               'generated_script_dir' : const.GENERATED_SCRIPT_DIR,
@@ -385,6 +365,7 @@ class Helper(object):
                     'horizon_base_dir'    : node.horizon_base_dir,
                     'ivs_debug_pkg'       : node.ivs_debug_pkg,
                     'ovs_br'              : node.get_all_ovs_brs(),
+                    'bonds'               : node.get_all_bonds(),
                     'br-int'              : const.BR_NAME_INT})
         bash_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s.sh''' %
                            {'setup_node_dir'       : node.setup_node_dir,
@@ -527,7 +508,7 @@ class Helper(object):
         except Exception as e:
             raise Exception("Error encountered trying to execute the Fuel CLI\n%(e)s\n"
                             % {'e' : e})
-        if errors:
+        if errors and 'DEPRECATION WARNING' not in errors:
             raise Exception("Error Loading cluster %(fuel_cluster_id)s\n%(errors)s\n"
                             % {'fuel_cluster_id' : str(fuel_cluster_id),
                                'errors'          : errors})
@@ -557,7 +538,7 @@ class Helper(object):
         # get node operating system information
         os_info, errors = Helper.run_command_on_remote_with_key_without_timeout(node_config['hostname'],
             'python -mplatform')
-        if errors or not os_info:
+        if errors or (not os_info):
             Helper.safe_print("Error retrieving operating system info from node %(hostname)s:\n%(errors)s\n"
                               % {'hostname' : node_config['hostname'], 'errors' : errors})
             return None
@@ -619,6 +600,15 @@ class Helper(object):
             node_config['br_bond'] = bridges[0]
             break
 
+        # get bond name
+        for tran in trans:
+            if (tran['action'] != 'add-bond'):
+                continue
+            if (node_config['br_bond'] != tran.get('bridge')):
+                continue
+            node_config['bond'] = tran['name']
+            break
+
         # bond intfs
         for tran in trans:
             if (tran['action'] == 'add-bond'
@@ -626,30 +616,24 @@ class Helper(object):
                 node_config['uplink_interfaces'] = tran['interfaces']
                 break
 
-        # get bridge vlan
-        br_vlan_map = {}
-        for tran in trans:
-            if 'tags' not in tran:
-                continue
-            if tran['action'] != 'add-patch':
-                continue
-            bridges = list(tran['bridges'])
-            bridges.remove(node_config['br_bond'])
-            if not len(bridges):
-                continue
-            bridge = bridges[0]
-            vlan_ids = list(tran['vlan_ids'])
-            if 0 in vlan_ids:
-                vlan_ids.remove(0)
-            if not len(vlan_ids):
-                continue
-            vlan_id = vlan_ids[0]
-            br_vlan_map[bridge] = vlan_id
-            
-
-        # get bridge ip and construct bridge obj
-        bridges = []
+        # get br-fw-admin information
         endpoints = node_yaml_config['network_scheme']['endpoints']
+        node_config['br_fw_admin'] = roles[const.BR_KEY_FW_ADMIN]
+        ip = endpoints[node_config['br_fw_admin']]['IP']
+        if ip == const.NONE_IP:
+            node_config['br_fw_admin_address'] = None
+        else:
+            node_config['br_fw_admin_address'] = ip[0]
+        for tran in trans:
+            if (tran['action'] != 'add-port'):
+                continue
+            if (tran.get('bridge') != node_config['br_fw_admin']):
+                continue
+            node_config['pxe_interface'] = tran['name']
+            break
+
+        # get bridge ip, vlan and construct bridge obj
+        bridges = []
         for br_key, br_name in roles.iteritems():
             if br_key in const.BR_KEY_EXCEPTION:
                 continue
@@ -658,7 +642,11 @@ class Helper(object):
                 ip = None
             else:
                 ip = ip[0]
-            bridge = Bridge(br_key, br_name, ip, br_vlan_map.get(br_name))
+            vlan = None
+            vendor_specific = endpoints[br_name].get('vendor_specific')
+            if vendor_specific:
+                vlan = vendor_specific.get('vlans')
+            bridge = Bridge(br_key, br_name, ip, vlan)
             bridges.append(bridge)
         node_config['bridges'] = bridges
 
@@ -673,7 +661,7 @@ class Helper(object):
         cmd = (r'''fuel nodes --env %(fuel_cluster_id)s''' %
               {'fuel_cluster_id' : str(env.fuel_cluster_id)})
         node_list, errors = Helper.run_command_on_local_without_timeout(cmd)
-        if errors:
+        if errors and 'DEPRECATION WARNING' not in errors:
             raise Exception("Error Loading node list %(fuel_cluster_id)s:\n%(errors)s\n"
                             % {'fuel_cluster_id' : env.fuel_cluster_id,
                                'errors'          : errors})
@@ -695,6 +683,8 @@ class Helper(object):
                 
                 # get node bridges
                 for br in node.bridges:
+                    if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
+                        continue
                     rule = MembershipRule(br.br_key, br.br_vlan)
                     membership_rules[rule.br_key] = rule
 
