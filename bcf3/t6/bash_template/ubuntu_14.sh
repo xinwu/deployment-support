@@ -122,6 +122,7 @@ if [[ $install_all == true ]]; then
     len=${#bonds[@]}
     for (( i=0; i<$len; i++ )); do
         ifconfig ${bonds[$i]} down
+        ip link set ${bonds[$i]} down
         ifdown ${bonds[$i]}
     done
 
@@ -155,12 +156,15 @@ if [[ $install_all == true ]]; then
     len=${#uplinks[@]}
     for (( i=0; i<$len; i++ )); do
         ifconfig ${uplinks[$i]} down
+        ip link set ${uplinks[$i]} down
         ifdown ${uplinks[$i]}
         sleep 2
         ifconfig ${uplinks[$i]} down
+        ip link set ${uplinks[$i]} down
         ifdown ${uplinks[$i]}
         sleep 2
         ifconfig ${uplinks[$i]} down
+        ip link set ${uplinks[$i]} down
         ifdown ${uplinks[$i]}
     done
     for (( i=0; i<$len; i++ )); do
