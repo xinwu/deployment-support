@@ -1,7 +1,7 @@
 import constants as const
 
 class MembershipRule(object):
-    def __init__(self, br_key, br_vlan, tenant=const.OS_MGMT_TENANT):
+    def __init__(self, br_key, br_vlan, tenant):
         # br_key will be used as segment name and ivs internal port name
         prefixes = br_key.split('/')
         self.br_key    = prefixes[len(prefixes)-1]

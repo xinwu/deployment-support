@@ -103,9 +103,9 @@ class RestLib(object):
 
 
     @staticmethod
-    def get_os_mgmt_segments(server, cookie, port=const.BCF_CONTROLLER_PORT):
+    def get_os_mgmt_segments(server, cookie, tenant, port=const.BCF_CONTROLLER_PORT):
         url = (r'''applications/bcf/info/endpoint-manager/segment[tenant="%(tenant)s"]''' %
-              {'tenant' : const.OS_MGMT_TENANT})
+              {'tenant' : tenant})
         ret = RestLib.get(cookie, url, server, port)
         if ret[0] != 200:
             raise Exception(ret)
@@ -118,9 +118,9 @@ class RestLib(object):
 
 
     @staticmethod
-    def program_segment_and_membership_rule(server, cookie, rule, port=const.BCF_CONTROLLER_PORT):
+    def program_segment_and_membership_rule(server, cookie, rule, tenant, port=const.BCF_CONTROLLER_PORT):
         segment_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]''' %
-                      {'tenant' : const.OS_MGMT_TENANT, 'segment' : rule.br_key})
+                      {'tenant' : tenant, 'segment' : rule.br_key})
         segment_data = {"name": rule.br_key}
         ret = RestLib.put(cookie, segment_url, server, port, json.dumps(segment_data))
         if ret[0] != 204:
@@ -132,7 +132,7 @@ class RestLib(object):
             vlan = -1
 
         intf_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
-                       {'tenant'    : const.OS_MGMT_TENANT,
+                       {'tenant'    : tenant,
                         'segment'   : rule.br_key,
                         'interface' : const.ANY,
                         'switch'    : const.ANY,
@@ -143,7 +143,7 @@ class RestLib(object):
             raise Exception(ret)
 
         pg_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/port-group-membership-rule[port-group="%(pg)s"][vlan=%(vlan)d]''' %
-                       {'tenant'    : const.OS_MGMT_TENANT,
+                       {'tenant'    : tenant,
                         'segment'   : rule.br_key,
                         'pg'        : const.ANY,
                         'vlan'      : vlan})
@@ -153,7 +153,7 @@ class RestLib(object):
             raise Exception(ret)
 
         specific_rule_url = (r'''applications/bcf/tenant[name="%(tenant)s"]/segment[name="%(segment)s"]/switch-port-membership-rule[interface="%(interface)s"][switch="%(switch)s"][vlan=%(vlan)d]''' %
-                       {'tenant'    : const.OS_MGMT_TENANT,
+                       {'tenant'    : tenant,
                         'segment'   : rule.br_key,
                         'interface' : rule.br_key,
                         'switch'    : const.ANY,

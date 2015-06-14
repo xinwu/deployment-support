@@ -710,7 +710,8 @@ class Helper(object):
                 for br in node.bridges:
                     if (not br.br_vlan) or (br.br_key == const.BR_KEY_PRIVATE):
                         continue
-                    rule = MembershipRule(br.br_key, br.br_vlan)
+                    rule = MembershipRule(br.br_key, br.br_vlan,
+                                          node.bcf_openstack_management_tenant)
                     membership_rules[rule.br_key] = rule
 
         except IndexError:
@@ -733,7 +734,8 @@ class Helper(object):
             node_dic, membership_rules = Helper.load_nodes_from_fuel(node_yaml_config_map, env)
             # program membership rules to controller
             for br_key, rule in membership_rules.iteritems():
-                RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule)
+                RestLib.program_segment_and_membership_rule(env.bcf_master, env.bcf_cookie, rule,
+                                                            env.bcf_openstack_management_tenant)
             return node_dic
 
 

@@ -63,6 +63,7 @@ class Environment(object):
             self.bcf_controller_ips.append(ip)
         self.bcf_controller_user = config['bcf_controller_user']
         self.bcf_controller_passwd = config['bcf_controller_passwd']
+        self.bcf_openstack_management_tenant = config['bcf_openstack_management_tenant']
 
         # ivs pkg and debug pkg
         self.ivs_pkg_map = {}

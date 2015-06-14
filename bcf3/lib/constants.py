@@ -73,7 +73,6 @@ BR_KEY_FW_ADMIN        = 'fw-admin'
 BR_KEY_EXCEPTION       = [BR_KEY_FW_ADMIN]
 BR_NAME_INT            = 'br-int'
 
-OS_MGMT_TENANT         = 'os-mgmt'
 HASH_HEADER            = 'BCF-SETUP'
 BCF_CONTROLLER_PORT    = 8443
 ANY                    = 'any'

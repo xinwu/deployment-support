@@ -14,6 +14,7 @@ bcf_controllers:
 - 10.212.1.230:8000
 bcf_controller_user: admin
 bcf_controller_passwd: adminadmin
+bcf_openstack_management_tenant: os-mgmt
 
 # configuration can be overrided by fuel
 default_user: root

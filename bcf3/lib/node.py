@@ -37,6 +37,7 @@ class Node(object):
         self.bcf_controller_ips    = env.bcf_controller_ips
         self.bcf_controller_user   = env.bcf_controller_user
         self.bcf_controller_passwd = env.bcf_controller_passwd
+        self.bcf_openstack_management_tenant = env.bcf_openstack_management_tenant
         self.bcf_master            = env.bcf_master
         self.physnet               = env.physnet
         self.lower_vlan            = env.lower_vlan
@@ -236,6 +237,7 @@ bcf_controllers        : %(bcf_controllers)s,
 bcf_controller_ips     : %(bcf_controller_ips)s,
 bcf_controller_user    : %(bcf_controller_user)s,
 bcf_controller_passwd  : %(bcf_controller_passwd)s,
+bcf_openstack_management_tenant : %(bcf_openstack_management_tenant)s,
 bcf_master             : %(bcf_master)s,
 physnet                : %(physnet)s,
 lower_vlan             : %(lower_vlan)s,
@@ -288,6 +290,7 @@ error                  : %(error)s,
 'bcf_controller_ips'    : self.bcf_controller_ips,
 'bcf_controller_user'   : self.bcf_controller_user,
 'bcf_controller_passwd' : self.bcf_controller_passwd,
+'bcf_openstack_management_tenant' : self.bcf_openstack_management_tenant,
 'bcf_master'            : self.bcf_master,
 'physnet'               : self.physnet,
 'lower_vlan'            : self.lower_vlan,
