@@ -632,15 +632,6 @@ class Helper(object):
             node_config['pxe_interface'] = tran['name']
             break
 
-        # get non-bond, non-pxe interfaces,
-        # will be most likely tagged
-        tagged_intfs = []
-        for tran in trans:
-            if (tran['action'] == 'add-port'
-                and tran['name'] != node_config['pxe_interface']):
-                tagged_intfs.append(tran['name'])
-        node_config['tagged_intfs'] = tagged_intfs
-
         # get bridge ip, vlan and construct bridge obj
         bridges = []
         for br_key, br_name in roles.iteritems():
@@ -670,6 +661,17 @@ class Helper(object):
             bridge = Bridge(br_key, br_name, ip, vlan)
             bridges.append(bridge)
         node_config['bridges'] = bridges
+
+        # get non-bond, non-pxe interfaces,
+        # will be most likely tagged
+        tagged_intfs = []
+        for tran in trans:
+            if (tran['action'] != 'add-port'
+                or tran['name'] == node_config['pxe_interface']
+                or tran['bridge'] in bridges):
+                    continue
+            tagged_intfs.append(tran['name'])
+        node_config['tagged_intfs'] = tagged_intfs
 
         node = Node(node_config, env)
         return node
