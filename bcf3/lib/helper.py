@@ -648,7 +648,8 @@ class Helper(object):
                 continue
 
             phy_interfaces = vendor_specific.get('phy_interfaces')
-            if not (set(node_config['uplink_interfaces']) > set(phy_interfaces)):
+            if not (set(node_config['uplink_interfaces']).issuperset(set(phy_interfaces)) and
+                    set(phy_interfaces).issuperset(set(node_config['uplink_interfaces']))):
                 # we don't touch the bridge which doesn't use bond
                 continue
 
