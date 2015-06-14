@@ -637,15 +637,26 @@ class Helper(object):
         for br_key, br_name in roles.iteritems():
             if br_key in const.BR_KEY_EXCEPTION:
                 continue
+
+            vlan = None
+            vendor_specific = endpoints[br_name].get('vendor_specific')
+            if vendor_specific:
+                vlan = vendor_specific.get('vlans')
+            else:
+                # we don't touch bridge without vendor_specific,
+                # for example: br-floating
+                continue
+
+            phy_interfaces = vendor_specific.get('phy_interfaces')
+            if not (set(node_config['uplink_interfaces']) > set(phy_interfaces)):
+                # we don't touch the bridge which doesn't use bond
+                continue
+
             ip = endpoints[br_name]['IP']
             if ip == const.NONE_IP:
                 ip = None
             else:
                 ip = ip[0]
-            vlan = None
-            vendor_specific = endpoints[br_name].get('vendor_specific')
-            if vendor_specific:
-                vlan = vendor_specific.get('vlans')
             bridge = Bridge(br_key, br_name, ip, vlan)
             bridges.append(bridge)
         node_config['bridges'] = bridges
