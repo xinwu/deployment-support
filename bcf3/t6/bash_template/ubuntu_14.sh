@@ -168,7 +168,9 @@ if [[ $install_all == true ]]; then
         ifdown ${uplinks[$i]} --force
     done
     for (( i=0; i<$len; i++ )); do
+        ifconfig ${uplinks[$i]} up
         ifup ${uplinks[$i]} --force
+        ip link set ${uplinks[$i]} up
     done
 
     # assign ip to ivs internal ports
