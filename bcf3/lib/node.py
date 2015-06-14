@@ -26,9 +26,10 @@ class Node(object):
         self.br_bond               = node_config.get('br_bond')
         self.bond                  = node_config.get('bond')
 
-        self.pxe_interface            = node_config.get('pxe_interface')
-        self.br_fw_admin              = node_config.get('br_fw_admin')
-        self.br_fw_admin_address      = node_config.get('br_fw_admin_address')
+        self.pxe_interface         = node_config.get('pxe_interface')
+        self.br_fw_admin           = node_config.get('br_fw_admin')
+        self.br_fw_admin_address   = node_config.get('br_fw_admin_address')
+        self.tagged_intfs          = node_config.get('tagged_intfs')
 
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
@@ -173,6 +174,8 @@ class Node(object):
         interfaces.append(self.pxe_interface)
         for intf in self.uplink_interfaces:
             interfaces.append(intf)
+        for intf in self.tagged_intfs:
+            interfaces.append(intf)
         return ' '.join(interfaces)
 
 
@@ -226,6 +229,7 @@ bond                   : %(bond)s,
 pxe_interface          : %(pxe_interface)s,
 br_fw_admin            : %(br_fw_admin)s,
 br_fw_admin_address    : %(br_fw_admin_address)s,
+tagged_intfs           : %(tagged_intfs)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -277,6 +281,7 @@ error                  : %(error)s,
 'pxe_interface'         : self.pxe_interface,
 'br_fw_admin'           : self.br_fw_admin,
 'br_fw_admin_address'   : self.br_fw_admin_address,
+'tagged_intfs'          : self.tagged_intfs,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,

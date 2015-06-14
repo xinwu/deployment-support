@@ -133,6 +133,11 @@ if [[ $install_all == true ]]; then
         for (( i=0; i<$len; i++ )); do
             echo -e 'auto' ${interfaces[$i]} >>/etc/network/interfaces 
             echo -e 'iface' ${interfaces[$i]} 'inet manual\n' >>/etc/network/interfaces
+            echo ${interfaces[$i]} | grep '.'
+            if [[ $? == 0 ]]; then
+                intf=$(echo ${interfaces[$i]} | cut -d \. -f 1)
+                echo -e 'vlan-raw-device ' $intf >> /etc/network/interfaces
+            fi
         done
         echo -e 'auto' %(br_fw_admin)s >>/etc/network/interfaces
         echo -e 'iface' %(br_fw_admin)s 'inet static' >>/etc/network/interfaces
