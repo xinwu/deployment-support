@@ -634,7 +634,7 @@ class Helper(object):
 
         # get bridge ip, vlan and construct bridge obj
         bridges = []
-        bridge_keys = []
+        bridge_names = []
         for br_key, br_name in roles.iteritems():
             if br_key in const.BR_KEY_EXCEPTION:
                 continue
@@ -661,7 +661,7 @@ class Helper(object):
                 ip = ip[0]
             bridge = Bridge(br_key, br_name, ip, vlan)
             bridges.append(bridge)
-            bridge_keys.append(br_key)
+            bridge_names.append(br_name)
         node_config['bridges'] = bridges
 
         # get non-bond, non-pxe interfaces,
@@ -670,7 +670,7 @@ class Helper(object):
         for tran in trans:
             if (tran['action'] != 'add-port'
                 or tran['name'] == node_config['pxe_interface']
-                or tran['bridge'] in bridge_keys):
+                or tran['bridge'] in bridge_names):
                     continue
             tagged_intfs.append(tran['name'])
         node_config['tagged_intfs'] = tagged_intfs
