@@ -123,7 +123,7 @@ if [[ $install_all == true ]]; then
     for (( i=0; i<$len; i++ )); do
         ifconfig ${bonds[$i]} down
         ip link set ${bonds[$i]} down
-        ifdown ${bonds[$i]}
+        ifdown ${bonds[$i]} --force
     done
 
     # deploy bcf
@@ -157,18 +157,18 @@ if [[ $install_all == true ]]; then
     for (( i=0; i<$len; i++ )); do
         ifconfig ${uplinks[$i]} down
         ip link set ${uplinks[$i]} down
-        ifdown ${uplinks[$i]}
+        ifdown ${uplinks[$i]} --force
         sleep 2
         ifconfig ${uplinks[$i]} down
         ip link set ${uplinks[$i]} down
-        ifdown ${uplinks[$i]}
+        ifdown ${uplinks[$i]} --force
         sleep 2
         ifconfig ${uplinks[$i]} down
         ip link set ${uplinks[$i]} down
-        ifdown ${uplinks[$i]}
+        ifdown ${uplinks[$i]} --force
     done
     for (( i=0; i<$len; i++ )); do
-        ifup ${uplinks[$i]}
+        ifup ${uplinks[$i]} --force
     done
 
     # assign ip to ivs internal ports
