@@ -195,8 +195,8 @@ if [[ $install_all == true ]]; then
                     yes | cp -rfp %(dst_dir)s/%(horizon_patch_dir)s/$f/* %(horizon_base_dir)s/$f
                 fi
             done
-            find "%(horizon_base_dir)s" -name "*.pyc" -exec rm -rf {} \;
-            find "%(horizon_base_dir)s" -name "*.pyo" -exec rm -rf {} \;
+            find "%(horizon_base_dir)s" -name "*.pyc" | xargs rm
+            find "%(horizon_base_dir)s" -name "*.pyo" | xargs rm
             service apache2 restart
         fi
     fi
@@ -205,8 +205,8 @@ if [[ $install_all == true ]]; then
     dhcp_py=$(find /usr -name dhcp.py | grep linux)
     dhcp_dir=$(dirname "${dhcp_py}")
     sed -i 's/if (isolated_subnets\[subnet.id\] and/if (True and/g' $dhcp_py
-    find $dhcp_dir -name "*.pyc" -exec rm -rf {} \;
-    find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
+    find $dhcp_dir -name "*.pyc" | xargs rm
+    find $dhcp_dir -name "*.pyo" | xargs rm
     if [[ $deploy_dhcp_agent == true ]]; then
         echo 'Restart neutron-metadata-agent and neutron-dhcp-agent'
         service neutron-metadata-agent restart
