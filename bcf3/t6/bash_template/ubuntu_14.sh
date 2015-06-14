@@ -197,6 +197,15 @@ if [[ $install_all == true ]]; then
             done
             find "%(horizon_base_dir)s" -name "*.pyc" | xargs rm
             find "%(horizon_base_dir)s" -name "*.pyo" | xargs rm
+
+            # patch neutron api.py to work around oslo bug
+            # https://bugs.launchpad.net/oslo-incubator/+bug/1328247
+            # https://review.openstack.org/#/c/130892/1/openstack/common/fileutils.py
+            neutron_api_py=$(find /usr -name api.py | grep neutron | grep db | grep -v plugins)
+            neutron_api_dir=$(dirname "${neutron_api_py}")
+            sed -i 's/from neutron.openstack.common import log as logging/import logging/g' $neutron_api_py
+            find $neutron_api_dir -name "*.pyc" | xargs rm
+            find $neutron_api_dir -name "*.pyo" | xargs rm
             service apache2 restart
         fi
     fi
