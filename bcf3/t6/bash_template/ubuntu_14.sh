@@ -116,10 +116,13 @@ if [[ $install_all == true ]]; then
     done
 
     #bring down tagged bonds
+    apt-get install -y ethtool
+    apt-get -f install -y
     declare -a bonds=(%(bonds)s)
     len=${#bonds[@]}
     for (( i=0; i<$len; i++ )); do
         ifconfig ${bonds[$i]} down
+        ifdown ${bonds[$i]}
     done
 
     # deploy bcf
@@ -147,8 +150,6 @@ if [[ $install_all == true ]]; then
     fi
 
     #reset uplinks to move them out of bond
-    apt-get install -y ethtool
-    apt-get -f install -y
     declare -a uplinks=(%(uplinks)s)
     len=${#uplinks[@]}
     for (( i=0; i<$len; i++ )); do
