@@ -25,17 +25,17 @@ def worker_setup_node():
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        #if node.role == const.ROLE_NEUTRON_SERVER:
-        #    Helper.run_command_on_remote(node,
-        #        (r'''/bin/bash %(dst_dir)s/%(hostname)s_ospurge.sh >> %(log)s 2>&1''' %
-        #        {'dst_dir'  : node.dst_dir,
-        #         'hostname' : node.hostname,
-        #         'log'      : node.log}))
-        #Helper.run_command_on_remote(node,
-        #    (r'''/bin/bash %(dst_dir)s/%(hostname)s.sh >> %(log)s 2>&1''' %
-        #    {'dst_dir'  : node.dst_dir,
-        #     'hostname' : node.hostname,
-        #     'log'      : node.log}))
+        if node.role == const.ROLE_NEUTRON_SERVER:
+            Helper.run_command_on_remote(node,
+                (r'''/bin/bash %(dst_dir)s/%(hostname)s_ospurge.sh >> %(log)s 2>&1''' %
+                {'dst_dir'  : node.dst_dir,
+                 'hostname' : node.hostname,
+                 'log'      : node.log}))
+        Helper.run_command_on_remote(node,
+            (r'''/bin/bash %(dst_dir)s/%(hostname)s.sh >> %(log)s 2>&1''' %
+            {'dst_dir'  : node.dst_dir,
+             'hostname' : node.hostname,
+             'log'      : node.log}))
         Helper.safe_print("Finish deploying %(hostname)s\n" %
                          {'hostname' : node.hostname})
         node_q.task_done()
@@ -103,20 +103,20 @@ def deploy_bcf(config, fuel_cluster_id):
     node_q.join()
 
     # Use multiple threads to setup up dhcp agent and metadata agent
-    #if controller_node:
-    #    Helper.safe_print("Copy dhcp_agent.ini from openstack controller %(controller_node)s\n" %
-    #                     {'controller_node' : controller_node.hostname})
-    #    Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'dhcp_agent.ini',
-    #                                 controller_node.setup_node_dir)
-    #    Helper.safe_print("Copy metadata_agent.ini from openstack controller %(controller_node)s\n" %
-    #                     {'controller_node' : controller_node.hostname})
-    #    Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'metadata_agent.ini',
-    #                                 controller_node.setup_node_dir)
-    #for i in range(const.MAX_WORKERS):
-    #    t = threading.Thread(target=worker_setup_dhcp_agent)
-    #    t.daemon = True
-    #    t.start()
-    #dhcp_node_q.join()
+    if controller_node:
+        Helper.safe_print("Copy dhcp_agent.ini from openstack controller %(controller_node)s\n" %
+                         {'controller_node' : controller_node.hostname})
+        Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'dhcp_agent.ini',
+                                     controller_node.setup_node_dir)
+        Helper.safe_print("Copy metadata_agent.ini from openstack controller %(controller_node)s\n" %
+                         {'controller_node' : controller_node.hostname})
+        Helper.copy_file_from_remote(controller_node, '/etc/neutron', 'metadata_agent.ini',
+                                     controller_node.setup_node_dir)
+    for i in range(const.MAX_WORKERS):
+        t = threading.Thread(target=worker_setup_dhcp_agent)
+        t.daemon = True
+        t.start()
+    dhcp_node_q.join()
 
     Helper.safe_print("Big Cloud Fabric deployment finished! Check %(log)s on each node for details.\n" %
                      {'log' : const.LOG_FILE})
