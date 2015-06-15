@@ -674,24 +674,28 @@ class ConfigDeployer(object):
         if not errors:
             # copy successful, restart metadata and dhcp
             # restart neutron-metadata-agent on remote node
-            resp, errors = self.env.run_command_on_node(node, "if service neutron-metadata-agent status "
-                                                        "| grep -i running ; "
-                                                        "then service neutron-metadata-agent restart ;"
-                                                        " fi")
-            if errors:
-                print "error restarting neutron-metadata-agent after "
-                      "updating metadata_agent.ini file on %s:\n%s" % (node, errors)
+            resp, errors_meta = self.env.run_command_on_node(node, "if service neutron-metadata-agent status "
+                                                             "| grep -i running ; "
+                                                             "then service neutron-metadata-agent restart ;"
+                                                             " fi")
             # restart neutron-dhcp-agent on remote node
-            resp, errors = self.env.run_command_on_node(node, "if service neutron-dhcp-agent status "
-                                                        "| grep -i running ; "
-                                                        "then service neutron-dhcp-agent restart ;"
-                                                        " fi")
-            if errors:
-                print "error restarting neutron-dhcp-agent after "
-                      "updating metadata_agent.ini file on %s:\n%s" % (node, errors)
+            resp, errors_dhcp = self.env.run_command_on_node(node, "if service neutron-dhcp-agent status "
+                                                             "| grep -i running ; "
+                                                             "then service neutron-dhcp-agent restart ;"
+                                                             " fi")
+            if (errors_meta or errors_dhcp):
+                print "error restarting neutron-metadata-agent or neutron-dhcp-agent "
+                      "after updating metadata_agent.ini file on %s:\n%s\n%s"
+                      % (node, errors_meta, errors_dhcp)
+                print "shutting down both the agents"
+                self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
+                                             "service neutron-dhcp-agent stop ; ")
         else:
             # error when copying metadata config file. stop dhcp and metadata agent
             print "error pushing updated metadata_agent.ini to %s:\n%s" % (node, errors)
+            print "shutting down both the agents"
+            self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
+                                         "service neutron-dhcp-agent stop ; ")
 
         # aggregate node information to compare across other nodes
         node_info = {}
