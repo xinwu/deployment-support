@@ -750,8 +750,6 @@ class Helper(object):
                        {'setup_node_dir' : setup_node_dir}, shell=True)
         subprocess.call("rm -rf %(setup_node_dir)s/*ivs*.deb" %
                        {'setup_node_dir' : setup_node_dir}, shell=True)
-        subprocess.call("rm -rf %(setup_node_dir)s/*.tar.gz" %
-                       {'setup_node_dir' : setup_node_dir}, shell=True)
         subprocess.call("mkdir -p %(setup_node_dir)s/%(generated_script)s" %
                        {'setup_node_dir'   : setup_node_dir,
                         'generated_script' : const.GENERATED_SCRIPT_DIR}, shell=True)
