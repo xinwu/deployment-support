@@ -34,6 +34,8 @@ class Node(object):
         self.tag                   = node_config.get('tag')
         self.env_tag               = env.tag
 
+        self.cleanup               = env.cleanup
+
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
         self.bcf_controllers       = env.bcf_controllers
@@ -236,6 +238,7 @@ br_fw_admin_address    : %(br_fw_admin_address)s,
 tagged_intfs           : %(tagged_intfs)s,
 tag                    : %(tag)s,
 env_tag                : %(env_tag)s,
+cleanup                : %(cleanup)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -291,6 +294,7 @@ error                  : %(error)s,
 'tagged_intfs'          : self.tagged_intfs,
 'tag'                   : self.tag,
 'env_tag'               : self.env_tag,
+'cleanup'               : self.cleanup,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,

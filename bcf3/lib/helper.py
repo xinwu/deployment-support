@@ -322,7 +322,7 @@ class Helper(object):
                   {'setup_node_dir'       : node.setup_node_dir,
                    'deploy_mode'          : node.deploy_mode,
                    'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
-                   'ospurge_template'     : const.UBUNTU}), "r") as ospurge_template_file:
+                   'ospurge_template'     : "purge_all"}), "r") as ospurge_template_file:
             ospurge_template = ospurge_template_file.read()
             ospurge = (ospurge_template % {'openrc' : openrc})
         ospurge_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s_ospurge.sh''' %
@@ -426,7 +426,7 @@ class Helper(object):
                   {'setup_node_dir'       : node.setup_node_dir,
                    'deploy_mode'          : node.deploy_mode,
                    'ospurge_template_dir' : const.OSPURGE_TEMPLATE_DIR,
-                   'ospurge_template'     : const.CENTOS}), "r") as ospurge_template_file:
+                   'ospurge_template'     : "purge_all"}), "r") as ospurge_template_file:
             ospurge_template = ospurge_template_file.read()
             ospurge = (ospurge_template % {'openrc' : openrc})
         ospurge_script_path = (r'''%(setup_node_dir)s/%(generated_script_dir)s/%(hostname)s_ospurge.sh''' %

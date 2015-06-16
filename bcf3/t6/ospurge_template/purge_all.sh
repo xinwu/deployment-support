@@ -18,6 +18,7 @@ for router in $routers; do
     for subnet in $subnets; do
         neutron router-interface-delete $router $subnet
     done
+    neutron router-gateway-clear $router
     neutron router-delete $router
 done
 
