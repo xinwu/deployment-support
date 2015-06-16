@@ -887,5 +887,15 @@ class Helper(object):
                 node.dst_dir,
                 node.horizon_patch)
 
+        # copy rootwrap.tar.gz to remote
+        if node.fuel_cluster_id:
+            Helper.safe_print("Copy rootwrap.tar.gz to %(hostname)s\n" %
+                             {'hostname' : node.hostname})
+            Helper.copy_file_to_remote(node,
+                (r'''%(src_dir)s/rootwrap.tar.gz''' %
+                {'src_dir' : node.setup_node_dir}),
+                node.dst_dir,
+                "rootwrap.tar.gz")
+
 
 

@@ -252,5 +252,13 @@ fi
 # restart bsn-agent
 service neutron-bsn-agent restart
 
+# patch nova rootwrap for fuel
+if [[ ${fuel_cluster_id} != 'None' ]]; then
+    mkdir -p /usr/share/nova
+    cp /tmp/rootwrap.tar.gz /usr/share/nova/
+    cd /usr/share/nova/
+    tar -xzf rootwrap.tar.gz
+fi
+
 set -e
 
