@@ -196,7 +196,7 @@ class Helper(object):
         """
         mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
         Helper.run_command_on_remote_with_key(node, mkdir_cmd)
-        scp_cmd = (r'''scp -oStrictHostKeyChecking=no -o LogLevel=quiet %(src_file)s %(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
+        scp_cmd = (r'''scp -oStrictHostKeyChecking=no -o LogLevel=quiet -r %(src_file)s %(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
                   {'hostname'   : node.hostname,
                    'log'        : node.log,
                    'src_file'   : src_file,
