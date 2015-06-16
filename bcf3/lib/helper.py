@@ -129,7 +129,7 @@ class Helper(object):
         """
         mkdir_cmd = (r'''mkdir -p %(dst_dir)s''' % {'dst_dir' : dst_dir})
         Helper.run_command_on_remote_with_passwd(node, mkdir_cmd)
-        scp_cmd = (r'''sshpass -p %(pwd)s scp -oStrictHostKeyChecking=no -o LogLevel=quiet %(src_file)s  %(user)s@%(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
+        scp_cmd = (r'''sshpass -p %(pwd)s scp -oStrictHostKeyChecking=no -o LogLevel=quiet -r %(src_file)s  %(user)s@%(hostname)s:%(dst_dir)s/%(dst_file)s >> %(log)s 2>&1''' %
                   {'user'       : node.user,
                    'hostname'   : node.hostname,
                    'pwd'        : node.passwd,
@@ -750,6 +750,8 @@ class Helper(object):
                        {'setup_node_dir' : setup_node_dir}, shell=True)
         subprocess.call("rm -rf %(setup_node_dir)s/*ivs*.deb" %
                        {'setup_node_dir' : setup_node_dir}, shell=True)
+        subprocess.call("rm -rf %(setup_node_dir)s/*.tar.gz" %
+                       {'setup_node_dir' : setup_node_dir}, shell=True)
         subprocess.call("mkdir -p %(setup_node_dir)s/%(generated_script)s" %
                        {'setup_node_dir'   : setup_node_dir,
                         'generated_script' : const.GENERATED_SCRIPT_DIR}, shell=True)
@@ -885,15 +887,15 @@ class Helper(object):
                 node.dst_dir,
                 node.horizon_patch)
 
-        # copy rootwrap.tar.gz to remote
+        # copy rootwrap to remote
         if node.fuel_cluster_id:
-            Helper.safe_print("Copy rootwrap.tar.gz to %(hostname)s\n" %
+            Helper.safe_print("Copy rootwrap to %(hostname)s\n" %
                              {'hostname' : node.hostname})
             Helper.copy_file_to_remote(node,
-                (r'''%(src_dir)s/rootwrap.tar.gz''' %
+                (r'''%(src_dir)s/rootwrap''' %
                 {'src_dir' : node.setup_node_dir}),
                 node.dst_dir,
-                "rootwrap.tar.gz")
+                "rootwrap")
 
 
 
