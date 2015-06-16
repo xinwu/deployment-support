@@ -31,6 +31,9 @@ class Node(object):
         self.br_fw_admin_address   = node_config.get('br_fw_admin_address')
         self.tagged_intfs          = node_config.get('tagged_intfs')
 
+        self.tag                   = node_config.get('tag')
+        self.env_tag               = env.tag
+
         self.openstack_release     = env.openstack_release
         self.bsnstacklib_version   = env.bsnstacklib_version
         self.bcf_controllers       = env.bcf_controllers
@@ -231,6 +234,8 @@ pxe_interface          : %(pxe_interface)s,
 br_fw_admin            : %(br_fw_admin)s,
 br_fw_admin_address    : %(br_fw_admin_address)s,
 tagged_intfs           : %(tagged_intfs)s,
+tag                    : %(tag)s,
+env_tag                : %(env_tag)s,
 openstack_release      : %(openstack_release)s,
 bsnstacklib_version    : %(bsnstacklib_version)s,
 bcf_controllers        : %(bcf_controllers)s,
@@ -284,6 +289,8 @@ error                  : %(error)s,
 'br_fw_admin'           : self.br_fw_admin,
 'br_fw_admin_address'   : self.br_fw_admin_address,
 'tagged_intfs'          : self.tagged_intfs,
+'tag'                   : self.tag,
+'env_tag'               : self.env_tag,
 'openstack_release'     : self.openstack_release,
 'bsnstacklib_version'   : self.bsnstacklib_version,
 'bcf_controllers'       : self.bcf_controllers,

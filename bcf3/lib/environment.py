@@ -6,9 +6,12 @@ from helper import Helper
 from rest import RestLib
 
 class Environment(object):
-    def __init__(self, config, fuel_cluster_id):
+    def __init__(self, config, fuel_cluster_id, tag):
         # fuel cluster id
         self.fuel_cluster_id = fuel_cluster_id
+
+        # tag, only deploy nodes with this tag
+        self.tag = tag
 
         # flags for upgrade
         self.install_ivs = config.get('default_install_ivs')
