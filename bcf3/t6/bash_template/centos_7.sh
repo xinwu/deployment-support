@@ -169,5 +169,8 @@ if [[ $is_controller == true ]]; then
     systemctl restart neutron-server
 fi
 
+# restart bsn-agent
+systemctl restart neutron-bsn-agent
+
 set -e
 
