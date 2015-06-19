@@ -142,7 +142,7 @@ if __name__=='__main__':
                         help="Fuel cluster ID. Fuel settings may override YAML configuration. Please refer to example.yaml")
     parser.add_argument('-t', "--tag", required=False,
                         help="Deploy to tagged nodes only.")
-    parser.add_argument('--cleanup', dest=='cleanup', action='store_true', default=False,
+    parser.add_argument('--cleanup', action='store_true', default=False,
                         help="Clean up existing routers, networks and projects.")
     args = parser.parse_args()
     with open(args.config_file, 'r') as config_file:
