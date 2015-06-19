@@ -4,11 +4,6 @@
 # We are not using it anywhere for now, but keep it hear for future uses.
 
 source %(openrc)s
-keystone tenant-list
-if [[ $? != 0 ]]; then
-    echo 'Unable to establish connection for ospurge'
-    exit 1
-fi
 
 # delete all routers
 routers=$(neutron router-list | awk '$2 != "id" {print $2}' | awk 'NF && $1!~/^#/')

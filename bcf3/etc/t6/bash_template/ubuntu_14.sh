@@ -13,7 +13,6 @@ deploy_dhcp_agent=%(deploy_dhcp_agent)s
 ivs_version=%(ivs_version)s
 is_controller=%(is_controller)s
 deploy_horizon_patch=%(deploy_horizon_patch)s
-fuel_cluster_id=%(fuel_cluster_id)s
 
 # prepare dependencies
 set +e
@@ -29,7 +28,7 @@ echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu" \
 apt-get update -y
 apt-get install -y linux-headers-$(uname -r) build-essential
 apt-get install -y python-dev python-setuptools
-apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan ethtool
+apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan
 apt-get -f install -y
 apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y neutron-common
 if [[ $deploy_dhcp_agent == true ]]; then
@@ -66,8 +65,6 @@ if [[ $install_ivs == true ]]; then
     if [[ $pass == true ]]; then
         dpkg --force-all -i %(dst_dir)s/%(ivs_pkg)s
         if [[ -f %(dst_dir)s/%(ivs_debug_pkg)s ]]; then
-            apt-get install -y libnl-genl-3-200
-            apt-get -f install -y
             dpkg --force-all -i %(dst_dir)s/%(ivs_debug_pkg)s
         fi
     else
@@ -79,18 +76,8 @@ fi
 if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
-    if [[ -f /etc/init/neutron-plugin-openvswitch-agent.override ]]; then
-        cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
-    fi
-    service neutron-plugin-openvswitch-agent stop
-    service neutron-bsn-agent stop
-    rm -f /etc/init/neutron-bsn-agent.conf
-    pkill neutron-openvswitch-agent
-    rm -f /usr/bin/neutron-openvswitch-agent
-
-    # stop ovs agent, otherwise, ovs bridges cannot be removed
-    service neutron-plugin-openvswitch-agent stop
-    update-rc.d neutron-plugin-openvswitch-agent disable
+    cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
+    cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/ivs.override
 
     # remove ovs, example ("br-storage" "br-prv" "br-ex")
     declare -a ovs_br=(%(ovs_br)s)
@@ -98,62 +85,19 @@ if [[ $install_all == true ]]; then
     for (( i=0; i<$len; i++ )); do
         ovs-vsctl del-br ${ovs_br[$i]}
     done
-    for (( i=0; i<$len; i++ )); do
-        ifconfig ${ovs_br[$i]} down
-        brctl delbr ${ovs_br[$i]}
-    done
 
     # delete ovs br-int
     while true; do
         ovs-vsctl del-br %(br-int)s
-        sleep 1
         ovs-vsctl show | grep %(br-int)s
         if [[ $? != 0 ]]; then
             break
         fi
-        service neutron-plugin-openvswitch-agent stop
-        update-rc.d neutron-plugin-openvswitch-agent disable
-    done
-
-    #bring down tagged bonds
-    declare -a bonds=(%(bonds)s)
-    len=${#bonds[@]}
-    for (( i=0; i<$len; i++ )); do
-        ifconfig ${bonds[$i]} down
+        sleep 1
     done
 
     # deploy bcf
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
-
-    # /etc/network/interfaces
-    if [[ ${fuel_cluster_id} != 'None' ]]; then
-        echo '' > /etc/network/interfaces
-        declare -a interfaces=(%(interfaces)s)
-        len=${#interfaces[@]}
-        for (( i=0; i<$len; i++ )); do
-            echo -e 'auto' ${interfaces[$i]} >>/etc/network/interfaces 
-            echo -e 'iface' ${interfaces[$i]} 'inet manual\n' >>/etc/network/interfaces
-        done
-        echo -e 'auto' %(br_fw_admin)s >>/etc/network/interfaces
-        echo -e 'iface' %(br_fw_admin)s 'inet static' >>/etc/network/interfaces
-        echo -e 'bridge_ports' %(pxe_interface)s >>/etc/network/interfaces
-        echo -e 'address' %(br_fw_admin_address)s >>/etc/network/interfaces
-        echo -e 'up ip route add default via' %(br_fw_admin_gw)s >>/etc/network/interfaces
-    fi
-
-    #reset uplinks to move them out of bond
-    apt-get install -y ethtool
-    apt-get -f install -y
-    declare -a uplinks=(%(uplinks)s)
-    len=${#uplinks[@]}
-    for (( i=0; i<$len; i++ )); do
-        ifconfig ${uplinks[$i]} down
-        sleep 1
-        ifdown ${uplinks[$i]}
-    done
-    for (( i=0; i<$len; i++ )); do
-        ifup ${uplinks[$i]}
-    done
 
     # assign ip to ivs internal ports
     bash /etc/rc.local
