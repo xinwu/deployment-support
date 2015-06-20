@@ -13,30 +13,14 @@ deploy_dhcp_agent=%(deploy_dhcp_agent)s
 ivs_version=%(ivs_version)s
 is_controller=%(is_controller)s
 deploy_horizon_patch=%(deploy_horizon_patch)s
-fuel_cluster_id=%(fuel_cluster_id)s
 
 # prepare dependencies
 set +e
-cat /etc/apt/sources.list | grep "http://archive.ubuntu.com/ubuntu"
-if [[ $? != 0 ]]; then
-    release=$(lsb_release -sc)
-    echo -e "\ndeb http://archive.ubuntu.com/ubuntu $release main\n" >> /etc/apt/sources.list
-fi
-
-apt-get install ubuntu-cloud-keyring
-echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu" \
-"trusty-updates/juno main" > /etc/apt/sources.list.d/cloudarchive-juno.list
-apt-get update -y
-apt-get install -y linux-headers-$(uname -r) build-essential
-apt-get install -y python-dev python-setuptools
-apt-get install -y libssl-dev libffi6 libffi-dev puppet dpkg libnl-genl-3-200 vlan ethtool
-apt-get -f install -y
-apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y neutron-common
-if [[ $deploy_dhcp_agent == true ]]; then
-    apt-get install -o Dpkg::Options::="--force-confold" -y neutron-metadata-agent
-    apt-get install -o Dpkg::Options::="--force-confold" -y neutron-dhcp-agent
-fi
-easy_install pip
+rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+rpm -ivh https://yum.puppetlabs.com/el/7/products/x86_64/puppetlabs-release-7-10.noarch.rpm
+yum groupinstall -y 'Development Tools'
+yum install -y python-devel puppet python-pip wget libffi-devel openssl-devel
+yum update -y
 
 # install bsnstacklib
 if [[ $install_bsnstacklib == true ]]; then
@@ -64,11 +48,9 @@ if [[ $install_ivs == true ]]; then
     fi
 
     if [[ $pass == true ]]; then
-        dpkg --force-all -i %(dst_dir)s/%(ivs_pkg)s
+        rpm -ivh --force %(dst_dir)s/%(ivs_pkg)s
         if [[ -f %(dst_dir)s/%(ivs_debug_pkg)s ]]; then
-            apt-get install -y libnl-genl-3-200
-            apt-get -f install -y
-            dpkg --force-all -i %(dst_dir)s/%(ivs_debug_pkg)s
+            rpm -ivh --force %(dst_dir)s/%(ivs_debug_pkg)s
         fi
     else
         echo "ivs upgrade fails version validation"
@@ -79,18 +61,14 @@ fi
 if [[ $install_all == true ]]; then
     puppet module install --force puppetlabs-inifile
     puppet module install --force puppetlabs-stdlib
-    if [[ -f /etc/init/neutron-plugin-openvswitch-agent.override ]]; then
-        cp /etc/init/neutron-plugin-openvswitch-agent.override /etc/init/neutron-bsn-agent.override
-    fi
-    service neutron-plugin-openvswitch-agent stop
-    service neutron-bsn-agent stop
-    rm -f /etc/init/neutron-bsn-agent.conf
-    pkill neutron-openvswitch-agent
-    rm -f /usr/bin/neutron-openvswitch-agent
+    puppet module install jfryman-selinux
+    mkdir -p /etc/puppet/modules/selinux/files
+    cp %(dst_dir)s/%(hostname)s.te /etc/puppet/modules/selinux/files/centos.te
+    cp /usr/lib/systemd/system/neutron-openvswitch-agent.service /usr/lib/systemd/system/neutron-bsn-agent.service
 
     # stop ovs agent, otherwise, ovs bridges cannot be removed
-    service neutron-plugin-openvswitch-agent stop
-    update-rc.d neutron-plugin-openvswitch-agent disable
+    systemctl stop neutron-openvswitch-agent
+    systemctl disable neutron-openvswitch-agent
 
     # remove ovs, example ("br-storage" "br-prv" "br-ex")
     declare -a ovs_br=(%(ovs_br)s)
@@ -111,8 +89,8 @@ if [[ $install_all == true ]]; then
         if [[ $? != 0 ]]; then
             break
         fi
-        service neutron-plugin-openvswitch-agent stop
-        update-rc.d neutron-plugin-openvswitch-agent disable
+        systemctl stop neutron-openvswitch-agent
+        systemctl disable neutron-openvswitch-agent
     done
 
     #bring down tagged bonds
@@ -125,43 +103,8 @@ if [[ $install_all == true ]]; then
     # deploy bcf
     puppet apply --modulepath /etc/puppet/modules %(dst_dir)s/%(hostname)s.pp
 
-    # /etc/network/interfaces
-    if [[ ${fuel_cluster_id} != 'None' ]]; then
-        echo '' > /etc/network/interfaces
-        declare -a interfaces=(%(interfaces)s)
-        len=${#interfaces[@]}
-        for (( i=0; i<$len; i++ )); do
-            echo -e 'auto' ${interfaces[$i]} >>/etc/network/interfaces 
-            echo -e 'iface' ${interfaces[$i]} 'inet manual\n' >>/etc/network/interfaces
-        done
-        echo -e 'auto' %(br_fw_admin)s >>/etc/network/interfaces
-        echo -e 'iface' %(br_fw_admin)s 'inet static' >>/etc/network/interfaces
-        echo -e 'bridge_ports' %(pxe_interface)s >>/etc/network/interfaces
-        echo -e 'address' %(br_fw_admin_address)s >>/etc/network/interfaces
-        echo -e 'up ip route add default via' %(br_fw_admin_gw)s >>/etc/network/interfaces
-    fi
-
-    #reset uplinks to move them out of bond
-    apt-get install -y ethtool
-    apt-get -f install -y
-    declare -a uplinks=(%(uplinks)s)
-    len=${#uplinks[@]}
-    for (( i=0; i<$len; i++ )); do
-        ifconfig ${uplinks[$i]} down
-        ifdown ${uplinks[$i]}
-        sleep 2
-        ifconfig ${uplinks[$i]} down
-        ifdown ${uplinks[$i]}
-        sleep 2
-        ifconfig ${uplinks[$i]} down
-        ifdown ${uplinks[$i]}
-    done
-    for (( i=0; i<$len; i++ )); do
-        ifup ${uplinks[$i]}
-    done
-
     # assign ip to ivs internal ports
-    bash /etc/rc.local
+    bash /etc/rc.d/rc.local
 
     # chmod neutron config since bigswitch horizon patch reads neutron config as well
     chmod -R a+r /usr/share/neutron
@@ -185,8 +128,7 @@ if [[ $install_all == true ]]; then
                 fi
             done
             find "%(horizon_base_dir)s" -name "*.pyc" -exec rm -rf {} \;
-            find "%(horizon_base_dir)s" -name "*.pyo" -exec rm -rf {} \;
-            service apache2 restart
+            systemctl restart httpd
         fi
     fi
 
@@ -198,34 +140,37 @@ if [[ $install_all == true ]]; then
     find $dhcp_dir -name "*.pyo" -exec rm -rf {} \;
     if [[ $deploy_dhcp_agent == true ]]; then
         echo 'Restart neutron-metadata-agent and neutron-dhcp-agent'
-        service neutron-metadata-agent restart
-        update-rc.d neutron-metadata-agent defaults
-        service neutron-dhcp-agent restart
-        update-rc.d neutron-dhcp-agent defaults
+        systemctl restart neutron-metadata-agent
+        systemctl enable neutron-metadata-agent
+        systemctl restart neutron-dhcp-agent
+        systemctl enable neutron-dhcp-agent
     else
         echo 'Stop and disable neutron-metadata-agent and neutron-dhcp-agent'
-        service neutron-metadata-agent stop
-        update-rc.d neutron-metadata-agent disable
-        service neutron-dhcp-agent stop
-        update-rc.d neutron-dhcp-agent disable
+        systemctl stop neutron-metadata-agent
+        systemctl disable neutron-metadata-agent
+        systemctl stop neutron-dhcp-agent
+        systemctl disable neutron-dhcp-agent
     fi
 fi
 
 # restart libvirtd and nova compute on compute node
 if [[ $is_controller == false ]]; then
     echo 'Restart libvirtd and openstack-nova-compute'
-    service libvirt-bin restart 
-    update-rc.d libvirt-bin defaults
-    service nova-compute restart
-    update-rc.d nova-compute defaults
+    systemctl restart libvirtd
+    systemctl enable libvirtd
+    systemctl restart openstack-nova-compute
+    systemctl enable openstack-nova-compute
 fi
 
 # restart neutron-server on controller node
 if [[ $is_controller == true ]]; then
     echo 'Restart neutron-server'
     rm -rf /etc/neutron/plugins/ml2/host_certs/*
-    service neutron-server restart
+    systemctl restart neutron-server
 fi
+
+# restart bsn-agent
+systemctl restart neutron-bsn-agent
 
 set -e
 

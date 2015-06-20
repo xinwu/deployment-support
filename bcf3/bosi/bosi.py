@@ -25,7 +25,7 @@ def worker_setup_node():
         # deploy node
         Helper.safe_print("Start to deploy %(hostname)s\n" %
                          {'hostname' : node.hostname})
-        if node.role == const.ROLE_NEUTRON_SERVER:
+        if node.cleanup and node.role == const.ROLE_NEUTRON_SERVER:
             Helper.run_command_on_remote(node,
                 (r'''/bin/bash %(dst_dir)s/%(hostname)s_ospurge.sh >> %(log)s 2>&1''' %
                 {'dst_dir'  : node.dst_dir,
@@ -61,10 +61,10 @@ def worker_setup_dhcp_agent():
         dhcp_node_q.task_done()
 
 
-def deploy_bcf(config, fuel_cluster_id):
+def deploy_bcf(config, fuel_cluster_id, tag, cleanup):
     # Deploy setup node
     Helper.safe_print("Start to prepare setup node\n")
-    env = Environment(config, fuel_cluster_id)
+    env = Environment(config, fuel_cluster_id, tag, cleanup)
     Helper.common_setup_node_preparation(env)
     controller_node = None
 
@@ -87,6 +87,10 @@ def deploy_bcf(config, fuel_cluster_id):
             Helper.safe_print("skip node %(hostname)s due to %(error)s\n" %
                              {'hostname' : hostname,
                               'error'    : node.error})
+            continue
+        if node.tag != node.env_tag:
+            Helper.safe_print("skip node %(hostname)s due to mismatched tag\n" %
+                             {'hostname' : hostname})
             continue
         node_q.put(node)
 
@@ -135,9 +139,15 @@ if __name__=='__main__':
     parser.add_argument("-c", "--config-file", required=True,
                         help="BCF YAML configuration file")
     parser.add_argument('-f', "--fuel-cluster-id", required=False,
-                        help="Fuel cluster ID. Fuel settings may override YAML configuration. Please refer to example.yaml")
+                        help="Fuel cluster ID. Fuel settings may override YAML configuration. Please refer to config.yaml")
+    parser.add_argument('-t', "--tag", required=False,
+                        help="Deploy to tagged nodes only.")
+    parser.add_argument('--cleanup', action='store_true', default=False,
+                        help="Clean up existing routers, networks and projects.")
     args = parser.parse_args()
     with open(args.config_file, 'r') as config_file:
         config = yaml.load(config_file)
-    deploy_bcf(config, args.fuel_cluster_id)
+    deploy_bcf(config, args.fuel_cluster_id, args.tag, args.cleanup)
+
+
 

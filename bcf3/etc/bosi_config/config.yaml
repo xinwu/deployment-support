@@ -7,6 +7,8 @@ default_install_ivs: true
 default_install_all: true
 default_deploy_dhcp_agent: true
 ivs_packages:
+#- http://10.2.3.11/~bsn/xenon-bsn/trusty-amd64/latest/ivs_3.0.0_amd64.deb
+#- http://10.2.3.11/~bsn/xenon-bsn/trusty-amd64/latest/ivs-dbg_3.0.0_amd64.deb
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-debuginfo-3.0.0-1.el7.centos.x86_64.rpm
 - http://10.2.3.11/~bsn/xenon-bsn/centos7-x86_64/latest/ivs-3.0.0-1.el7.centos.x86_64.rpm
 bcf_controllers:
@@ -14,6 +16,7 @@ bcf_controllers:
 - 10.212.1.230:8000
 bcf_controller_user: admin
 bcf_controller_passwd: adminadmin
+bcf_openstack_management_tenant: os-mgmt
 
 # configuration can be overrided by fuel
 default_user: root
