@@ -57,18 +57,18 @@ class Helper(object):
         """
         Use subprocess to run a shell command on local node.
         """
-        def target():
-            try:
-                p = subprocess.Popen(
-                    command, shell=True, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE, close_fds=True, bufsize=1)
-            except Exception as e:
-                msg = "Error opening process %s: %s\n" % (command, e)
-                Helper.safe_print(msg)
-                return
-            p.communicate()
+        def target(process):
+            process.communicate()
 
-        thread = threading.Thread(target=target)
+        try:
+            p = subprocess.Popen(
+                command, shell=True, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, close_fds=True, bufsize=1)
+        except Exception as e:
+            msg = "Error opening process %s: %s\n" % (command, e)
+            Helper.safe_print(msg)
+            return
+        thread = threading.Thread(target=target, args=(p,))
         thread.start()
         thread.join(timeout)
         if thread.is_alive():
