@@ -668,6 +668,35 @@ class ConfigDeployer(object):
         self.check_lldpd_running(node)
         self.check_bond_int_speeds_match(node, bond_interfaces)
 
+        # copy neutron metadata file to all nodes
+        resp, errors = self.env.copy_file_to_node(node, "/etc/neutron/metadata_agent.ini",
+                                                  "/etc/neutron/metadata_agent.ini")
+        if not errors:
+            # copy successful, restart metadata and dhcp
+            # restart neutron-metadata-agent on remote node
+            resp, errors_meta = self.env.run_command_on_node(node, "if service neutron-metadata-agent status "
+                                                             "| grep -i running ; "
+                                                             "then service neutron-metadata-agent restart ;"
+                                                             " fi")
+            # restart neutron-dhcp-agent on remote node
+            resp, errors_dhcp = self.env.run_command_on_node(node, "if service neutron-dhcp-agent status "
+                                                             "| grep -i running ; "
+                                                             "then service neutron-dhcp-agent restart ;"
+                                                             " fi")
+            if (errors_meta or errors_dhcp):
+                print "error restarting neutron-metadata-agent or neutron-dhcp-agent "
+                      "after updating metadata_agent.ini file on %s:\n%s\n%s"
+                      % (node, errors_meta, errors_dhcp)
+                print "shutting down both the agents"
+                self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
+                                             "service neutron-dhcp-agent stop ; ")
+        else:
+            # error when copying metadata config file. stop dhcp and metadata agent
+            print "error pushing updated metadata_agent.ini to %s:\n%s" % (node, errors)
+            print "shutting down both the agents"
+            self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
+                                         "service neutron-dhcp-agent stop ; ")
+
         # aggregate node information to compare across other nodes
         node_info = {}
         # collect connection string for comparison with other neutron servers
@@ -1177,12 +1206,14 @@ exec{"neutronl3restart":
 exec{"neutronmetarestart":
     refreshonly => true,
     command => "service neutron-metadata-agent restart ||:;",
+    onlyif  => "service neutron-metadata-agent status | grep -i running",
     path    => $binpath,
     notify  => Service['neutron-metadata-agent'],
 }
 exec{"neutrondhcprestart":
     refreshonly => true,
     command => "service neutron-dhcp-agent restart ||:;",
+    onlyif  => "service neutron-dhcp-agent status | grep -i running",
     path    => $binpath,
     notify  => Service['neutron-dhcp-agent'],
 }
