@@ -28,11 +28,13 @@ for floatingip in $floatingips; do
     neutron floatingip-delete $floatingip
 done
 
-# delete neutron ports
-ports=$(neutron port-list | awk '$2 != "id" {print $2}' | awk 'NF && $1!~/^#/')
-for port in $ports; do
-    neutron port-delete $port
+# delete nova instances
+instances=$(nova list --all-tenants | awk '$2 != "ID" {print $2}' | awk 'NF && $1!~/^#/')
+for instance in $instances; do
+    nova delete $instance
 done
+
+sleep 10
 
 # delete all subnets
 subnets=$(neutron subnet-list | awk '$2 != "id" {print $2}' | awk 'NF && $1!~/^#/')
