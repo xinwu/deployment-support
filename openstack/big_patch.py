@@ -684,9 +684,9 @@ class ConfigDeployer(object):
                                                              "then service neutron-dhcp-agent restart ;"
                                                              " fi")
             if (errors_meta or errors_dhcp):
-                print "error restarting neutron-metadata-agent or neutron-dhcp-agent "
-                      "after updating metadata_agent.ini file on %s:\n%s\n%s"
-                      % (node, errors_meta, errors_dhcp)
+                print ("error restarting neutron-metadata-agent or neutron-dhcp-agent "
+                       "after updating metadata_agent.ini file on %s:\n%s\n%s"
+                       % (node, errors_meta, errors_dhcp))
                 print "shutting down both the agents"
                 self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
                                              "service neutron-dhcp-agent stop ; ")
@@ -1582,8 +1582,8 @@ if $operatingsystem == 'RedHat' {
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/RedHat_RHEL-6/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
-               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/RHEL_7/x86_64/lldpd-0.7.14-1.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^6 ]] && export url="${baseurl}/RedHat_RHEL-6/x86_64/lldpd-0.7.15-6.1.x86_64.rpm";
+               [[ $(cat /etc/redhat-release | tr -d -c 0-9) =~ ^7 ]] && export url="${baseurl}/RHEL_7/x86_64/lldpd-0.7.15-6.1.x86_64.rpm";
                cd /root/;
                wget "$url" -O lldpd.rpm;
                rpm -i lldpd.rpm\'',
