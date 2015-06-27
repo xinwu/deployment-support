@@ -33,6 +33,9 @@ HORIZON_TGZ_PATH = {
     'juno': ('https://github.com/bigswitch/horizon/archive/'
              'stable/juno.tar.gz',
              'horizon_stable_juno.tar.gz'),
+    'kilo': ('https://github.com/bigswitch/horizon/archive/'
+             'stable/kilo.tar.gz',
+             'horizon_stable_kilo.tar.gz'),
 }
 NEUTRON_TGZ_PATH = {
     'icehouse': ('https://github.com/bigswitch/neutron/archive/'
@@ -40,7 +43,8 @@ NEUTRON_TGZ_PATH = {
                  'neutron_stable_icehouse.tar.gz'),
     'juno': ('https://github.com/bigswitch/neutron/archive/'
              'stable/juno.tar.gz',
-             'neutron_stable_juno.tar.gz')
+             'neutron_stable_juno.tar.gz'),
+    'kilo': ''
 }
 
 # paths to extract from tgz to local horizon install. Don't include
@@ -96,6 +100,8 @@ class Environment(object):
     bigswitch_auth = None
     bigswitch_servers = None
     neutron_id = 'neutron'
+    report_interval = 30
+    agent_down_time = 75
     extra_template_params = {}
     offline_mode = False
     check_interface_errors = True
@@ -127,6 +133,10 @@ class Environment(object):
         if not neutron_id:
             raise Exception("A non-empty cluster-id must be specified.")
         self.neutron_id = neutron_id
+
+    def set_report_interval(self, report_interval):
+        self.report_interval = "%d" % report_interval
+        self.agent_down_time = "%d" % (report_interval * 2.5)
 
     def set_bigswitch_servers(self, servers):
         for s in servers.split(','):
@@ -576,7 +586,12 @@ class ConfigDeployer(object):
                             "Detected values:\n%s" % resp)
         if names:
             return names[0]
-        return '`uname -n`'
+        resp, errors = self.env.run_command_on_node(
+            node, "uname -n")
+        if errors:
+            raise Exception("error determining agent hostname information "
+                            "by uname -n on %s:\n%s" % (node, errors))
+        return resp.strip()
 
     def deploy_to_node(self, node, nodes_information):
         print "Applying configuration to %s..." % node
@@ -584,6 +599,8 @@ class ConfigDeployer(object):
         puppet_settings = {
             'bond_interfaces': ','.join(bond_interfaces),
             'neutron_id': self.env.neutron_id,
+            'report_interval': self.env.report_interval,
+            'agent_down_time': self.env.agent_down_time,
             'bigswitch_servers': self.env.bigswitch_servers,
             'bigswitch_serverauth': self.env.bigswitch_auth,
             'network_vlan_ranges': self.env.network_vlan_ranges,
@@ -592,8 +609,11 @@ class ConfigDeployer(object):
                                                        False)
             ).lower(),
             'offline_mode': str(self.env.offline_mode).lower(),
-            'bond_mode': self.env.bond_mode
+            'bond_mode': self.env.bond_mode,
+            'ml2_mechdriver': 'openvswitch,bigswitch'
         }
+        if self.os_release == 'kilo':
+            puppet_settings['ml2_mechdriver'] = 'openvswitch,bsn_ml2'
         if bond_interfaces:
             self.check_health_of_bond_interfaces(node, bond_interfaces)
             lldp_name = self.get_lldp_advertisement_hostname(node)
@@ -648,6 +668,35 @@ class ConfigDeployer(object):
         self.check_lldpd_running(node)
         self.check_bond_int_speeds_match(node, bond_interfaces)
 
+        # copy neutron metadata file to all nodes
+        resp, errors = self.env.copy_file_to_node(node, "/etc/neutron/metadata_agent.ini",
+                                                  "/etc/neutron/metadata_agent.ini")
+        if not errors:
+            # copy successful, restart metadata and dhcp
+            # restart neutron-metadata-agent on remote node
+            resp, errors_meta = self.env.run_command_on_node(node, "if service neutron-metadata-agent status "
+                                                             "| grep -i running ; "
+                                                             "then service neutron-metadata-agent restart ;"
+                                                             " fi")
+            # restart neutron-dhcp-agent on remote node
+            resp, errors_dhcp = self.env.run_command_on_node(node, "if service neutron-dhcp-agent status "
+                                                             "| grep -i running ; "
+                                                             "then service neutron-dhcp-agent restart ;"
+                                                             " fi")
+            if (errors_meta or errors_dhcp):
+                print "error restarting neutron-metadata-agent or neutron-dhcp-agent "
+                      "after updating metadata_agent.ini file on %s:\n%s\n%s"
+                      % (node, errors_meta, errors_dhcp)
+                print "shutting down both the agents"
+                self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
+                                             "service neutron-dhcp-agent stop ; ")
+        else:
+            # error when copying metadata config file. stop dhcp and metadata agent
+            print "error pushing updated metadata_agent.ini to %s:\n%s" % (node, errors)
+            print "shutting down both the agents"
+            self.env.run_command_on_node(node, "service neutron-metadata-agent stop ; "
+                                         "service neutron-dhcp-agent stop ; ")
+
         # aggregate node information to compare across other nodes
         node_info = {}
         # collect connection string for comparison with other neutron servers
@@ -675,8 +724,20 @@ class ConfigDeployer(object):
     def install_puppet_prereqs(self, node):
         self.env.run_command_on_node(
             node,
-            "yum -y remove facter && gem install puppet facter "
-            "--no-ri --no-rdoc")
+            "yum install -y wget facter device-mapper-libs puppet NetworkManager-libnm-devel libnm-gtk libnm-gtk-devel net-snmp")
+        self.env.run_command_on_node(
+            node,
+            "apt-get install -y facter puppet")
+        self.env.run_command_on_node(
+            node,
+            "systemctl restart libvirtd")
+        self.env.run_command_on_node(
+            node,
+            "systemctl restart openstack-nova-compute")
+        resp, errors = self.env.run_command_on_node(
+            node, "python -mplatform", 30, 2)
+        if 'centos-6.5' in resp or 'centos-7' in resp:
+            resp, errors = self.env.run_command_on_node(node, "yum install -y net-snmp", 30, 2)
         self.env.run_command_on_node(node, "ntpdate pool.ntp.org")
         # stdlib is missing on 1404. install it and don't worry about return.
         # connectivity issues should be caught in the inifile install
@@ -798,6 +859,15 @@ class ConfigDeployer(object):
                 pass
 
     def copy_neutron_files_to_node(self, node):
+        # Install bsnstacklib if it is kilo release
+        if self.os_release == 'kilo':
+            cmd = 'pip install \"bsnstacklib<2015.2\"'
+            resp, errors = self.env.run_command_on_node(
+                node, "bash -c '%s'" % cmd)
+            if errors:
+                raise Exception("error installing bsnstacklib to %s:\n%s"
+                                % (node, errors))
+        
         # Find where python libs are installed
         netaddr_path = self.env.get_node_python_package_path(node, 'netaddr')
         # we need to replace all of neutron plugins dir in CentOS
@@ -906,7 +976,8 @@ class PuppetTemplate(object):
             'bigswitch_serverauth': '', 'network_vlan_ranges': '',
             'physical_bridge': 'br-ovs-bond0', 'bridge_mappings': '',
             'neutron_path': '', 'neutron_restart_refresh_only': '',
-            'offline_mode': '', 'bond_mode': '', 'lldp_advertised_name': ''
+            'offline_mode': '', 'bond_mode': '', 'lldp_advertised_name': '',
+            'ml2_mechdriver': 'openvswitch,bigswitch'
         }
         for key in settings:
             self.settings[key] = settings[key]
@@ -935,14 +1006,14 @@ class PuppetTemplate(object):
             gen_ini('DEFAULT', 'core_plugin', 'ml2'),
             # TODO: make this config driven for t6 to enable our l3 plugin
             gen_ini('DEFAULT', 'service_plugins', 'router'),
-            gen_ini('DEFAULT', 'agent_down_time', '75'),
+            gen_ini('DEFAULT', 'agent_down_time', '$agent_down_time'),
             gen_ini('DEFAULT', 'rpc_conn_pool_size', '4'),
             gen_ini('DEFAULT', 'rpc_thread_pool_size', '4'),
             gen_ini('DEFAULT', 'allow_automatic_l3agent_failover', 'True'),
             gen_ini('DATABASE', 'max_overflow', '30'),
             gen_ini('DATABASE', 'max_pool_size', '15'),
-            gen_ini('AGENT', 'report_interval', '30'),
-            gen_ini('AGENT', 'report_interval', '30',
+            gen_ini('AGENT', 'report_interval', '$report_interval'),
+            gen_ini('AGENT', 'report_interval', '$report_interval',
                     path='$neutron_conf_path'),
             gen_ini('AGENT', 'root_helper',
                     'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
@@ -957,7 +1028,8 @@ class PuppetTemplate(object):
                     path='$neutron_conf_path'),
             # TODO: change the value of this to 'openvswitch,bsn_ml2' once the
             # switch to bsnstacklib is done
-            gen_ini('ml2', 'mechanism_drivers', 'openvswitch,bigswitch',
+           
+            gen_ini('ml2', 'mechanism_drivers', '$ml2_mechdriver',
                     path='$neutron_conf_path'),
             gen_ini('ml2_type_vlan', 'network_vlan_ranges',
                     '$network_vlan_ranges', path='$neutron_conf_path'),
@@ -992,6 +1064,12 @@ class PuppetTemplate(object):
             gen_ini(
                 'DEFAULT', 'interface_driver',
                 'neutron.agent.linux.interface.OVSInterfaceDriver',
+                path='$neutron_dhcp_conf_path'),
+            gen_ini(
+                'DEFAULT', 'enable_isolated_metadata', 'True',
+                path='$neutron_dhcp_conf_path'),
+            gen_ini(
+                'DEFAULT', 'enable_metadata_network', 'True',
                 path='$neutron_dhcp_conf_path'),
             # don't specify bridge for external networks so they are treated like
             # a normal VLAN network
@@ -1037,6 +1115,8 @@ class PuppetTemplate(object):
     main_body = r"""
 # all of these values are set by the puppet template class above
 $neutron_id = '%(neutron_id)s'
+$report_interval = '%(report_interval)s'
+$agent_down_time = '%(agent_down_time)s'
 $bigswitch_serverauth = '%(bigswitch_serverauth)s'
 $bigswitch_servers = '%(bigswitch_servers)s'
 $bond_interfaces = '%(bond_interfaces)s'
@@ -1053,6 +1133,7 @@ $lldp_transmit_interval = '5'
 $offline_mode = %(offline_mode)s
 $bond_mode = %(bond_mode)s
 $lldp_advertised_name = '%(lldp_advertised_name)s'
+$ml2_mechdriver = '%(ml2_mechdriver)s'
 
 # all of the exec statements use this path
 $binpath = "/usr/local/bin/:/bin/:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin"
@@ -1086,9 +1167,13 @@ exec{"neutronserverrestart":
 if $operatingsystem == 'Ubuntu' {
   $restart_nagent_comm = "service neutron-plugin-openvswitch-agent restart ||:;"
 }
-if $operatingsystem == 'CentOS' {
+if ($operatingsystem == 'CentOS') and ($operatingsystemrelease =~ /^6.*/) {
   # the old version of centos openvswitch version had issues after the bond changes and required a restart as well
   $restart_nagent_comm = "/etc/init.d/openvswitch restart ||:; /etc/init.d/neutron-openvswitch-agent restart ||:;"
+}
+if ($operatingsystem == 'CentOS') and ($operatingsystemrelease !~ /^6.*/) {
+  # the old version of centos openvswitch version had issues after the bond changes and required a restart as well
+  $restart_nagent_comm = "service openvswitch restart ||:; service neutron-openvswitch-agent restart ||:;"
 }
 if $operatingsystem == 'RedHat' {
   $restart_nagent_comm = "service neutron-openvswitch-agent restart ||:;"
@@ -1116,16 +1201,34 @@ exec{"neutronl3restart":
     refreshonly => true,
     command => "service neutron-l3-agent restart ||:;",
     path    => $binpath,
+    notify  => Service['neutron-l3-agent'],
 }
 exec{"neutronmetarestart":
     refreshonly => true,
     command => "service neutron-metadata-agent restart ||:;",
+    onlyif  => "service neutron-metadata-agent status | grep -i running",
     path    => $binpath,
+    notify  => Service['neutron-metadata-agent'],
 }
 exec{"neutrondhcprestart":
     refreshonly => true,
     command => "service neutron-dhcp-agent restart ||:;",
+    onlyif  => "service neutron-dhcp-agent status | grep -i running",
     path    => $binpath,
+    notify  => Service['neutron-dhcp-agent'],
+}
+
+service{"neutron-dhcp-agent":
+    enable => true,
+    ensure => running,
+}
+service{"neutron-metadata-agent":
+    enable => true,
+    ensure => running,
+}
+service{"neutron-l3-agent":
+    enable => true,
+    ensure => running,
 }
 
 # several other openstack services to restart since we interrupt network connectivity.
@@ -1183,6 +1286,33 @@ ini_setting {"heat_deferred_auth_method":
   ensure => present,
   notify => Exec['restartheatservices'],
   require => Exec['heatconfexists']
+}
+ini_setting { "heat stack_domain_admin":
+  ensure            => absent,
+  path              => '/etc/heat/heat.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'stack_domain_admin',
+  notify            => Exec['restartheatservices'],
+  require           => Exec['heatconfexists'],
+}
+ini_setting { "heat stack_user_domain":
+  ensure            => absent,
+  path              => '/etc/heat/heat.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'stack_user_domain',
+  notify            => Exec['restartheatservices'],
+  require           => Exec['heatconfexists'],
+}
+ini_setting { "heat stack_domain_admin_password":
+  ensure            => absent,
+  path              => '/etc/heat/heat.conf',
+  section           => 'DEFAULT',
+  key_val_separator => '=',
+  setting           => 'stack_domain_admin_password',
+  notify            => Exec['restartheatservices'],
+  require           => Exec['heatconfexists'],
 }
 $heat_services = 'heat-api heat-engine heat-api-cfn'
 exec{"restartheatservices":
@@ -1287,6 +1417,25 @@ allow neutron_t etc_t:file create;
 '''  # noqa
 
     bond_and_lldpd_configuration = r'''
+if !defined(Package['wget']) {
+    package { "wget":
+        ensure => installed,
+    }
+}
+file { "/etc/sysconfig/modules/bonding.modules":
+   ensure  => file,
+   mode    => 0777,
+   content => "modprobe bonding",
+}
+file { "/etc/modprobe.d/bonding.conf":
+   ensure  => file,
+   mode    => 0777,
+   content => "
+alias bond0 bonding
+options bond0 mode=2 miimon=50 updelay=15000 xmit_hash_policy=1
+",
+   notify  => Exec['loadbond'],
+}
 exec {"loadbond":
    command => 'modprobe bonding',
    path    => $binpath,
@@ -1370,6 +1519,7 @@ auto bond0
     }
     if ! $offline_mode {
         exec{"lldpdinstall":
+            require => Package['wget'],
             command => 'bash -c \'
               # default to 12.04
               export urelease=12.04;
@@ -1428,6 +1578,7 @@ lldpcli \$@
 if $operatingsystem == 'RedHat' {
     if ! $offline_mode {
         exec {'lldpdinstall':
+           require => Package['wget'],
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
@@ -1484,6 +1635,7 @@ DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
+NM_CONTROLLED=no
 BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_policy=1'
 ",
     }
@@ -1493,7 +1645,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
     }
     if $bond_int0 != $bond_int1 {
         file{'bond_int1config':
@@ -1502,7 +1654,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
             ensure => file,
             mode => 0644,
             path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
         }
     }
 
@@ -1516,6 +1668,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
 if $operatingsystem == 'CentOS' {
     if ! $offline_mode {
         exec {'lldpdinstall':
+           require => Package['wget'],
            onlyif => "yum --version && (! ls /etc/init.d/lldpd)",
            command => 'bash -c \'
                export baseurl="http://download.opensuse.org/repositories/home:/vbernat/";
@@ -1558,6 +1711,7 @@ DEVICE=bond0
 USERCTL=no
 BOOTPROTO=none
 ONBOOT=yes
+NM_CONTROLLED=no
 BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_policy=1'
 ",
     }
@@ -1567,7 +1721,7 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
         ensure => file,
         mode => 0644,
         path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int0",
-        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+        content => "DEVICE=$bond_int0\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
     }
     if $bond_int0 != $bond_int1 {
         file{'bond_int1config':
@@ -1576,13 +1730,21 @@ BONDING_OPTS='mode=${bond_mode} miimon=50 updelay=${bond_updelay} xmit_hash_poli
             ensure => file,
             mode => 0644,
             path => "/etc/sysconfig/network-scripts/ifcfg-$bond_int1",
-            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\n",
+            content => "DEVICE=$bond_int1\nMASTER=bond0\nSLAVE=yes\nONBOOT=yes\nUSERCTL=no\nNM_CONTROLLED=no\n",
         }
     }
-    exec {"openvswitchrestart":
-       refreshonly => true,
-       command => '/etc/init.d/openvswitch restart',
-       path    => $binpath,
+    if $operatingsystemrelease =~ /^6.*/ {
+        exec {"openvswitchrestart":
+          refreshonly => true,
+          command => '/etc/init.d/openvswitch restart', 
+          path    => $binpath,
+        }
+    } else {
+        exec {"openvswitchrestart":
+          refreshonly => true,
+          command => 'service openvswitch restart',
+          path    => $binpath,
+        }
     }
 }
 exec {"ensurebridge":
@@ -1616,7 +1778,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("-r", "--openstack-release", required=True,
-                        help="Name of OpenStack release (Juno or Icehouse).")
+                        help=("Name of OpenStack release "
+                              "(Kilo, Juno or Icehouse)."))
     group.add_argument("-i", "--stand-alone", action='store_true',
                        help="Configure the server running this script "
                             "(root privileges required).")
@@ -1651,6 +1814,8 @@ if __name__ == '__main__':
     parser.add_argument("--bond-mode", default="xor",
                         help="Mode to set on node bonds (xor or round-robin). "
                              "(Default is xor.)")
+    parser.add_argument("-t", "--report-interval", default=30,
+                        help="Neutron agent report-interval in seconds")
     remote = parser.add_argument_group('remote-deployment')
     remote.add_argument('--skip-nodes',
                         help="Comma-separate list of nodes to skip deploying "
@@ -1733,6 +1898,7 @@ if __name__ == '__main__':
     environment.set_bigswitch_servers(args.controllers)
     environment.set_bigswitch_auth(args.controller_auth)
     environment.set_neutron_id(neutron_id)
+    environment.set_report_interval(int(args.report_interval))
     environment.set_offline_mode(args.offline_mode)
     environment.set_extra_template_params(
         {'force_services_restart': args.force_services_restart})
